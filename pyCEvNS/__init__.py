@@ -1,2 +1,4 @@
+from .detectors import *
 from .likelihood import *
-__all__ = ['loglike']
+
+__all__ = ['loglike', 'Detector']

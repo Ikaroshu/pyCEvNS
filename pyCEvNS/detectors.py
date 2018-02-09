@@ -1,50 +1,54 @@
-from .constants import *
 import json
+
+from .constants import *
 
 
 class Detector:
     def __init__(self, det_type):
         try:
-            with open('./det_init.json', 'a+') as f:
-                det_file = json.load(f)
-                if det_type.lower() in det_file:
-                    det_info = det_file[det_type.lower()]
-                    self.iso = det_info['iso']
-                    self.z = array(det_info['z'])
-                    self.n = array(det_info['n'])
-                    self.m = array(det_info['m'])
-                    self.frac = array(det_info['frac'])
-                    self.er_min = det_info['er_min']
-                    self.er_max = det_info['er_max']
-                    self.bg = det_info['bg']
-                    self.bg_un = det_info['bg_un']
-                else:
-                    answer = \
-                        input("There isn't such detector in det_init.json. Would you like to create one? (y or n)\n")
-                    if answer == 'y':
-                        self.detector_creator(f)
+            f = open('./det_init.json', 'x+')
+        except FileExistsError:
+            f = open('./det_init.json', 'r+')
+        if f.read() == '':
+            f.write('{}')
+        f.seek(0)
+        det_file = json.load(f)
+        f.close()
+        if det_type.lower() in det_file:
+            det_info = det_file[det_type.lower()]
+            self.iso = det_info['iso']
+            self.z = array(det_info['z'])
+            self.n = array(det_info['n'])
+            self.m = array(det_info['m'])
+            self.frac = array(det_info['frac'])
+            self.er_min = det_info['er_min']
+            self.er_max = det_info['er_max']
+            self.bg = det_info['bg']
+            self.bg_un = det_info['bg_un']
+        else:
+            answer = \
+                input("There isn't such detector in det_init.json. Would you like to create one? (y or n)\n")
+            if answer == 'y':
+                print('Please entering the following information')
+                self.iso = int(input('Number of isotope: '))
+                while True:
+                    self.z = array(list(map(int, input('Z for each isotope: ').split(' '))))
+                    self.n = array(list(map(int, input('N for each isotope: ').split(' '))))
+                    self.m = array(list(map(float, input('Mass for each isotop (in MeV): ').split(' '))))
+                    self.frac = array(list(map(float, input('Fraction of each isotope: ').split(' '))))
+                    if self.iso == self.z.shape[0] == self.n.shape[0] == self.m.shape[0] == self.frac.shape[0]:
+                        break
                     else:
-                        raise Exception("No such detector in det_init.json.")
-        except FileNotFoundError as fnfe:
-            raise fnfe
-            # answer = input("There no det_init.json. Would you like to create one? (y or n)\n")
-            # if answer == 'y':
-            #     self.detector_creator()
-            # elif answer == 'n':
-            #     print('You can create a det_init.json file in the current directory,\n'
-            #           'please refer to: ...\n')
-            #     raise fnfe
-            # else:
-            #     raise fnfe
-
-    def detector_creator(self, f):
-        print('Please entering the following information')
-        self.iso = input('Number of isotope: ')
-        self.z = array(map(int, input('Z for each isotope: ').split(' ')))
-        self.n = array(map(int, input('N for each isotope: ').split(' ')))
-        self.m = array(map(int, input('Mass for each isotop (in MeV): ').split(' ')))
-        self.frac = array(map(float, input('Fraction of each isotope: ').split(' ')))
-        self.er_min = float(input('Minimum detecting energy: '))
-        self.er_max = float(input('Maximum detecting energy: '))
-        self.bg = float(input('Background (in dru): '))
-        self.bg_un = float(input('Background uncertainty: '))
+                        print('The number of iso dosen\'t match, please try again.\n')
+                self.er_min = float(input('Minimum detecting energy (in MeV): '))
+                self.er_max = float(input('Maximum detecting energy (in MeV): '))
+                self.bg = float(input('Background (in dru): '))
+                self.bg_un = float(input('Background uncertainty: '))
+                det = {"iso": self.iso,
+                       "z": self.z.tolist(), "n": self.n.tolist(), "m": self.m.tolist(), "frac": self.frac.tolist(),
+                       "er_min": self.er_min, "er_max": self.er_max, "bg": self.bg, "bg_un": self.bg_un}
+                det_file[det_type.lower()] = det
+                with open('./det_init.json', 'w') as f:
+                    json.dump(det_file, f)
+            else:
+                raise Exception("No such detector in det_init.json.")
