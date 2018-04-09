@@ -4,24 +4,32 @@ parameter classes
 
 
 import pkg_resources
-from numpy import *
+from numpy import *     # pylint: disable=W0401, W0614, W0622
 from scipy.interpolate import interp1d
 
-from .constants import *
+from .constants import *    # pylint: disable=W0401, W0614, W0622
 
 
-class Epsilon:
-    """
+class NSIparameters:
+    r"""
     nsi parameter class,
+    g = g_\nu*g_f
+    mz = mediator mass
+    for scattering, it is more convenient to use g
+    for oscillation, it is more convenient to use epsilon
     it contains L and R couplings of electron scattering,
     and vector couplings of quarks
     """
-    def __init__(self):
+    def __init__(self, mz=None):
         """
         initializing all nsi == 0
         """
-        self.epel = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
-        self.eper = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.mz = mz
+        self.gel = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.ger = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.gu = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.gd = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.epe = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.epu = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.epd = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
 
@@ -29,17 +37,20 @@ class Epsilon:
         """
         :return: matrix of nsi for electron
         """
-        epe = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
-        for i in epe:
-            epe[i] = self.epel[i] + self.eper[i]
-        return matrix([[epe['ee'], epe['em'], epe['et']],
-                       [conj(epe['em']), epe['mm'], epe['mt']],
-                       [conj(epe['et']), conj(epe['mt']), epe['tt']]]) + diag(array([1, 0, 0]))
+        if self.mz is not None:
+            for i in self.epe:
+                self.epe[i] = (self.gel[i]+self.ger[i]) / (2*sqrt(2)*gf*self.mz**2)
+        return matrix([[self.epe['ee'], self.epe['em'], self.epe['et']],
+                       [conj(self.epe['em']), self.epe['mm'], self.epe['mt']],
+                       [conj(self.epe['et']), conj(self.epe['mt']), self.epe['tt']]]) + diag(array([1, 0, 0]))
 
     def eu(self):
         """
         :return: matrix of nsi for u quark
         """
+        if self.mz is not None:
+            for i in self.epu:
+                self.epu[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
         return matrix([[self.epu['ee'], self.epu['em'], self.epu['et']],
                        [conj(self.epu['em']), self.epu['mm'], self.epu['mt']],
                        [conj(self.epu['et']), conj(self.epu['mt']), self.epu['tt']]])
@@ -48,6 +59,9 @@ class Epsilon:
         """
         :return: matrix of nsi for d quark
         """
+        if self.mz is not None:
+            for i in self.epd:
+                self.epd[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
         return matrix([[self.epd['ee'], self.epd['em'], self.epd['et']],
                        [conj(self.epd['em']), self.epd['mm'], self.epd['mt']],
                        [conj(self.epd['et']), conj(self.epd['mt']), self.epd['tt']]])
@@ -56,10 +70,10 @@ class Epsilon:
 def ocsillation_parameters(t12=0.5763617589722192,
                            t13=0.14819001778459273,
                            t23=0.7222302630963306,
-                           delta=1.35 * pi,
+                           delta=1.35*pi,
                            d21=7.37e-17,
                            d31=2.5e-15+3.685e-17):
-    """
+    r"""
     creating a list of oscillation parameter, default: LMA solution
     :param t12: \theta_12
     :param t23: \theta_23

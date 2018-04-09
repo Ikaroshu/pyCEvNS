@@ -5,10 +5,10 @@ flux related class and functions
 
 from scipy.integrate import quad
 
-from .parameters import *
+from .parameters import *    # pylint: disable=W0401, W0614, W0622
 
 
-def survp(ev, r=0.05, epsi=Epsilon(), nuf=0, op=ocsillation_parameters()):
+def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=None):
     """
     calculating survival/transitional probability of solar neutrino
     :param ev: neutrino energy in MeV
@@ -19,6 +19,8 @@ def survp(ev, r=0.05, epsi=Epsilon(), nuf=0, op=ocsillation_parameters()):
     :return: survival/transitional probability
     """
     dp = Density()
+    if op is None:
+        op = ocsillation_parameters()
     o23 = matrix([[1, 0, 0],
                   [0, cos(op['t23']), sin(op['t23'])],
                   [0, -sin(op['t23']), cos(op['t23'])]])
@@ -34,6 +36,9 @@ def survp(ev, r=0.05, epsi=Epsilon(), nuf=0, op=ocsillation_parameters()):
     hvac = umix * m * umix.H
 
     def sorteig(w, vec):
+        """
+        sort the eigenstates to make the resultant eigenvalue continuous
+        """
         minindex = 0
         maxindex = 0
         for j in range(3):
@@ -221,6 +226,9 @@ class Flux:
         emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
 
         def finv(ev):
+            """
+            flux/ev
+            """
             return self.flux(ev, flavor, r, epsi, op) / ev
 
         if not isinstance(emin, ndarray):
@@ -277,6 +285,9 @@ class Flux:
         emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
 
         def finvs(ev):
+            """
+            flux/ev^2
+            """
             return self.flux(ev, flavor, r, epsi, op) / (ev ** 2)
 
         if not isinstance(emin, ndarray):
