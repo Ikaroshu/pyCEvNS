@@ -113,7 +113,7 @@ class Flux:
         else:
             raise Exception("No such flux in code yet.")
 
-    def flux(self, ev, flavor='e', r=0.05, epsi=None, op=None):
+    def flux(self, ev, flavor='e', epsi=None, op=None, r=0.05):
         """
         differential neutrino flux, unit MeV^-3*s^-1
         :param ev: nuetrino energy
@@ -157,12 +157,12 @@ class Flux:
             elif flavor == 'tau':
                 res *= survp(ev, r, epsi, 2, op)
             else:
-                return 0
+                raise Exception('No such neutrino flavor!')
             return res
         else:
             return Exception("No such flux in code yet.")
 
-    def fint(self, er, m, flavor='e', r=0.05, epsi=None, op=None):
+    def fint(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
         """
         flux integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -175,7 +175,7 @@ class Flux:
         """
         emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
         if not isinstance(emin, ndarray):
-            res = quad(self.flux, emin, self.evMax, args=(flavor, r, epsi, op))[0]
+            res = quad(self.flux, emin, self.evMax, args=(flavor, epsi, op, r))[0]
             if self.fl_type == 'solar':
                 if flavor == 'e':
                     flav = 0
@@ -193,7 +193,7 @@ class Flux:
         else:
             res = zeros_like(emin)
             for i in range(emin.shape[0]):
-                res[i] = quad(self.flux, emin[i], self.evMax, args=(flavor, r, epsi, op))[0]
+                res[i] = quad(self.flux, emin[i], self.evMax, args=(flavor, epsi, op, r))[0]
                 if self.fl_type == 'solar':
                     if flavor == 'e':
                         flav = 0
@@ -212,7 +212,7 @@ class Flux:
                     res[i] += self.__norm if emin[i] <= 29 else 0
         return res
 
-    def fintinv(self, er, m, flavor='e', r=0.05, epsi=None, op=None):
+    def fintinv(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
         """
         flux/ev integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -229,7 +229,7 @@ class Flux:
             """
             flux/ev
             """
-            return self.flux(ev, flavor, r, epsi, op) / ev
+            return self.flux(ev, flavor, epsi, op, r) / ev
 
         if not isinstance(emin, ndarray):
             res = quad(finv, emin, self.evMax)[0]
@@ -271,7 +271,7 @@ class Flux:
                     res[i] += self.__norm / 29 if emin[i] <= 29 else 0
         return res
 
-    def fintinvs(self, er, m, flavor='e', r=0.05, epsi=None, op=None):
+    def fintinvs(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
         """
         flux/ev^2 integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -288,7 +288,7 @@ class Flux:
             """
             flux/ev^2
             """
-            return self.flux(ev, flavor, r, epsi, op) / (ev ** 2)
+            return self.flux(ev, flavor, epsi, op, r) / (ev ** 2)
 
         if not isinstance(emin, ndarray):
             res = quad(finvs, emin, self.evMax)[0]
