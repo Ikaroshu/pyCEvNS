@@ -65,10 +65,16 @@ class Flux:
     """
     flux class
     """
-    def __init__(self, fl_type):
+    def __init__(self, fl_type, fl_file=None):
         """
-        initializing flux
+        initializing flux, can take in user provided flux
+        restrictions: user provided data must be .csv, it must have 4 columns, 
+        first column is neutrino energy in MeV,
+        second column is electron neutrino flux in cm^2/s
+        third column is muon neutrino flux in cm^2/s
+        fourth column is tau neutrino flux in cm^2/s
         :param fl_type: name of the flux
+        :param fl_file: file name of user provided data
         """
         self.fl_type = fl_type
         if fl_type.lower() == 'reactor':
@@ -110,6 +116,17 @@ class Flux:
             self.__ppinterp = interp1d(self.__ppx, self.__ppy)
             self.evMin = 0.003464
             self.evMax = 20
+        elif not fl_file:
+            f = genfromtxt(fl_file)
+            self.__ev = f[:, 0]
+            self.evMin = amin(self.__ev)
+            self.evMax = amax(self.__ev)
+            self.__nue = f[:, 1] * ((100 * meter_by_mev) ** 2)
+            self.__num = f[:, 2] * ((100 * meter_by_mev) ** 2)
+            self.__nut = f[:, 3] * ((100 * meter_by_mev) ** 2)
+            self.__nueinterp = interp1d(self.__ev, self.__nue)
+            self.__numinterp = interp1d(self.__ev, self.__num)
+            self.__nutinterp = interp1d(self.__ev, self.__nut)
         else:
             raise Exception("No such flux in code yet.")
 
@@ -159,6 +176,15 @@ class Flux:
             else:
                 raise Exception('No such neutrino flavor!')
             return res
+        elif not self.fl_type:
+            if flavor == 'e':
+                return self.__nueinterp(ev)[()]
+            elif flavor == 'mu':
+                return self.__numinterp(ev)[()]
+            elif flavor == 'tau':
+                return self.__nutinterp(ev)[()]
+            else:
+                raise Exception('No such neutrino flavor!')
         else:
             return Exception("No such flux in code yet.")
 
