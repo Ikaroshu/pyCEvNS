@@ -4,10 +4,10 @@ parameter classes
 
 
 import pkg_resources
-from numpy import *     # pylint: disable=W0401, W0614, W0622
+from numpy import *  # pylint: disable=W0401, W0614, W0622
 from scipy.interpolate import interp1d
 
-from .constants import *    # pylint: disable=W0401, W0614, W0622
+from .constants import *  # pylint: disable=W0401, W0614, W0622
 
 
 class NSIparameters:
@@ -20,7 +20,7 @@ class NSIparameters:
     it contains L and R couplings of electron scattering,
     and vector couplings of quarks
     """
-    def __init__(self, mz=None):
+    def __init__(self, mz=0):
         """
         initializing all nsi == 0
         """
@@ -37,7 +37,7 @@ class NSIparameters:
         """
         :return: matrix of nsi for electron
         """
-        if self.mz is not None:
+        if self.mz != 0:
             for i in self.epe:
                 self.epe[i] = (self.gel[i]+self.ger[i]) / (2*sqrt(2)*gf*self.mz**2)
         return matrix([[self.epe['ee'], self.epe['em'], self.epe['et']],
@@ -48,7 +48,7 @@ class NSIparameters:
         """
         :return: matrix of nsi for u quark
         """
-        if self.mz is not None:
+        if self.mz != 0:
             for i in self.epu:
                 self.epu[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
         return matrix([[self.epu['ee'], self.epu['em'], self.epu['et']],
@@ -59,7 +59,7 @@ class NSIparameters:
         """
         :return: matrix of nsi for d quark
         """
-        if self.mz is not None:
+        if self.mz != 0:
             for i in self.epd:
                 self.epd[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
         return matrix([[self.epd['ee'], self.epd['em'], self.epd['et']],

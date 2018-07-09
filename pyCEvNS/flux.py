@@ -5,7 +5,7 @@ flux related class and functions
 
 from scipy.integrate import quad
 
-from .parameters import *    # pylint: disable=W0401, W0614, W0622
+from .parameters import *  # pylint: disable=W0401, W0614, W0622
 
 
 def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=None):
@@ -65,10 +65,10 @@ class Flux:
     """
     flux class
     """
-    def __init__(self, fl_type, fl_file=None):
+    def __init__(self, fl_type, fl_file=None, epsi=None, op=None, r=0.05):
         """
         initializing flux, can take in user provided flux
-        restrictions: user provided data must be .csv, it must have 4 columns, 
+        restrictions: user provided data must be .csv, it must have 4 columns,
         first column is neutrino energy in MeV,
         second column is electron neutrino flux in cm^2/s
         third column is muon neutrino flux in cm^2/s
@@ -77,14 +77,17 @@ class Flux:
         :param fl_file: file name of user provided data
         """
         self.fl_type = fl_type
+        self.epsi = epsi
+        self.op = op
+        self.r = r
         if fl_type.lower() == 'reactor':
             self.evMin = 0.0
-            self.evMax = 10  # MeV
+            self.evMax = 30  # MeV
             self.flUn = 0.02
             fpers = 3.0921 * (10 ** 16)  # antineutrinos per fission
             nuperf = 6.14102
             self.__nuflux1m = nuperf * fpers / (4 * pi) * (meter_by_mev ** 2)
-        elif fl_type.lower() == 'sns':
+        elif fl_type.lower() == 'sns' or fl_type.lower() == 'prompt' or fl_type.lower() == 'delayed':
             self.evMin = 0
             self.evMax = 52  # MeV
             self.flUn = 0.1
@@ -148,13 +151,15 @@ class Flux:
                 return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
             else:
                 return 0
-        elif self.fl_type == 'sns':
+        elif self.fl_type == 'sns' or self.fl_type == 'delayed':
             if flavor == 'e':
                 return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm
             elif flavor == 'mu':
                 return (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm
             elif flavor == 'tau':
                 return 0
+        elif self.fl_type == 'prompt':
+            return 0
         elif self.fl_type == 'solar':
             if not epsi:
                 raise Exception("missing parameter epsi: NSI parameters")
@@ -213,7 +218,7 @@ class Flux:
                 res += 1.44e8 * ((100 * meter_by_mev) ** 2) * survp(1.439, r, epsi, flav, op) if emin < 1.439 else 0
                 # be7
                 res += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) if emin < 0.8613 else 0
-            if self.fl_type == 'sns' and flavor == 'mu':
+            if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                 # prompt neutrino
                 res += self.__norm if emin <= 29 else 0
         else:
@@ -233,7 +238,7 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) \
                         if emin[i] < 0.8613 else 0
-                if self.fl_type == 'sns' and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                     # prompt neutrino
                     res[i] += self.__norm if emin[i] <= 29 else 0
         return res
@@ -272,7 +277,7 @@ class Flux:
                 # be7
                 res += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / 0.8613 \
                     if emin < 0.8613 else 0
-            if self.fl_type == 'sns' and flavor == 'mu':
+            if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                 # prompt neutrino
                 res += self.__norm / 29 if emin <= 29 else 0
         else:
@@ -292,7 +297,7 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / 0.8613 \
                         if emin[i] < 0.8613 else 0
-                if self.fl_type == 'sns' and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                     # prompt neutrino
                     res[i] += self.__norm / 29 if emin[i] <= 29 else 0
         return res
@@ -331,7 +336,7 @@ class Flux:
                 # be7
                 res += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / (0.8613 ** 2) \
                     if emin < 0.8613 else 0
-            if self.fl_type == 'sns' and flavor == 'mu':
+            if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                 # prompt neutrino
                 res += self.__norm / (29 ** 2) if emin <= 29 else 0
         else:
@@ -351,7 +356,7 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / (0.8613 ** 2) \
                         if emin[i] < 0.8613 else 0
-                if self.fl_type == 'sns' and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
                     # prompt neutrino
                     res[i] += self.__norm / (29 ** 2) if emin[i] <= 29 else 0
         return res

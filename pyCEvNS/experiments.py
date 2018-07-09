@@ -10,9 +10,20 @@ class Experiment(Detector, Flux):
     """
     class for certain type of experiment
     privide methods to calculate number of events in this experiment
+    support faster calculation for events
     """
-    def __init__(self, fx_ty, det_ty, coherence_type, exposure, nbins=1, bins=None):
-        Flux.__init__(self, fx_ty)
+    def __init__(self, fl_ty, det_ty, coherence_type, exposure, nbins=1, bins=None, fl_file=None):
+        """
+        initailize experiment
+        :param fl_ty: flux type
+        :param det_ty: detector type
+        :param coherence_type: nucleus or electron
+        :param exposure: exposure in kg*days
+        :param nbins: number of bins, this will devide the default energy range of detector into nbins evenly
+        :param bins: program will use this bins if user provided it
+        :param fl_file: user provided flux data
+        """
+        Flux.__init__(self, fl_ty, fl_file)
         Detector.__init__(self, det_ty)
         self.expo = exposure
         self.nbins = nbins
@@ -21,6 +32,19 @@ class Experiment(Detector, Flux):
             self.bins = linspace(self.er_min, self.er_max, nbins+1)
         else:
             self.bins = bins
+        erl = linspace(self.bins[0], self.bins[self.bins.shape[0]-1], 100)
+        if coherence_type == 'nucleus':
+            finte = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinve = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvse = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintm = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvm = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvsm = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintt = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvt = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvst = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            for i in range(erl.shape[0]):
+                finte[i] = self.fint(erl[i], self.m, flavor='e')
 
     def rates(self, er, nsip: NSIparameters, flavor='e', op=None, r=0.05):
         """
