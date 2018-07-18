@@ -3,8 +3,9 @@ CEvNS events
 """
 
 from scipy.special import spherical_jn
-from .flux import *    # pylint: disable=W0401, W0614, W0622
-from .detectors import *    # pylint: disable=W0401, W0614, W0622
+
+from .detectors import *  # pylint: disable=W0401, W0614, W0622
+from .flux import *  # pylint: disable=W0401, W0614, W0622
 
 
 def formfsquared(q, a):
@@ -21,7 +22,7 @@ def formfsquared(q, a):
     return (3 * spherical_jn(1, q * r0) / (q * r0) * exp((-(q * s) ** 2) / 2)) ** 2
 
 
-def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=None, r=0.05):
+def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=ocsillation_parameters(), r=0.05):
     """
     calculating scattering rates per nucleus
     :param er: recoil energy
@@ -33,8 +34,6 @@ def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', 
     :param r: position where neutrino is produced in the sun, for solar neutrino only
     :return: scattering rates per nucleus
     """
-    if op is None:
-        op = ocsillation_parameters()
     deno = 2 * sqrt(2) * gf * (2 * det.m * er + nsip.mz ** 2)
     # radiative corrections,
     # Barranco, 2005
@@ -81,7 +80,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', 
                det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac)
 
 
-def rates_electron(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=None, r=0.05):
+def rates_electron(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=ocsillation_parameters(), r=0.05):
     """
     calculating electron scattering rates per nucleus
     :param er: recoil energy
@@ -93,25 +92,23 @@ def rates_electron(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e',
     :param r: position where neutrino is produced in the sun, for solar neutrino only
     :return: scattering rates per nucleus
     """
-    if op is None:
-        op = ocsillation_parameters()
     deno = 2 * sqrt(2) * gf * (2 * me * er + nsip.mz ** 2)
     if flavor == 'e':
         epls = (0.5 + ssw + nsip.gel['ee'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['ee'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
-        eplr = (1 + (-0.5 + ssw) + nsip.gel['ee'] / deno) * (ssw + nsip.ger['ee'] / deno) + \
+        eplr = (0.5 + ssw + nsip.gel['ee'] / deno) * (ssw + nsip.ger['ee'] / deno) + \
                (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
                (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
     elif flavor == 'mu':
         epls = (-0.5 + ssw + nsip.gel['mm'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2
         eprs = (ssw + nsip.ger['mm'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2
-        eplr = (1 + (-0.5 + ssw) + nsip.gel['mm'] / deno) * (ssw + nsip.ger['mm'] / deno) + \
+        eplr = (-0.5 + ssw + nsip.gel['mm'] / deno) * (ssw + nsip.ger['mm'] / deno) + \
                (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
                (nsip.gel['mt'] / deno) * (nsip.ger['mt'] / deno)
     elif flavor == 'tau':
         epls = (-0.5 + ssw + nsip.gel['tt'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['tt'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
-        eplr = (1 + (-0.5 + ssw) + nsip.gel['tt'] / deno) * (ssw + nsip.ger['tt'] / deno) + \
+        eplr = (-0.5 + ssw + nsip.gel['tt'] / deno) * (ssw + nsip.ger['tt'] / deno) + \
                (nsip.gel['mt'] / deno) * (nsip.ger['mt'] / deno) + \
                (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
     else:

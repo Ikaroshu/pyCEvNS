@@ -131,9 +131,9 @@ class Flux:
             self.__numinterp = interp1d(self.__ev, self.__num)
             self.__nutinterp = interp1d(self.__ev, self.__nut)
         else:
-            raise Exception("No such flux in code yet.")
+            raise Exception("No such flux in code or file yet.")
 
-    def flux(self, ev, flavor='e', epsi=None, op=None, r=0.05):
+    def flux(self, ev, flavor='e', epsi=NSIparameters(), op=ocsillation_parameters(), r=0.05):
         """
         differential neutrino flux, unit MeV^-3*s^-1
         :param ev: nuetrino energy
@@ -161,10 +161,6 @@ class Flux:
         elif self.fl_type == 'prompt':
             return 0
         elif self.fl_type == 'solar':
-            if not epsi:
-                raise Exception("missing parameter epsi: NSI parameters")
-            if not op:
-                raise Exception("missing parameter op: oscillation parametes")
             res = 0
             res += self.__b8interp(ev)[()] if self.__b8x[0] <= ev <= self.__b8x[self.__b8x.shape[0] - 1] else 0
             res += self.__f17interp(ev)[()] if self.__f17x[0] <= ev <= self.__f17x[self.__f17x.shape[0] - 1] else 0
@@ -181,7 +177,7 @@ class Flux:
             else:
                 raise Exception('No such neutrino flavor!')
             return res
-        elif not self.fl_type:
+        else:
             if flavor == 'e':
                 return self.__nueinterp(ev)[()]
             elif flavor == 'mu':
@@ -190,8 +186,6 @@ class Flux:
                 return self.__nutinterp(ev)[()]
             else:
                 raise Exception('No such neutrino flavor!')
-        else:
-            return Exception("No such flux in code yet.")
 
     def fint(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
         """
