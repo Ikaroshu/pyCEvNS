@@ -354,3 +354,67 @@ class Flux:
                     # prompt neutrino
                     res[i] += self.__norm / (29 ** 2) if emin[i] <= 29 else 0
         return res
+
+
+# using Caylay-Hamilton theorem to calculate survival probability, it has probems at transitsion probabilities
+#
+# def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
+#                          op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
+#     o23 = matrix([[1, 0, 0],
+#                   [0, cos(op['t23']), sin(op['t23'])],
+#                   [0, -sin(op['t23']), cos(op['t23'])]])
+#     u13 = matrix([[cos(op['t13']), 0, sin(op['t13']) * (e ** (- op['delta'] * 1j))],
+#                   [0, 1, 0],
+#                   [-sin(op['t13'] * (e ** (op['delta'] * 1j))), 0, cos(op['t13'])]])
+#     o12 = matrix([[cos(op['t12']), sin(op['t12']), 0],
+#                   [-sin(op['t12']), cos(op['t12']), 0],
+#                   [0, 0, 1]])
+#     umix = o23 * u13 * o12
+#     m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+#     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+#     hf = umix * m * umix.H + vf
+#     w, v = linalg.eigh(hf)
+#     # print(w)
+#     b = e**(-1j*w*lenth)
+#     # print(b)
+#     a = array([[1, 1, 1], -1j * lenth * w, -lenth**2 * w**2]).T
+#     # print(a)
+#     x = linalg.solve(a, b)
+#     tmatrix = x[0] + -1j * lenth * x[1] * hf - lenth**2 * x[2] * hf.dot(hf)
+#     # print(tmatrix)
+#     return abs(tmatrix[nui, nuf])**2
+
+
+def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
+                         op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
+    """
+    survival/transitional probability with constant matter density
+    :param ev: nuetrino energy in MeV
+    :param lenth: oscillation lenth in meters
+    :param epsi: epsilons
+    :param nui: initail flavor
+    :param nuf: final flavor
+    :param op: oscillation parameters
+    :param ne: electron number density in MeV^3
+    :return: survival/transitional probability
+    """
+    lenth = lenth / meter_by_mev
+    o23 = matrix([[1, 0, 0],
+                  [0, cos(op['t23']), sin(op['t23'])],
+                  [0, -sin(op['t23']), cos(op['t23'])]])
+    u13 = matrix([[cos(op['t13']), 0, sin(op['t13']) * (e ** (- op['delta'] * 1j))],
+                  [0, 1, 0],
+                  [-sin(op['t13'] * (e ** (op['delta'] * 1j))), 0, cos(op['t13'])]])
+    o12 = matrix([[cos(op['t12']), sin(op['t12']), 0],
+                  [-sin(op['t12']), cos(op['t12']), 0],
+                  [0, 0, 1]])
+    umix = o23 * u13 * o12
+    m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    hf = umix * m * umix.H + vf
+    w, v = linalg.eigh(hf)
+    res = 0.0
+    for i in range(3):
+        for j in range(3):
+            res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, j]) * v[nui, j] * exp(-1j * (w[i]-w[j]) * lenth)
+    return real(res)
