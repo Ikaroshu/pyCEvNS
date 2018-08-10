@@ -65,7 +65,7 @@ class Flux:
     """
     flux class
     """
-    def __init__(self, fl_type, fl_file=None, epsi=None, op=None, r=0.05):
+    def __init__(self, fl_type, fl_file=None, epsi=None, op=None, r=0.05, lenth=0):
         """
         initializing flux, can take in user provided flux
         restrictions: user provided data must be .csv, it must have 4 columns,
@@ -80,6 +80,7 @@ class Flux:
         self.epsi = epsi
         self.op = op
         self.r = r
+        self.lenth = lenth
         if fl_type.lower() == 'reactor':
             self.evMin = 0.0
             self.evMax = 30  # MeV
@@ -148,13 +149,41 @@ class Flux:
             # 5.323608902707208 = Integrate[Exp[.870 - .16*e - .091*e^2], {e, 0, 10}]
             # reactor neutrino is actually anti-neutrino, this may cause problem when doing electron scattering
             if flavor == 'e':
+                if self.lenth != 0:
+                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m / \
+                           self.lenth**2 * \
+                           survival_probability(ev, self.lenth, self.epsi, nui=0, nuf=0, anti=True, op=self.op)
                 return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
+            elif flavor == 'mu':
+                if self.lenth != 0:
+                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m / \
+                           self.lenth**2 * \
+                           survival_probability(ev, self.lenth, self.epsi, nui=0, nuf=1, anti=True, op=self.op)
+                return 0
+            elif flavor == 'tau':
+                if self.lenth != 0:
+                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m / \
+                           self.lenth**2 * \
+                           survival_probability(ev, self.lenth, self.epsi, nui=0, nuf=2, anti=True, op=self.op)
+                return 0
             else:
                 return 0
         elif self.fl_type == 'sns' or self.fl_type == 'delayed':
             if flavor == 'e':
+                if self.lenth != 0:
+                    return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm * \
+                           (20 / self.lenth)**2 * \
+                           survival_probability(ev, self.lenth, epsi=self.epsi, op=self.op, nui=0, nuf=0) + \
+                           (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm * (20 / self.lenth)**2 * \
+                           survival_probability(ev, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=0, anti=True)
                 return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm
             elif flavor == 'mu':
+                if self.lenth != 0:
+                    return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm * \
+                           (20 / self.lenth) ** 2 * \
+                           survival_probability(ev, self.lenth, epsi=self.epsi, op=self.op, nui=0, nuf=1) + \
+                           (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm * (20 / self.lenth) ** 2 * \
+                           survival_probability(ev, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=1, anti=True)
                 return (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm
             elif flavor == 'tau':
                 return 0
@@ -232,9 +261,22 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) \
                         if emin[i] < 0.8613 else 0
-                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu' and self.lenth == 0:
                     # prompt neutrino
                     res[i] += self.__norm if emin[i] <= 29 else 0
+                if self.fl_type == 'sns' and self.lenth != 0:
+                    if flavor == 'e':
+                        res[i] += self.__norm * (20 / self.lenth)**2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=0) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'mu':
+                        res[i] += self.__norm * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=1) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'tau':
+                        res[i] += self.__norm * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=2) \
+                            if emin[i] <= 29 else 0
         return res
 
     def fintinv(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
@@ -291,9 +333,22 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / 0.8613 \
                         if emin[i] < 0.8613 else 0
-                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu' and self.lenth == 0:
                     # prompt neutrino
                     res[i] += self.__norm / 29 if emin[i] <= 29 else 0
+                if self.fl_type == 'sns' and self.lenth != 0:
+                    if flavor == 'e':
+                        res[i] += self.__norm / 29 * (20 / self.lenth)**2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=0) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'mu':
+                        res[i] += self.__norm / 29 * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=1) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'tau':
+                        res[i] += self.__norm / 29 * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=2) \
+                            if emin[i] <= 29 else 0
         return res
 
     def fintinvs(self, er, m, flavor='e', epsi=None, op=None, r=0.05):
@@ -350,9 +405,22 @@ class Flux:
                     # be7
                     res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * survp(0.8613, r, epsi, flav, op) / (0.8613 ** 2) \
                         if emin[i] < 0.8613 else 0
-                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu':
+                if (self.fl_type == 'sns' or self.fl_type == 'prompt') and flavor == 'mu' and self.lenth == 0:
                     # prompt neutrino
                     res[i] += self.__norm / (29 ** 2) if emin[i] <= 29 else 0
+                if self.fl_type == 'sns' and self.lenth != 0:
+                    if flavor == 'e':
+                        res[i] += self.__norm / (29 ** 2) * (20 / self.lenth)**2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=0) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'mu':
+                        res[i] += self.__norm / (29 ** 2) * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=1) \
+                            if emin[i] <= 29 else 0
+                    elif flavor == 'tau':
+                        res[i] += self.__norm / (29 ** 2) * (20 / self.lenth) ** 2 * \
+                                  survival_probability(29, self.lenth, epsi=self.epsi, op=self.op, nui=1, nuf=2) \
+                            if emin[i] <= 29 else 0
         return res
 
 
@@ -385,7 +453,7 @@ class Flux:
 #     return abs(tmatrix[nui, nuf])**2
 
 
-def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
+def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=False,
                          op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
     """
     survival/transitional probability with constant matter density
@@ -394,11 +462,14 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
     :param epsi: epsilons
     :param nui: initail flavor
     :param nuf: final flavor
+    :param anti: if true, treat with anti-neutrino
     :param op: oscillation parameters
     :param ne: electron number density in MeV^3
     :return: survival/transitional probability
     """
     lenth = lenth / meter_by_mev
+    if anti:
+        op['delta'] = -op['delta']
     o23 = matrix([[1, 0, 0],
                   [0, cos(op['t23']), sin(op['t23'])],
                   [0, -sin(op['t23']), cos(op['t23'])]])
@@ -411,7 +482,10 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
     umix = o23 * u13 * o12
     m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
-    hf = umix * m * umix.H + vf
+    if anti:
+        hf = umix * m * umix.H - vf
+    else:
+        hf = umix * m * umix.H + vf
     w, v = linalg.eigh(hf)
     res = 0.0
     for i in range(3):
