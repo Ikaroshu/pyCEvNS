@@ -468,27 +468,76 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=Fal
     :return: survival/transitional probability
     """
     lenth = lenth / meter_by_mev
+    opt = op.copy()
     if anti:
-        op['delta'] = -op['delta']
+        opt['delta'] = -opt['delta']
     o23 = matrix([[1, 0, 0],
-                  [0, cos(op['t23']), sin(op['t23'])],
-                  [0, -sin(op['t23']), cos(op['t23'])]])
-    u13 = matrix([[cos(op['t13']), 0, sin(op['t13']) * (e ** (- op['delta'] * 1j))],
+                  [0, cos(opt['t23']), sin(opt['t23'])],
+                  [0, -sin(opt['t23']), cos(opt['t23'])]])
+    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
                   [0, 1, 0],
-                  [-sin(op['t13'] * (e ** (op['delta'] * 1j))), 0, cos(op['t13'])]])
-    o12 = matrix([[cos(op['t12']), sin(op['t12']), 0],
-                  [-sin(op['t12']), cos(op['t12']), 0],
+                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
+    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
+                  [-sin(opt['t12']), cos(opt['t12']), 0],
                   [0, 0, 1]])
     umix = o23 * u13 * o12
-    m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
     if anti:
-        hf = umix * m * umix.H - vf
+        hf = umix * m * umix.H - conj(vf)
     else:
         hf = umix * m * umix.H + vf
     w, v = linalg.eigh(hf)
     res = 0.0
     for i in range(3):
         for j in range(3):
-            res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, j]) * v[nui, j] * exp(-1j * (w[i]-w[j]) * lenth)
+            theta = (w[i]-w[j]) * lenth
+            res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, j]) * v[nui, j] * (cos(theta) - 1j * sin(theta))
     return real(res)
+
+
+def survival_average(ev, epsi=NSIparameters(), nui=0, nuf=0, anti=False,
+                         op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
+    opt = op.copy()
+    if anti:
+        opt['delta'] = -opt['delta']
+    o23 = matrix([[1, 0, 0],
+                  [0, cos(opt['t23']), sin(opt['t23'])],
+                  [0, -sin(opt['t23']), cos(opt['t23'])]])
+    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
+                  [0, 1, 0],
+                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
+    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
+                  [-sin(opt['t12']), cos(opt['t12']), 0],
+                  [0, 0, 1]])
+    umix = o23 * u13 * o12
+    m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
+    vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    if anti:
+        hf = umix * m * umix.H - conj(vf)
+    else:
+        hf = umix * m * umix.H + vf
+    w, v = linalg.eigh(hf)
+    res = 0.0
+    for i in range(3):
+        res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, i]) * v[nui, i]
+    return real(res)
+
+
+def survial_atmos(ev, zenith, epsi=NSIparameters(), nui=0, nuf=0, anti=False, op=ocsillation_parameters()):
+    """
+
+    :param ev:
+    :param zenith:
+    :param epsi:
+    :param nui:
+    :param nuf:
+    :param anti:
+    :param op:
+    :return:
+    """
+    n_core = 11850.56/1.672621898e-27/2*(meter_by_mev**3)
+    n_mantle = 4656.61/1.672621898e-27/2*(meter_by_mev**3)
+    n_atmos = 1.2/1.672621898e-27/2*(meter_by_mev**3)
+
+
