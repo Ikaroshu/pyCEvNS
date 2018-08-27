@@ -20,18 +20,20 @@ def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=None):
     """
     dp = Density()
     if op is None:
-        op = ocsillation_parameters()
+        opt = ocsillation_parameters()
+    else:
+        opt = op.copy()
     o23 = matrix([[1, 0, 0],
-                  [0, cos(op['t23']), sin(op['t23'])],
-                  [0, -sin(op['t23']), cos(op['t23'])]])
-    u13 = matrix([[cos(op['t13']), 0, sin(op['t13']) * (e ** (- op['delta'] * 1j))],
+                  [0, cos(opt['t23']), sin(opt['t23'])],
+                  [0, -sin(opt['t23']), cos(opt['t23'])]])
+    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
                   [0, 1, 0],
-                  [-sin(op['t13'] * (e ** (op['delta'] * 1j))), 0, cos(op['t13'])]])
-    o12 = matrix([[cos(op['t12']), sin(op['t12']), 0],
-                  [-sin(op['t12']), cos(op['t12']), 0],
+                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
+    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
+                  [-sin(opt['t12']), cos(opt['t12']), 0],
                   [0, 0, 1]])
     umix = o23 * u13 * o12
-    m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    m = diag(array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
     v = sqrt(2) * gf * (dp.ne(r) * epsi.ee() + dp.nu(r) * epsi.eu() + dp.nd(r) * epsi.ed())
     hvac = umix * m * umix.H
 
