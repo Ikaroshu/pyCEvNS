@@ -67,7 +67,7 @@ class NSIparameters:
                        [conj(self.epd['et']), conj(self.epd['mt']), self.epd['tt']]])
 
 
-def ocsillation_parameters(t12=0.5763617589722192,
+def oscillation_parameters(t12=0.5763617589722192,
                            t13=0.14819001778459273,
                            t23=0.7222302630963306,
                            delta=1.35*pi,

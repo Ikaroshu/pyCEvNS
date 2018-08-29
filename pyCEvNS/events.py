@@ -22,7 +22,7 @@ def formfsquared(q, a):
     return (3 * spherical_jn(1, q * r0) / (q * r0) * exp((-(q * s) ** 2) / 2)) ** 2
 
 
-def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=ocsillation_parameters(), r=0.05):
+def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=oscillation_parameters(), r=0.05):
     """
     calculating scattering rates per nucleus
     :param er: recoil energy
@@ -111,7 +111,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', 
                det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac)
 
 
-def rates_electron(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=ocsillation_parameters(), r=0.05):
+def rates_electron(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', op=oscillation_parameters(), r=0.05):
     """
     calculating electron scattering rates per nucleus
     :param er: recoil energy
