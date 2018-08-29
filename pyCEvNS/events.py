@@ -44,35 +44,66 @@ def rates_nucleus(er, det: Detector, fx: Flux, nsip: NSIparameters, flavor='e', 
     ldl = -0.0025
     ldr = 7.5e-5
     lur = ldr / 2
-    if flavor == 'e':
-        qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
-                              2 * nsip.gu['ee'] / deno + nsip.gd['ee'] / deno) +
-               0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
-                              nsip.gu['ee'] / deno + 2 * nsip.gd['ee'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
-               0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
-               0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2
-    elif flavor == 'mu':
-        qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
-                              2 * nsip.gu['mm'] / deno + nsip.gd['mm'] / deno) +
-               0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
-                              nsip.gu['mm'] / deno + 2 * nsip.gd['mm'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
-               0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
-               0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
-    elif flavor == 'tau':
-        qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
-                              2 * nsip.gu['tt'] / deno + nsip.gd['tt'] / deno) +
-               0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
-                              nsip.gu['tt'] / deno + 2 * nsip.gd['tt'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
-               0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2 + \
-              (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
-               0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
+    if nsip.mz != 0:
+        if flavor == 'e':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.gu['ee'] / deno + nsip.gd['ee'] / deno) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.gu['ee'] / deno + 2 * nsip.gd['ee'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
+                   0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
+                   0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2
+        elif flavor == 'mu':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.gu['mm'] / deno + nsip.gd['mm'] / deno) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.gu['mm'] / deno + 2 * nsip.gd['mm'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
+                   0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
+                   0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
+        elif flavor == 'tau':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.gu['tt'] / deno + nsip.gd['tt'] / deno) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.gu['tt'] / deno + 2 * nsip.gd['tt'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
+                   0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
+                   0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
+        else:
+            raise Exception('No such neutrino flavor!')
     else:
-        raise Exception('No such neutrino flavor!')
+        if flavor == 'e':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.epu['ee'] + nsip.epd['ee']) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.epu['ee'] + 2 * nsip.epd['ee'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
+                   0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
+                   0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2
+        elif flavor == 'mu':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.epu['mm'] + nsip.epd['mm']) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.epu['mm'] + 2 * nsip.epd['mm'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
+                   0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
+                   0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
+        elif flavor == 'tau':
+            qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
+                                  2 * nsip.epu['tt'] + nsip.epd['tt']) +
+                   0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
+                                  nsip.epu['tt'] + 2 * nsip.epd['tt'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
+                   0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2 + \
+                  (0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
+                   0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
+        else:
+            raise Exception('No such neutrino flavor!')
     return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor, epsi=nsip, op=op, r=r) -
                                      2 * er * fx.fintinv(er, det.m, flavor, epsi=nsip, op=op, r=r) +
                                      er * er * fx.fintinvs(er, det.m, flavor, epsi=nsip, op=op, r=r) -
