@@ -6,7 +6,7 @@ some helper classes and functions
 from numpy import *
 
 
-class linear_interp:
+class LinearInterp:
     """
     linear interpolation that deals with numbers
     for better performance than interp1d

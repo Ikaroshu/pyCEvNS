@@ -11,7 +11,8 @@ from .oscillation import *
 
 class Flux:
     """
-    flux class
+    flux class,
+    flux at source
     """
     def __init__(self, fl_type, fl_file=None, epsi=None, op=None, r=0.05, lenth=0):
         """
@@ -45,27 +46,27 @@ class Flux:
             b8 = genfromtxt(pkg_resources.resource_filename(__name__, 'data/b8.csv'), delimiter=',')
             self.__b8x = b8[:, 0]
             self.__b8y = b8[:, 1] * ((100 * meter_by_mev) ** 2) * 5.58e6
-            self.__b8interp = linear_interp(self.__b8x, self.__b8y)
+            self.__b8interp = LinearInterp(self.__b8x, self.__b8y)
             f17 = genfromtxt(pkg_resources.resource_filename(__name__, 'data/f17.csv'), delimiter=',')
             self.__f17x = f17[:, 0]
             self.__f17y = f17[:, 1] * ((100 * meter_by_mev) ** 2) * 5.52e6
-            self.__f17interp = linear_interp(self.__f17x, self.__f17y)
+            self.__f17interp = LinearInterp(self.__f17x, self.__f17y)
             hep = genfromtxt(pkg_resources.resource_filename(__name__, 'data/hep.csv'), delimiter=',')
             self.__hepx = hep[:, 0]
             self.__hepy = hep[:, 1] * ((100 * meter_by_mev) ** 2) * 8.04e3
-            self.__hepinterp = linear_interp(self.__hepx, self.__hepy)
+            self.__hepinterp = LinearInterp(self.__hepx, self.__hepy)
             n13 = genfromtxt(pkg_resources.resource_filename(__name__, 'data/n13.csv'), delimiter=',')
             self.__n13x = n13[:, 0]
             self.__n13y = n13[:, 1] * ((100 * meter_by_mev) ** 2) * 2.96e8
-            self.__n13interp = linear_interp(self.__n13x, self.__n13y)
+            self.__n13interp = LinearInterp(self.__n13x, self.__n13y)
             o15 = genfromtxt(pkg_resources.resource_filename(__name__, 'data/o15.csv'), delimiter=',')
             self.__o15x = o15[:, 0]
             self.__o15y = o15[:, 1] * ((100 * meter_by_mev) ** 2) * 2.23e8
-            self.__o15interp = linear_interp(self.__o15x, self.__o15y)
+            self.__o15interp = LinearInterp(self.__o15x, self.__o15y)
             pp = genfromtxt(pkg_resources.resource_filename(__name__, 'data/pp.csv'), delimiter=',')
             self.__ppx = pp[:, 0]
             self.__ppy = pp[:, 1] * ((100 * meter_by_mev) ** 2) * 5.98e10
-            self.__ppinterp = linear_interp(self.__ppx, self.__ppy)
+            self.__ppinterp = LinearInterp(self.__ppx, self.__ppy)
             self.evMin = 0.003464
             self.evMax = 20
         elif not fl_file:
@@ -76,9 +77,9 @@ class Flux:
             self.__nue = f[:, 1] * ((100 * meter_by_mev) ** 2)
             self.__num = f[:, 2] * ((100 * meter_by_mev) ** 2)
             self.__nut = f[:, 3] * ((100 * meter_by_mev) ** 2)
-            self.__nueinterp = linear_interp(self.__ev, self.__nue)
-            self.__numinterp = linear_interp(self.__ev, self.__num)
-            self.__nutinterp = linear_interp(self.__ev, self.__nut)
+            self.__nueinterp = LinearInterp(self.__ev, self.__nue)
+            self.__numinterp = LinearInterp(self.__ev, self.__num)
+            self.__nutinterp = LinearInterp(self.__ev, self.__nut)
         else:
             raise Exception("No such flux in code or file yet.")
 
