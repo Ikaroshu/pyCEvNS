@@ -4,19 +4,26 @@ neutrino oscillation related funtions
 
 from .parameters import *
 
+# solar number density at r=0.05 solar radius, unit is MeV^3 (natural unit)
+__ne_solar = 4.163053492437814e-07
+__nu_solar = 1.0053941490424488e-06
+__nd_solar = 7.618722503535536e-07
 
-def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=oscillation_parameters()):
+
+def surv_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
     """
     calculating survival/transitional probability of solar neutrino
     :param ev: neutrino energy in MeV
-    :param r: position where netrino is produced, in terms solar radius
     :param epsi: nsi parameters
+    :param nui: intial state
     :param nuf: final state, 0: electron neutrino, 1: muon neutrino, 2: tau neutrino
     :param op: oscillation parameters
     :return: survival/transitional probability
     """
-    dp = Density()
     opt = op.copy()
+    dic = {'e': 0, 'mu': 1, 'tau': 2}
+    fi = dic[nui]
+    ff = dic[nuf]
     o23 = matrix([[1, 0, 0],
                   [0, cos(opt['t23']), sin(opt['t23'])],
                   [0, -sin(opt['t23']), cos(opt['t23'])]])
@@ -28,7 +35,7 @@ def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=oscillation_parameters()):
                   [0, 0, 1]])
     umix = o23 * u13 * o12
     m = diag(array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
-    v = sqrt(2) * gf * (dp.ne(r) * epsi.ee() + dp.nu(r) * epsi.eu() + dp.nd(r) * epsi.ed())
+    v = sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
     hvac = umix * m * umix.H
 
     def sorteig(w, vec):
@@ -53,7 +60,7 @@ def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=oscillation_parameters()):
     uts = sorteig(ws, vecs)
     res = 0
     for i in range(3):
-        res += conj(utr[0, i]) * utr[0, i] * conj(uts[nuf, i]) * uts[nuf, i]
+        res += conj(utr[0, i]) * utr[0, i] * conj(uts[ff, i]) * uts[ff, i]
     return real(res)
 
 # using Caylay-Hamilton theorem to calculate survival probability, it has probems at transitsion probabilities
@@ -85,8 +92,8 @@ def survp(ev, r=0.05, epsi=NSIparameters(), nuf=0, op=oscillation_parameters()):
 #     return abs(tmatrix[nui, nuf])**2
 
 
-def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=False,
-                         op=oscillation_parameters(), ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3):
+def surv_const(ev, lenth, epsi=NSIparameters(), op=oscillation_parameters(),
+               ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     """
     survival/transitional probability with constant matter density
     :param ev: nuetrino energy in MeV
@@ -94,14 +101,16 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=Fal
     :param epsi: epsilons
     :param nui: initail flavor
     :param nuf: final flavor
-    :param anti: if true, treat with anti-neutrino
     :param op: oscillation parameters
     :param ne: electron number density in MeV^3
     :return: survival/transitional probability
     """
+    dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
+    fi = dic[nui]
+    ff = dic[nuf]
     lenth = lenth / meter_by_mev
     opt = op.copy()
-    if anti:
+    if nuf[-1] == 'r':
         opt['delta'] = -opt['delta']
     o23 = matrix([[1, 0, 0],
                   [0, cos(opt['t23']), sin(opt['t23'])],
@@ -115,7 +124,7 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=Fal
     umix = o23 * u13 * o12
     m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
-    if anti:
+    if nuf[-1] == 'r':
         hf = umix * m * umix.H - conj(vf)
     else:
         hf = umix * m * umix.H + vf
@@ -124,14 +133,17 @@ def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0, anti=Fal
     for i in range(3):
         for j in range(3):
             theta = (w[i]-w[j]) * lenth
-            res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, j]) * v[nui, j] * (cos(theta) - 1j * sin(theta))
+            res += v[ff, i] * conj(v[fi, i]) * conj(v[ff, j]) * v[fi, j] * (cos(theta) - 1j * sin(theta))
     return real(res)
 
 
-def survival_average(ev, epsi=NSIparameters(), nui=0, nuf=0, anti=False,
-                     op=oscillation_parameters(), ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3):
+def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
+                     ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     opt = op.copy()
-    if anti:
+    dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
+    fi = dic[nui]
+    ff = dic[nuf]
+    if nuf[-1] == 'r':
         opt['delta'] = -opt['delta']
     o23 = matrix([[1, 0, 0],
                   [0, cos(opt['t23']), sin(opt['t23'])],
@@ -145,18 +157,18 @@ def survival_average(ev, epsi=NSIparameters(), nui=0, nuf=0, anti=False,
     umix = o23 * u13 * o12
     m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
-    if anti:
+    if nuf[-1] == 'r':
         hf = umix * m * umix.H - conj(vf)
     else:
         hf = umix * m * umix.H + vf
     w, v = linalg.eigh(hf)
     res = 0.0
     for i in range(3):
-        res += v[nuf, i] * conj(v[nui, i]) * conj(v[nuf, i]) * v[nui, i]
+        res += v[ff, i] * conj(v[fi, i]) * conj(v[ff, i]) * v[fi, i]
     return real(res)
 
 
-def survial_atmos(ev, zenith, epsi=NSIparameters(), nui=0, nuf=0, anti=False, op=oscillation_parameters()):
+def survial_atmos(ev, zenith, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
     """
     survival probability of atmospherical neutrino,
     assuming 2 layers of the earth,
@@ -167,7 +179,6 @@ def survial_atmos(ev, zenith, epsi=NSIparameters(), nui=0, nuf=0, anti=False, op
     :param epsi: NSI parameters
     :param nui: initial flavor
     :param nuf: final flavor
-    :param anti: is anti-nuetrino?
     :param op: oscillation parameters
     :return: survival probability in this direction
     """
@@ -180,15 +191,19 @@ def survial_atmos(ev, zenith, epsi=NSIparameters(), nui=0, nuf=0, anti=False, op
         return 1 if nui == nuf else 0
     elif zenith >= cos_th:
         lenth = -r_mantle * zenith * 2
-        return survival_probability(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle, anti=anti)
+        return surv_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
     else:
         vert = r_mantle * sqrt(1 - zenith**2)
         l_core = 2 * sqrt(r_core**2 - vert**2)
         l_mantle_half = -r_mantle * zenith - l_core / 2
         res = 0
-        for i in range(3):
-            for j in range(3):
-                res += survival_probability(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle, anti=anti) *\
-                    survival_probability(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core, anti=anti) *\
-                    survival_probability(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle, anti=anti)
+        if nuf[-1] == 'r':
+            f_list = ['ebar', 'mubar', 'taubar']
+        else:
+            f_list = ['e', 'mu', 'tau']
+        for i in f_list:
+            for j in f_list:
+                res += surv_const(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle) *\
+                    surv_const(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core) *\
+                    surv_const(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle)
         return res
