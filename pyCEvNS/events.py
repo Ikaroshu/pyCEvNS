@@ -22,7 +22,8 @@ def formfsquared(q, a):
     return (3 * spherical_jn(1, q * r0) / (q * r0) * exp((-(q * s) ** 2) / 2)) ** 2
 
 
-def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  flavor='e', op=oscillation_parameters()):
+def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  flavor='e',
+                  op=oscillation_parameters(), **kwargs):
     """
     calculating scattering rates per nucleus
     :param er: recoil energy
@@ -103,14 +104,15 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
         else:
             raise Exception('No such neutrino flavor!')
-    return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op,) -
-                                     2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op) +
-                                     er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op) -
-                                     det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op)) *
+    return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                     2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                                     er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                     det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
                det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac)
 
 
-def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), flavor='e', op=oscillation_parameters()):
+def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), flavor='e',
+                   op=oscillation_parameters(), **kwargs):
     """
     calculating electron scattering rates per nucleus
     :param er: recoil energy
@@ -143,24 +145,30 @@ def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), fl
     else:
         raise Exception('No such neutrino flavor!')
     return dot(2 / pi * (gf ** 2) * me * det.z *
-               (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op) +
-                eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op) -
-                        2 * er * fx.fintinv(er, me, flavor=flavor, f=f, epsi=nsip, op=op) +
-                        (er ** 2) * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op)) -
-                eplr * me * er * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op)), det.frac)
+               (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                        2 * er * fx.fintinv(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                        (er ** 2) * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) -
+                eplr * me * er * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)), det.frac)
 
 
-def binned_events_nucleus(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e', op=None):
+def binned_events_nucleus(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e',
+                          op=oscillation_parameters(), **kwargs):
     """
     :return: number of nucleus recoil events in the bin [era, erb]
     """
-    return quad(rates_nucleus, era, erb, args=(det, fx, f, nsip, flavor, op))[0] * \
+    def rates(er):
+        return rates_nucleus(er, det, fx, f, nsip, flavor, op, **kwargs)
+    return quad(rates, era, erb)[0] * \
         expo * mev_per_kg * 24 * 60 * 60 / dot(det.m, det.frac)
 
 
-def binned_events_electron(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e', op=None):
+def binned_events_electron(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e',
+                           op=oscillation_parameters(), **kwargs):
     """
     :return: number of electron recoil events in the bin [era, erb]
     """
-    return quad(rates_electron, era, erb, args=(det, fx, f, nsip, flavor, op))[0] * \
+    def rates(er):
+        return rates_electron(er, det, fx, f, nsip, flavor, op, **kwargs)
+    return quad(rates, era, erb)[0] * \
         expo * mev_per_kg * 24 * 60 * 60 / dot(det.m, det.frac)
