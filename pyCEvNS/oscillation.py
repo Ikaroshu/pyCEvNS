@@ -92,7 +92,7 @@ def surv_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', n
 #     return abs(tmatrix[nui, nuf])**2
 
 
-def surv_const(ev, lenth, epsi=NSIparameters(), op=oscillation_parameters(),
+def surv_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
                ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     """
     survival/transitional probability with constant matter density
@@ -168,7 +168,7 @@ def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
     return real(res)
 
 
-def survial_atmos(ev, zenith, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
+def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
     """
     survival probability of atmospherical neutrino,
     assuming 2 layers of the earth,

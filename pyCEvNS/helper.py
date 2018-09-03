@@ -19,8 +19,10 @@ class LinearInterp:
         self.y = self.y[ind]
 
     def __call__(self, xv):
-        if xv <= self.x[0] or xv > self.x[-1]:
+        if xv < self.x[0] or xv > self.x[-1]:
             return 0
+        elif xv == self.x[0]:
+            return self.y[0]
         ind = searchsorted(self.x, xv)
         slope = (self.y[ind] - self.y[ind-1]) / (self.x[ind] - self.x[ind-1])
         return slope * (xv - self.x[ind-1]) + self.y[ind-1]

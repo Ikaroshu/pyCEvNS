@@ -14,17 +14,20 @@ class Flux:
     flux class,
     flux at source
     """
-    def __init__(self, fl_name: str, delimiter=',', fl_unc=0):
+    def __init__(self, fl_name, delimiter=',', fl_unc=0):
         """
         initializing flux, can take in user provided flux
         restrictions: user provided data must have 7 columns,
         first column is neutrino energy in MeV,
-        other columns are neutrino flux in cm^2/s, they are enu, munu, taunu, enubar, munubar, taunubar
-        :param fl_name: name of the flux or path to the file
+        other columns are neutrino flux in cm^2/s/MeV, they are enu, munu, taunu, enubar, munubar, taunubar
+        :param fl_name: name of the flux or path to the file or array of neutrino flux
         :param delimiter: delimiter of the input file, default is ','
         :param fl_unc: uncertainty of flux
         """
-        self.fl_name = fl_name.lower()
+        if isinstance(fl_name, str):
+            self.fl_name = fl_name.lower()
+        else:
+            self.fl_name = 'default'
         if self.fl_name == 'reactor':
             self.evMin = 0.0
             self.evMax = 30  # MeV
@@ -44,7 +47,10 @@ class Flux:
             self.evMax = f[-1, 0]
             self.__nue = LinearInterp(f[:, 0], f[:, 1] * ((100 * meter_by_mev) ** 2))
         else:
-            f = genfromtxt(fl_name, delimiter=delimiter)
+            if isinstance(fl_name, ndarray):
+                f = fl_name
+            else:
+                f = genfromtxt(fl_name, delimiter=delimiter)
             self.evMin = amin(f[:, 0])
             self.evMax = amax(f[:, 0])
             self.flUn = fl_unc
@@ -55,7 +61,7 @@ class Flux:
             self.__numubar = LinearInterp(f[:, 0], f[:, 5] * ((100 * meter_by_mev) ** 2))
             self.__nutaubar = LinearInterp(f[:, 0], f[:, 6] * ((100 * meter_by_mev) ** 2))
 
-    def flux(self, ev, flavor='e', f=None, *args, **kwargs):
+    def flux(self, ev, flavor='e', f=None, **kwargs):
         """
         differential neutrino flux at the detector, unit MeV^-3*s^-1
         :param ev: nuetrino energy
@@ -63,7 +69,6 @@ class Flux:
         :param f: function that convolves with neutrino flux, typically neutrino oscillation,
                 the first argument must be neutrino energy,
                 the last two arguments must be input flavor nui and out put flavor nuf
-        :param args: paramenters that goes into function f
         :param kwargs: parameters with keys that goes into function f
         :return: neutrino flux
         """
@@ -74,17 +79,17 @@ class Flux:
             if flavor == 'e':
                 if f is not None:
                     return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
-                           f(ev, *args, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='e', nuf=flavor)
                 return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
             elif flavor == 'mu':
                 if f is not None:
                     return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
-                           f(ev, *args, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='e', nuf=flavor)
                 return 0
             elif flavor == 'tau':
                 if f is not None:
                     return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5. * \
-                           f(ev, *args, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='e', nuf=flavor)
                 return 0
             else:
                 return 0
@@ -92,13 +97,13 @@ class Flux:
             if flavor[-1] != 'r':
                 if f is not None:
                     return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm * \
-                           f(ev, *args, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='e', nuf=flavor)
                 return (3 * ((ev / (2 / 3 * 52)) ** 2) - 2 * ((ev / (2 / 3 * 52)) ** 3)) / 29.25 * self.__norm \
                     if flavor == 'e' else 0
             else:
                 if f is not None:
                     return (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm * \
-                           f(ev, *args, **kwargs, nui='mubar', nuf=flavor)
+                           f(ev, **kwargs, nui='mubar', nuf=flavor)
                 return (3 * ((ev / 52) ** 2) - 2 * ((ev / 52) ** 3)) / 26 * self.__norm if flavor == 'mubar' else 0
         elif self.fl_name == 'prompt':
             return 0
@@ -106,7 +111,7 @@ class Flux:
             if flavor[-1] != 'r':
                 if f is None:
                     f = surv_solar
-                return self.__nue(ev) * f(ev, *args, **kwargs, nui='e', nuf=flavor)
+                return self.__nue(ev) * f(ev, **kwargs, nui='e', nuf=flavor)
             return 0
         else:
             if flavor[-1] != 'r':
@@ -119,9 +124,9 @@ class Flux:
                         return self.__nutau(ev)
                     else:
                         return 0
-                return self.__nue(ev) * f(ev, *args, **kwargs, nui='e', nuf=flavor) + \
-                    self.__numu(ev) * f(ev, *args, **kwargs, nui='mu', nuf=flavor) + \
-                    self.__nutau(ev) * f(ev, *args, **kwargs, nui='tau', nuf=flavor)
+                return self.__nue(ev) * f(ev, **kwargs, nui='e', nuf=flavor) + \
+                    self.__numu(ev) * f(ev, **kwargs, nui='mu', nuf=flavor) + \
+                    self.__nutau(ev) * f(ev, **kwargs, nui='tau', nuf=flavor)
             else:
                 if f is None:
                     if flavor == 'ebar':
@@ -132,11 +137,11 @@ class Flux:
                         return self.__nutaubar(ev)
                     else:
                         return 0
-                return self.__nuebar(ev) * f(ev, *args, **kwargs, nui='ebar', nuf=flavor) + \
-                    self.__numubar(ev) * f(ev, *args, **kwargs, nui='mubar', nuf=flavor) + \
-                    self.__nutaubar(ev) * f(ev, *args, **kwargs, nui='taubar', nuf=flavor)
+                return self.__nuebar(ev) * f(ev, **kwargs, nui='ebar', nuf=flavor) + \
+                    self.__numubar(ev) * f(ev, **kwargs, nui='mubar', nuf=flavor) + \
+                    self.__nutaubar(ev) * f(ev, **kwargs, nui='taubar', nuf=flavor)
 
-    def fint(self, er, m, flavor='e', f=None, *args, **kwargs):
+    def fint(self, er, m, flavor='e', f=None, **kwargs):
         """
         flux integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -145,14 +150,13 @@ class Flux:
         :param f: function that convolves with neutrino flux, typically neutrino oscillation,
                 the first argument must be neutrino energy,
                 the last two arguments must be input flavor nui and out put flavor nuf
-        :param args: paramenters that goes into function f
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
         emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
 
         def fx(ev):
-            return self.flux(ev, flavor, f, *args, **kwargs)
+            return self.flux(ev, flavor, f, **kwargs)
 
         if not isinstance(emin, ndarray):
             res = quad(fx, emin, self.evMax)[0]
@@ -160,17 +164,17 @@ class Flux:
                 if f is None:
                     f = surv_solar
                 # pep
-                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) \
+                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) \
                     if emin < 1.439 else 0
                 # be7
-                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) \
+                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) \
                     if emin < 0.8613 else 0
             elif self.fl_name in ['sns', 'prompt']:
                 if f is None and flavor == 'mu':
                     # prompt neutrino
                     res += self.__norm if emin <= 29 else 0
                 elif f is not None and flavor[-1] != 'r':
-                    res += self.__norm * f(29, *args, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
+                    res += self.__norm * f(29, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
         else:
             res = zeros_like(emin)
             for i in range(emin.shape[0]):
@@ -179,20 +183,20 @@ class Flux:
                     if f is None:
                         f = surv_solar
                     # pep
-                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) \
+                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) \
                         if emin[i] < 1.439 else 0
                     # be7
-                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) \
+                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) \
                         if emin[i] < 0.8613 else 0
                 elif self.fl_name in ['sns', 'prompt']:
                     if f is None and flavor == 'mu':
                         # prompt neutrino
                         res[i] += self.__norm if emin[i] <= 29 else 0
                     elif f is not None and flavor[-1] != 'r':
-                        res[i] += self.__norm * f(29, *args, **kwargs, nui='mu', nuf=flavor) if emin[i] <= 29 else 0
+                        res[i] += self.__norm * f(29, **kwargs, nui='mu', nuf=flavor) if emin[i] <= 29 else 0
         return res
 
-    def fintinv(self, er, m, flavor='e', f=None, *args, **kwargs):
+    def fintinv(self, er, m, flavor='e', f=None, **kwargs):
         """
         flux/ev integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -201,7 +205,6 @@ class Flux:
         :param f: function that convolves with neutrino flux, typically neutrino oscillation,
                 the first argument must be neutrino energy,
                 the last two arguments must be input flavor nui and out put flavor nuf
-        :param args: paramenters that goes into function f
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
@@ -211,7 +214,7 @@ class Flux:
             """
             flux/ev
             """
-            return self.flux(ev, flavor, f, *args, **kwargs) / ev
+            return self.flux(ev, flavor, f, **kwargs) / ev
 
         if not isinstance(emin, ndarray):
             res = quad(finv, emin, self.evMax)[0]
@@ -219,17 +222,17 @@ class Flux:
                 if f is None:
                     f = surv_solar
                 # pep
-                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) / 1.439 \
+                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / 1.439 \
                     if emin < 1.439 else 0
                 # be7
-                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) / 0.8613 \
+                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) / 0.8613 \
                     if emin < 0.8613 else 0
             elif self.fl_name in ['sns', 'prompt']:
                 if f is None and flavor == 'mu':
                     # prompt neutrino
                     res += self.__norm / 29 if emin <= 29 else 0
                 elif f is not None and flavor[-1] != 'r':
-                    res += self.__norm / 29 * f(29, *args, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
+                    res += self.__norm / 29 * f(29, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
         else:
             res = zeros_like(emin)
             for i in range(emin.shape[0]):
@@ -238,21 +241,21 @@ class Flux:
                     if f is None:
                         f = surv_solar
                     # pep
-                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) / \
+                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / \
                         1.439 if emin[i] < 1.439 else 0
                     # be7
-                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) / \
+                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) / \
                         0.8613 if emin[i] < 0.8613 else 0
                 elif self.fl_name in ['sns', 'prompt']:
                     if f is None and flavor == 'mu':
                         # prompt neutrino
                         res[i] += self.__norm / 29 if emin[i] <= 29 else 0
                     elif f is not None and flavor[-1] != 'r':
-                        res[i] += self.__norm / 29 * f(29, *args, **kwargs, nui='mu', nuf=flavor) \
+                        res[i] += self.__norm / 29 * f(29, **kwargs, nui='mu', nuf=flavor) \
                             if emin[i] <= 29 else 0
         return res
 
-    def fintinvs(self, er, m, flavor='e', f=None, *args, **kwargs):
+    def fintinvs(self, er, m, flavor='e', f=None, **kwargs):
         """
         flux/ev^2 integration over the range that can produce a recoil energy er
         :param er: recoil energy
@@ -261,7 +264,6 @@ class Flux:
         :param f: function that convolves with neutrino flux, typically neutrino oscillation,
                 the first argument must be neutrino energy,
                 the last two arguments must be input flavor nui and out put flavor nuf
-        :param args: paramenters that goes into function f
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
@@ -271,7 +273,7 @@ class Flux:
             """
             flux/ev^2
             """
-            return self.flux(ev, flavor, f, *args, **kwargs) / (ev ** 2)
+            return self.flux(ev, flavor, f, **kwargs) / (ev ** 2)
 
         if not isinstance(emin, ndarray):
             res = quad(finvs, emin, self.evMax)[0]
@@ -279,17 +281,17 @@ class Flux:
                 if f is None:
                     f = surv_solar
                 # pep
-                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) / 1.439**2\
+                res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / 1.439**2\
                     if emin < 1.439 else 0
                 # be7
-                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) / 0.8613**2 \
+                res += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) / 0.8613**2 \
                     if emin < 0.8613 else 0
             elif self.fl_name in ['sns', 'prompt']:
                 if f is None and flavor == 'mu':
                     # prompt neutrino
                     res += self.__norm / 29**2 if emin <= 29 else 0
                 elif f is not None and flavor[-1] != 'r':
-                    res += self.__norm / 29**2 * f(29, *args, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
+                    res += self.__norm / 29**2 * f(29, **kwargs, nui='mu', nuf=flavor) if emin <= 29 else 0
         else:
             res = zeros_like(emin)
             for i in range(emin.shape[0]):
@@ -298,16 +300,16 @@ class Flux:
                     if f is None:
                         f = surv_solar
                     # pep
-                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, *args, **kwargs, nui='e', nuf=flavor) / \
+                    res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / \
                         1.439**2 if emin[i] < 1.439 else 0
                     # be7
-                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, *args, **kwargs, nui='e', nuf=flavor) / \
+                    res[i] += 5e9 * ((100 * meter_by_mev) ** 2) * f(0.8613, **kwargs, nui='e', nuf=flavor) / \
                         0.8613**2 if emin[i] < 0.8613 else 0
                 elif self.fl_name in ['sns', 'prompt']:
                     if f is None and flavor == 'mu':
                         # prompt neutrino
                         res[i] += self.__norm / 29**2 if emin[i] <= 29 else 0
                     elif f is not None and flavor[-1] != 'r':
-                        res[i] += self.__norm / 29**2 * f(29, *args, **kwargs, nui='mu', nuf=flavor) \
+                        res[i] += self.__norm / 29**2 * f(29, **kwargs, nui='mu', nuf=flavor) \
                             if emin[i] <= 29 else 0
         return res
