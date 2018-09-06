@@ -76,20 +76,15 @@ class Flux:
             # Phys.Rev.D39, 11 Vogel
             # 5.323608902707208 = Integrate[Exp[.870 - .16*e - .091*e^2], {e, 0, 10}]
             # reactor neutrino is actually anti-neutrino, this may cause problem when doing electron scattering
-            if flavor == 'e':
+            if flavor == 'ebar':
                 if f is not None:
                     return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
-                           f(ev, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='ebar', nuf=flavor)
                 return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
-            elif flavor == 'mu':
+            elif flavor[-1] == 'r':
                 if f is not None:
                     return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
-                           f(ev, **kwargs, nui='e', nuf=flavor)
-                return 0
-            elif flavor == 'tau':
-                if f is not None:
-                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5. * \
-                           f(ev, **kwargs, nui='e', nuf=flavor)
+                           f(ev, **kwargs, nui='ebar', nuf=flavor)
                 return 0
             else:
                 return 0
