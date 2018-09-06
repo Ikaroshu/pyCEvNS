@@ -10,7 +10,7 @@ __nu_solar = 1.0053941490424488e-06
 __nd_solar = 7.618722503535536e-07
 
 
-def surv_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
+def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
     """
     calculating survival/transitional probability of solar neutrino
     :param ev: neutrino energy in MeV
@@ -92,8 +92,8 @@ def surv_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', n
 #     return abs(tmatrix[nui, nuf])**2
 
 
-def surv_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
-               ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
+def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
+                   ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     """
     survival/transitional probability with constant matter density
     :param ev: nuetrino energy in MeV
@@ -191,7 +191,7 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
         return 1 if nui == nuf else 0
     elif zenith >= cos_th:
         lenth = -r_mantle * zenith * 2
-        return surv_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
+        return survival_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
     else:
         vert = r_mantle * sqrt(1 - zenith**2)
         l_core = 2 * sqrt(r_core**2 - vert**2)
@@ -203,7 +203,7 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
             f_list = ['e', 'mu', 'tau']
         for i in f_list:
             for j in f_list:
-                res += surv_const(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle) *\
-                    surv_const(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core) *\
-                    surv_const(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle)
+                res += survival_const(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle) * \
+                       survival_const(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core) * \
+                       survival_const(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle)
         return res

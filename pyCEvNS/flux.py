@@ -110,7 +110,7 @@ class Flux:
         elif self.fl_name in ['solar', 'b8', 'f17', 'n13', 'o15', 'pp', 'hep']:
             if flavor[-1] != 'r':
                 if f is None:
-                    f = surv_solar
+                    f = survival_solar
                 return self.__nue(ev) * f(ev, **kwargs, nui='e', nuf=flavor)
             return 0
         else:
@@ -162,7 +162,7 @@ class Flux:
             res = quad(fx, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
-                    f = surv_solar
+                    f = survival_solar
                 # pep
                 res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) \
                     if emin < 1.439 else 0
@@ -181,7 +181,7 @@ class Flux:
                 res[i] = quad(fx, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':
                     if f is None:
-                        f = surv_solar
+                        f = survival_solar
                     # pep
                     res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) \
                         if emin[i] < 1.439 else 0
@@ -220,7 +220,7 @@ class Flux:
             res = quad(finv, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
-                    f = surv_solar
+                    f = survival_solar
                 # pep
                 res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / 1.439 \
                     if emin < 1.439 else 0
@@ -239,7 +239,7 @@ class Flux:
                 res[i] = quad(finv, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':
                     if f is None:
-                        f = surv_solar
+                        f = survival_solar
                     # pep
                     res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / \
                         1.439 if emin[i] < 1.439 else 0
@@ -279,7 +279,7 @@ class Flux:
             res = quad(finvs, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
-                    f = surv_solar
+                    f = survival_solar
                 # pep
                 res += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / 1.439**2\
                     if emin < 1.439 else 0
@@ -298,7 +298,7 @@ class Flux:
                 res[i] = quad(finvs, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':
                     if f is None:
-                        f = surv_solar
+                        f = survival_solar
                     # pep
                     res[i] += 1.44e8 * ((100 * meter_by_mev) ** 2) * f(1.439, **kwargs, nui='e', nuf=flavor) / \
                         1.439**2 if emin[i] < 1.439 else 0
