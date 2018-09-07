@@ -29,6 +29,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
     :param er: recoil energy
     :param det: detector
     :param fx: flux
+    :param f: oscillation function
     :param flavor: flux flavor
     :param nsip: nsi parameters
     :param op: oscillation parameters
@@ -45,7 +46,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
     ldr = 7.5e-5
     lur = ldr / 2
     if nsip.mz != 0:
-        if flavor == 'e':
+        if flavor[0] == 'e':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.gu['ee'] / deno + nsip.gd['ee'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -54,7 +55,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
                   (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
                    0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2
-        elif flavor == 'mu':
+        elif flavor[0] == 'm':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.gu['mm'] / deno + nsip.gd['mm'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -63,7 +64,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
                   (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
                    0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
-        elif flavor == 'tau':
+        elif flavor[0] == 't':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.gu['tt'] / deno + nsip.gd['tt'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -75,7 +76,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
         else:
             raise Exception('No such neutrino flavor!')
     else:
-        if flavor == 'e':
+        if flavor[0] == 'e':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.epu['ee'] + nsip.epd['ee']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -84,7 +85,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
                   (0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
                    0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2
-        elif flavor == 'mu':
+        elif flavor[0] == 'm':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.epu['mm'] + nsip.epd['mm']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -93,7 +94,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
                   (0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
                    0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
-        elif flavor == 'tau':
+        elif flavor[0] == 't':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.epu['tt'] + nsip.epd['tt']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
@@ -118,25 +119,26 @@ def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), fl
     :param er: recoil energy
     :param det: detector
     :param fx: flux
+    :param f: oscillation function
     :param flavor: flux flavor
     :param nsip: nsi parameters
     :param op: oscillation parameters
     :return: scattering rates per nucleus
     """
     deno = 2 * sqrt(2) * gf * (2 * me * er + nsip.mz ** 2)
-    if flavor == 'e':
+    if flavor[0] == 'e':
         epls = (0.5 + ssw + nsip.gel['ee'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['ee'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
         eplr = (0.5 + ssw + nsip.gel['ee'] / deno) * (ssw + nsip.ger['ee'] / deno) + \
                (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
                (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
-    elif flavor == 'mu':
+    elif flavor[0] == 'm':
         epls = (-0.5 + ssw + nsip.gel['mm'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2
         eprs = (ssw + nsip.ger['mm'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2
         eplr = (-0.5 + ssw + nsip.gel['mm'] / deno) * (ssw + nsip.ger['mm'] / deno) + \
                (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
                (nsip.gel['mt'] / deno) * (nsip.ger['mt'] / deno)
-    elif flavor == 'tau':
+    elif flavor[0] == 't':
         epls = (-0.5 + ssw + nsip.gel['tt'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['tt'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
         eplr = (-0.5 + ssw + nsip.gel['tt'] / deno) * (ssw + nsip.ger['tt'] / deno) + \
@@ -144,6 +146,10 @@ def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), fl
                (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
     else:
         raise Exception('No such neutrino flavor!')
+    if flavor[-1] == 'r':
+        temp = epls
+        epls = eprs
+        eprs = temp
     return dot(2 / pi * (gf ** 2) * me * det.z *
                (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
                 eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
