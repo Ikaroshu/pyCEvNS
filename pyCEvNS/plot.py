@@ -40,7 +40,7 @@ class CrediblePlot:
             else:
                 biny[pos-1] += self.ftxt[i, 0]
         cl = sort(credible_level)[::-1]
-        ax.bar(binx, biny, width=binw, alpha=0.1, color='b')
+        # ax.bar(binx, biny, width=binw, alpha=0.1, color='b')
         sorted_idx = argsort(biny)[::-1]
         al = linspace(0.2, 0.3, cl.shape[0])
         for ic in range(cl.shape[0]):
@@ -90,5 +90,6 @@ class CrediblePlot:
                 cz[sorted_idx[0][i], sorted_idx[1][i]] = zv[sorted_idx[0][i], sorted_idx[1][i]]
                 if s > cl[ic]:
                     break
-            ax.contourf(xv, yv, cz, alpha=al[ic])
+            ax.contourf(xv, yv, cz, 1, colors=('white', 'blue'), alpha=al[ic])
+        ax.axis('scaled')
         return fig, ax

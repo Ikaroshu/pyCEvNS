@@ -2,7 +2,7 @@
 CEvNS events
 """
 
-from scipy.special import spherical_jn
+from scipy.special import spherical_jn, erf
 
 from .detectors import *  # pylint: disable=W0401, W0614, W0622
 from .flux import *  # pylint: disable=W0401, W0614, W0622
@@ -22,7 +22,11 @@ def formfsquared(q, a):
     return (3 * spherical_jn(1, q * r0) / (q * r0) * exp((-(q * s) ** 2) / 2)) ** 2
 
 
-def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  flavor='e',
+def eff_coherent(er):
+    return 0.331 * (1 + erf(0.248 * (er * 1e3 - 9.22)))
+
+
+def rates_nucleus(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSIparameters(), flavor='e',
                   op=oscillation_parameters(), **kwargs):
     """
     calculating scattering rates per nucleus
@@ -30,6 +34,7 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
     :param det: detector
     :param fx: flux
     :param f: oscillation function
+    :param efficiency: efficiency function
     :param flavor: flux flavor
     :param nsip: nsi parameters
     :param op: oscillation parameters
@@ -105,14 +110,21 @@ def rates_nucleus(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(),  fl
                    0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
         else:
             raise Exception('No such neutrino flavor!')
-    return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
-                                     2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
-                                     er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
-                                     det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
-               det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac)
+    if efficiency is not None:
+        return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                         2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                                         er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                         det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
+                   det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac) * efficiency(er)
+    else:
+        return dot(2 / pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                         2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                                         er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                                         det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
+                   det.m * qvs * formfsquared(sqrt(2 * det.m * er), det.z + det.n), det.frac)
 
 
-def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), flavor='e',
+def rates_electron(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSIparameters(), flavor='e',
                    op=oscillation_parameters(), **kwargs):
     """
     calculating electron scattering rates per nucleus
@@ -120,6 +132,7 @@ def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), fl
     :param det: detector
     :param fx: flux
     :param f: oscillation function
+    :param efficiency: efficiency function
     :param flavor: flux flavor
     :param nsip: nsi parameters
     :param op: oscillation parameters
@@ -150,31 +163,39 @@ def rates_electron(er, det: Detector, fx: Flux, f=None, nsip=NSIparameters(), fl
         temp = epls
         epls = eprs
         eprs = temp
-    return dot(2 / pi * (gf ** 2) * me * det.z *
-               (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
-                eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
-                        2 * er * fx.fintinv(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
-                        (er ** 2) * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) -
-                eplr * me * er * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)), det.frac)
+    if efficiency is not None:
+        return dot(2 / pi * (gf ** 2) * me * det.z *
+                   (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                    eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                            2 * er * fx.fintinv(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                            (er ** 2) * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) -
+                    eplr * me * er * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)), det.frac) * efficiency(er)
+    else:
+        return dot(2 / pi * (gf ** 2) * me * det.z *
+                   (epls * fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                    eprs * (fx.fint(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
+                            2 * er * fx.fintinv(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
+                            (er ** 2) * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) -
+                    eplr * me * er * fx.fintinvs(er, me, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)), det.frac)
 
 
-def binned_events_nucleus(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e',
-                          op=oscillation_parameters(), **kwargs):
+def binned_events_nucleus(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, efficiency=None, f=None,
+                          flavor='e', op=oscillation_parameters(), **kwargs):
     """
     :return: number of nucleus recoil events in the bin [era, erb]
     """
     def rates(er):
-        return rates_nucleus(er, det, fx, f, nsip, flavor, op, **kwargs)
+        return rates_nucleus(er, det, fx, efficiency=efficiency, f=f, nsip=nsip, flavor=flavor, op=op, **kwargs)
     return quad(rates, era, erb)[0] * \
         expo * mev_per_kg * 24 * 60 * 60 / dot(det.m, det.frac)
 
 
-def binned_events_electron(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, f=None, flavor='e',
-                           op=oscillation_parameters(), **kwargs):
+def binned_events_electron(era, erb, expo, det: Detector, fx: Flux, nsip: NSIparameters, efficiency=None, f=None,
+                           flavor='e', op=oscillation_parameters(), **kwargs):
     """
     :return: number of electron recoil events in the bin [era, erb]
     """
     def rates(er):
-        return rates_electron(er, det, fx, f, nsip, flavor, op, **kwargs)
+        return rates_electron(er, det, fx, efficiency=efficiency, f=f, nsip=nsip, flavor=flavor, op=op, **kwargs)
     return quad(rates, era, erb)[0] * \
         expo * mev_per_kg * 24 * 60 * 60 / dot(det.m, det.frac)
