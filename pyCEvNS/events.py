@@ -56,28 +56,28 @@ def rates_nucleus(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSI
                                   2 * nsip.gu['ee'] / deno + nsip.gd['ee'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.gu['ee'] / deno + 2 * nsip.gd['ee'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
-                   0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
-                   0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2
+                  abs(0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
+                      0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
+                      0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2
         elif flavor[0] == 'm':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.gu['mm'] / deno + nsip.gd['mm'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.gu['mm'] / deno + 2 * nsip.gd['mm'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
-                   0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
-                   0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
+                  abs(0.5 * det.z * (2 * nsip.gu['em'] / deno + nsip.gd['em'] / deno) +
+                      0.5 * det.n * (nsip.gu['em'] / deno + 2 * nsip.gd['em'] / deno)) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
+                      0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
         elif flavor[0] == 't':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.gu['tt'] / deno + nsip.gd['tt'] / deno) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.gu['tt'] / deno + 2 * nsip.gd['tt'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
-                   0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
-                   0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
+                  abs(0.5 * det.z * (2 * nsip.gu['et'] / deno + nsip.gd['et'] / deno) +
+                      0.5 * det.n * (nsip.gu['et'] / deno + 2 * nsip.gd['et'] / deno)) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.gu['mt'] / deno + nsip.gd['mt'] / deno) +
+                      0.5 * det.n * (nsip.gu['mt'] / deno + 2 * nsip.gd['mt'] / deno)) ** 2
         else:
             raise Exception('No such neutrino flavor!')
     else:
@@ -86,28 +86,28 @@ def rates_nucleus(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSI
                                   2 * nsip.epu['ee'] + nsip.epd['ee']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.epu['ee'] + 2 * nsip.epd['ee'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
-                   0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
-                   0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2
+                  abs(0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
+                      0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
+                      0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2
         elif flavor[0] == 'm':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.epu['mm'] + nsip.epd['mm']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.epu['mm'] + 2 * nsip.epd['mm'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
-                   0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
-                   0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
+                  abs(0.5 * det.z * (2 * nsip.epu['em'] + nsip.epd['em']) +
+                      0.5 * det.n * (nsip.epu['em'] + 2 * nsip.epd['em'])) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
+                      0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
         elif flavor[0] == 't':
             qvs = (0.5 * det.z * (rho * (0.5 - 2 * knu * ssw) + 2 * lul + 2 * lur + ldl + ldr +
                                   2 * nsip.epu['tt'] + nsip.epd['tt']) +
                    0.5 * det.n * (-0.5 * rho + lul + lur + 2 * ldl + 2 * ldr +
                                   nsip.epu['tt'] + 2 * nsip.epd['tt'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
-                   0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2 + \
-                  (0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
-                   0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
+                  abs(0.5 * det.z * (2 * nsip.epu['et'] + nsip.epd['et']) +
+                      0.5 * det.n * (nsip.epu['et'] + 2 * nsip.epd['et'])) ** 2 + \
+                  abs(0.5 * det.z * (2 * nsip.epu['mt'] + nsip.epd['mt']) +
+                      0.5 * det.n * (nsip.epu['mt'] + 2 * nsip.epd['mt'])) ** 2
         else:
             raise Exception('No such neutrino flavor!')
     if efficiency is not None:
@@ -143,20 +143,20 @@ def rates_electron(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NS
         epls = (0.5 + ssw + nsip.gel['ee'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['ee'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
         eplr = (0.5 + ssw + nsip.gel['ee'] / deno) * (ssw + nsip.ger['ee'] / deno) + \
-               (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
-               (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
+            0.5 * (real(nsip.gel['em'] / deno) * real(nsip.ger['em'] / deno) + imag(nsip.gel['em'] / deno) * imag(nsip.ger['em'] / deno)) + \
+            0.5 * (real(nsip.gel['et'] / deno) * real(nsip.ger['et'] / deno) + imag(nsip.gel['et'] / deno) * imag(nsip.ger['et'] / deno))
     elif flavor[0] == 'm':
         epls = (-0.5 + ssw + nsip.gel['mm'] / deno) ** 2 + (nsip.gel['em'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2
         eprs = (ssw + nsip.ger['mm'] / deno) ** 2 + (nsip.ger['em'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2
         eplr = (-0.5 + ssw + nsip.gel['mm'] / deno) * (ssw + nsip.ger['mm'] / deno) + \
-               (nsip.gel['em'] / deno) * (nsip.ger['em'] / deno) + \
-               (nsip.gel['mt'] / deno) * (nsip.ger['mt'] / deno)
+            0.5 * (real(nsip.gel['em'] / deno) * real(nsip.ger['em'] / deno) + imag(nsip.gel['em'] / deno) * imag(nsip.ger['em'] / deno)) + \
+            0.5 * (real(nsip.gel['mt'] / deno) * real(nsip.ger['mt'] / deno) + imag(nsip.gel['mt'] / deno) * imag(nsip.ger['mt'] / deno))
     elif flavor[0] == 't':
         epls = (-0.5 + ssw + nsip.gel['tt'] / deno) ** 2 + (nsip.gel['mt'] / deno) ** 2 + (nsip.gel['et'] / deno) ** 2
         eprs = (ssw + nsip.ger['tt'] / deno) ** 2 + (nsip.ger['mt'] / deno) ** 2 + (nsip.ger['et'] / deno) ** 2
         eplr = (-0.5 + ssw + nsip.gel['tt'] / deno) * (ssw + nsip.ger['tt'] / deno) + \
-               (nsip.gel['mt'] / deno) * (nsip.ger['mt'] / deno) + \
-               (nsip.gel['et'] / deno) * (nsip.ger['et'] / deno)
+            0.5 * (real(nsip.gel['et'] / deno) * real(nsip.ger['et'] / deno) + imag(nsip.gel['et'] / deno) * imag(nsip.ger['et'] / deno)) + \
+            0.5 * (real(nsip.gel['mt'] / deno) * real(nsip.ger['mt'] / deno) + imag(nsip.gel['mt'] / deno) * imag(nsip.ger['mt'] / deno))
     else:
         raise Exception('No such neutrino flavor!')
     if flavor[-1] == 'r':
