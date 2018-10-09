@@ -68,20 +68,22 @@ class CrediblePlot:
         biny = linspace(miny + binyw/2, maxy - binyw/2, nbins)
         xv, yv = meshgrid(binx, biny)
         zv = zeros_like(xv)
+        # be careful that position in x direction is column, position in y direction is row!
         for i in range(self.ftxt.shape[0]):
             posx = int((self.ftxt[i, idx[0]+2] - minx) / binxw)
             posy = int((self.ftxt[i, idx[1]+2] - miny) / binyw)
             if posx < nbins and posy < nbins:
-                zv[posx, posy] += self.ftxt[i, 0]
-            elif posx < nbins:
-                zv[posx, posy-1] += self.ftxt[i, 0]
+                zv[posy, posx] += self.ftxt[i, 0]
             elif posy < nbins:
-                zv[posx-1, posy] += self.ftxt[i, 0]
+                zv[posy, posx-1] += self.ftxt[i, 0]
+            elif posx < nbins:
+                zv[posy-1, posx] += self.ftxt[i, 0]
             else:
-                zv[posx-1, posy-1] += self.ftxt[i, 0]
+                zv[posy-1, posx-1] += self.ftxt[i, 0]
         sorted_idx = unravel_index(argsort(zv, axis=None)[::-1], zv.shape)
         cl = sort(credible_level)[::-1]
         al = linspace(0.2, 0.3, cl.shape[0])
+        cll = 0
         for ic in range(cl.shape[0]):
             cz = zeros_like(zv)
             s = 0
@@ -89,7 +91,8 @@ class CrediblePlot:
                 s += zv[sorted_idx[0][i], sorted_idx[1][i]]
                 cz[sorted_idx[0][i], sorted_idx[1][i]] = zv[sorted_idx[0][i], sorted_idx[1][i]]
                 if s > cl[ic]:
+                    cll = zv[sorted_idx[0][i], sorted_idx[1][i]]
                     break
-            ax.contourf(xv, yv, cz, 1, colors=('white', 'blue'), alpha=al[ic])
+            ax.contourf(xv, yv, zv, (cll, 1), colors=('b', 'white'), alpha=al[ic])
         ax.axis('scaled')
         return fig, ax
