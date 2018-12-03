@@ -2,7 +2,7 @@
 CEvNS events
 """
 
-from scipy.special import spherical_jn, erf
+from scipy.special import spherical_jn
 
 from .detectors import *  # pylint: disable=W0401, W0614, W0622
 from .flux import *  # pylint: disable=W0401, W0614, W0622
@@ -23,7 +23,17 @@ def formfsquared(q, a):
 
 
 def eff_coherent(er):
-    return 0.331 * (1 + erf(0.248 * (er * 1e3 - 9.22)))
+    pe_per_mev = 0.0878 * 13.348 * 1000
+    pe = er * pe_per_mev
+    a = 0.6655
+    k = 0.4942
+    x0 = 10.8507
+    f = a / (1 + exp(-k * (pe - x0)))
+    if pe < 5:
+        return 0
+    if pe < 6:
+        return 0.5 * f
+    return f
 
 
 def rates_nucleus(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSIparameters(), flavor='e',
