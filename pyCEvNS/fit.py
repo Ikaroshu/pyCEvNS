@@ -27,7 +27,7 @@ def _gaussian(x, mu, sigma):
     :param sigma: standard deviation
     :return: probability density
     """
-    return exp((x-mu)**2/(2*sigma**2)) / sqrt(2*pi*sigma**2)
+    return exp(-(x-mu)**2/(2*sigma**2)) / sqrt(2*pi*sigma**2)
 
 
 def fit_without_background_uncertainty(events_generator, n_params, n_bg, n_obs, sigma, prior, out_put_dir,
@@ -58,8 +58,9 @@ def fit_without_background_uncertainty(events_generator, n_params, n_bg, n_obs, 
         likelihood = zeros(n_obs.shape[0])
         for i in range(n_obs.shape[0]):
             likelihood[i] = quad(lambda a: _poisson(n_obs[i], (1 + a) * n_signal[i] + n_bg[i]) * _gaussian(a, 0, sigma),
-                                 -5 * sigma, 5 * sigma)[0]
-        return log(sum(likelihood)) if likelihood > 0 else -inf
+                                 -3 * sigma, 3 * sigma)[0]
+        prod_like = prod(likelihood)
+        return log(prod_like) if prod_like > 0 else -inf
 
     def prr(cube, ndim, nparams):
         prior(cube)
@@ -103,12 +104,13 @@ def fit_with_background_uncertainty(events_generator, n_params, n_bg, n_obs, sig
                 for nbgi in n_bg_list:
                     likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbgi) *
                                           _gaussian(a, 0, sigma) * _poisson(n_bg[i], nbgi),
-                                          -5 * sigma, 5 * sigma)[0]
+                                          -3 * sigma, 3 * sigma)[0]
             else:
                 likelihood[i] = dblquad(lambda nbg, a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbg) *
                                         _gaussian(a, 0, sigma) * _gaussian(n_bg[i], nbg, sigma_bg),
-                                        -5*sigma, 5*sigma, lambda aa: n_bg[i]-5*sigma_bg, lambda aa: n_bg[i]+5*sigma_bg)[0]
-        return log(sum(likelihood)) if likelihood > 0 else -inf
+                                        -3*sigma, 3*sigma, lambda aa: n_bg[i]-3*sigma_bg, lambda aa: n_bg[i]+3*sigma_bg)[0]
+        prod_like = prod(likelihood)
+        return log(prod_like) if prod_like > 0 else -inf
 
     def prr(cube, ndim, nparams):
         prior(cube)
