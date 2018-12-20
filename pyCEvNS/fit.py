@@ -100,11 +100,10 @@ def fit_with_background_uncertainty(events_generator, n_params, n_bg, n_obs, sig
         likelihood = zeros(n_obs.shape[0])
         for i in range(n_obs.shape[0]):
             if sigma_bg == 0:
-                n_bg_list = arange(max(0, int(n_bg[i] - 2*sqrt(n_bg[i]))), n_bg[i] + 2*sqrt(n_bg[i]))
+                n_bg_list = arange(max(0, int(n_bg[i] - 2*sqrt(n_bg[i]))), max(10, int(n_bg[i] + 2*sqrt(n_bg[i]))))
                 for nbgi in n_bg_list:
                     likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbgi) *
-                                          _gaussian(a, 0, sigma) * _poisson(n_bg[i], nbgi),
-                                          -3 * sigma, 3 * sigma)[0]
+                                          _gaussian(a, 0, sigma), -3 * sigma, 3 * sigma)[0] * _poisson(n_bg[i], nbgi)
             else:
                 likelihood[i] = dblquad(lambda nbg, a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbg) *
                                         _gaussian(a, 0, sigma) * _gaussian(n_bg[i], nbg, sigma_bg),

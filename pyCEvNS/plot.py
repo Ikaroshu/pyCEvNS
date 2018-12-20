@@ -47,8 +47,8 @@ class CrediblePlot:
         cl = np.sort(credible_level)[::-1]
         # ax.bar(binx, biny, width=binw, alpha=0.1, color='b')
         sorted_idx = np.argsort(biny)[::-1]
-        al = np.linspace(0.2, 0.3, cl.shape[0])
-        for ic in range(cl.shape[0]):
+        al = np.linspace(0.2, 0.3, len(cl))
+        for ic in range(len(cl)):
             s = 0
             cxl = []
             cyl = []
@@ -64,13 +64,14 @@ class CrediblePlot:
         ax.set_aspect(abs((xright-xleft)/(ybottom-ytop)))
         return fig, ax
 
-    def credible_2d(self, idx: tuple, credible_level=(0.6827, 0.9545), nbins=80, ax=None):
+    def credible_2d(self, idx: tuple, credible_level=(0.6827, 0.9545), nbins=80, ax=None, center=(0, 0)):
         """
         plot the correlation between parameters
         :param idx: the index of the two parameters to be ploted
         :param credible_level: choose which credible levels to plot
         :param nbins: number of bins
         :param ax: axes to be plot on, if not none
+        :param center: mark center point
         :return: figure and axes object for further fine tuning the plot
         """
         if ax is not None:
@@ -101,9 +102,9 @@ class CrediblePlot:
                 zv[posy-1, posx-1] += self.ftxt[i, 0]
         sorted_idx = np.unravel_index(np.argsort(zv, axis=None)[::-1], zv.shape)
         cl = np.sort(credible_level)[::-1]
-        al = np.linspace(0.2, 0.3, cl.shape[0])
+        al = np.linspace(0.2, 0.3, len(cl))
         cll = 0
-        for ic in range(cl.shape[0]):
+        for ic in range(len(cl)):
             cz = np.zeros_like(zv)
             s = 0
             for i in range(sorted_idx[0].shape[0]):
@@ -114,7 +115,11 @@ class CrediblePlot:
                     break
             ax.contourf(xv, yv, zv, (cll, 1), colors=('b', 'white'), alpha=al[ic])
         ax.axis('scaled')
-        ax.plot(np.array([0]), np.array([0]), "*")
+        if center is not None:
+            ax.plot(np.array([center[0]]), np.array([center[1]]), "*")
+        xleft, xright = ax.get_xlim()
+        ybottom, ytop = ax.get_ylim()
+        ax.set_aspect(abs((xright - xleft) / (ybottom - ytop)))
         return fig, ax
 
     def credible_grid(self, idx: tuple, names=None, credible_level=(0.6827, 0.9545), nbins=80):
