@@ -29,20 +29,20 @@ class Experiment(Detector, Flux):
         self.nbins = nbins
         self.ctype = coherence_type
         if not bins:
-            self.bins = linspace(self.er_min, self.er_max, nbins+1)
+            self.bins = np.linspace(self.er_min, self.er_max, nbins+1)
         else:
             self.bins = bins
-        erl = linspace(self.bins[0], self.bins[self.bins.shape[0]-1], 100)
+        erl = np.linspace(self.bins[0], self.bins[self.bins.shape[0]-1], 100)
         if coherence_type == 'nucleus':
-            finte = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinve = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinvse = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintm = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinvm = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinvsm = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintt = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinvt = zeros(shape=(erl.shape[0], self.m.shape[0]))
-            fintinvst = zeros(shape=(erl.shape[0], self.m.shape[0]))
+            finte = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinve = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvse = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintm = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvm = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvsm = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintt = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvt = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
+            fintinvst = np.zeros(shape=(erl.shape[0], self.m.shape[0]))
             for i in range(erl.shape[0]):
                 finte[i] = self.fint(erl[i], self.m, flavor='e')
 
@@ -58,9 +58,9 @@ class Experiment(Detector, Flux):
         """
         if self.ctype == 'nucleus':
             return rates_nucleus(er, self, self, nsip, flavor, op, r) * \
-                   1 * mev_per_kg * 24 * 60 * 60 / dot(self.m, self.frac) * 1e-3
+                   1 * mev_per_kg * 24 * 60 * 60 / np.dot(self.m, self.frac) * 1e-3
         elif self.ctype == 'electron':
             return rates_electron(er, self, self, nsip, flavor, op, r) * \
-                   1 * mev_per_kg * 24 * 60 * 60 / dot(self.m, self.frac) * 1e-3
+                   1 * mev_per_kg * 24 * 60 * 60 / np.dot(self.m, self.frac) * 1e-3
         else:
             raise Exception('''Experiment can either be "nucleus" or "electron"!''')

@@ -4,8 +4,8 @@ detector related class and functions
 
 import json
 
+import numpy as np
 import pkg_resources
-from numpy import *
 
 
 class Detector:
@@ -27,10 +27,10 @@ class Detector:
         if det_type.lower() in det_file:
             det_info = det_file[det_type.lower()]
             self.iso = det_info['iso']
-            self.z = array(det_info['z'])
-            self.n = array(det_info['n'])
-            self.m = array(det_info['m'])
-            self.frac = array(det_info['frac'])
+            self.z = np.array(det_info['z'])
+            self.n = np.array(det_info['n'])
+            self.m = np.array(det_info['m'])
+            self.frac = np.array(det_info['frac'])
             self.er_min = det_info['er_min']
             self.er_max = det_info['er_max']
             self.bg = det_info['bg']
@@ -48,10 +48,10 @@ class Detector:
             if det_type.lower() in det_file:
                 det_info = det_file[det_type.lower()]
                 self.iso = det_info['iso']
-                self.z = array(det_info['z'])
-                self.n = array(det_info['n'])
-                self.m = array(det_info['m'])
-                self.frac = array(det_info['frac'])
+                self.z = np.array(det_info['z'])
+                self.n = np.array(det_info['n'])
+                self.m = np.array(det_info['m'])
+                self.frac = np.array(det_info['frac'])
                 self.er_min = det_info['er_min']
                 self.er_max = det_info['er_max']
                 self.bg = det_info['bg']
@@ -63,10 +63,10 @@ class Detector:
                     print('Please entering the following information')
                     self.iso = int(input('Number of isotope: '))
                     while True:
-                        self.z = array(list(map(int, input('Z for each isotope: ').split(' '))))
-                        self.n = array(list(map(int, input('N for each isotope: ').split(' '))))
-                        self.m = array(list(map(float, input('Mass for each isotop (in MeV): ').split(' '))))
-                        self.frac = array(list(map(float, input('Fraction of each isotope: ').split(' '))))
+                        self.z = np.array(list(map(int, input('Z for each isotope: ').split(' '))))
+                        self.n = np.array(list(map(int, input('N for each isotope: ').split(' '))))
+                        self.m = np.array(list(map(float, input('Mass for each isotop (in MeV): ').split(' '))))
+                        self.frac = np.array(list(map(float, input('Fraction of each isotope: ').split(' '))))
                         if self.iso == self.z.shape[0] == self.n.shape[0] == self.m.shape[0] == self.frac.shape[0]:
                             break
                         else:

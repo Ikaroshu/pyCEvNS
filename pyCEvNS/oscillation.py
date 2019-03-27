@@ -24,19 +24,19 @@ def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e
     dic = {'e': 0, 'mu': 1, 'tau': 2}
     fi = dic[nui]
     ff = dic[nuf]
-    o23 = matrix([[1, 0, 0],
-                  [0, cos(opt['t23']), sin(opt['t23'])],
-                  [0, -sin(opt['t23']), cos(opt['t23'])]])
-    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
-                  [0, 1, 0],
-                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
-    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
-                  [-sin(opt['t12']), cos(opt['t12']), 0],
-                  [0, 0, 1]])
-    umix = o23 * u13 * o12
-    m = diag(array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
-    v = sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
-    hvac = umix * m * umix.H
+    o23 = np.array([[1, 0, 0],
+                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
+                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
+    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, 1, 0],
+                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
+    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
+                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [0, 0, 1]])
+    umix = o23 @ u13 @ o12
+    m = np.diag(np.array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    v = np.sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
+    hvac = umix @ m @ umix.conj().H
 
     def sorteig(w, vec):
         """
@@ -51,45 +51,45 @@ def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e
             if w[maxindex] < w[j]:
                 maxindex = j
         midindex = 3 - minindex - maxindex
-        avec = array(vec)
-        return matrix([avec[:, minindex], avec[:, midindex], avec[:, maxindex]]).T
+        avec = np.array(vec)
+        return np.array([avec[:, minindex], avec[:, midindex], avec[:, maxindex]]).T
 
-    wr, vecr = linalg.eigh(hvac + v)
+    wr, vecr = np.linalg.eigh(hvac + v)
     utr = sorteig(wr, vecr)
-    ws, vecs = linalg.eigh(hvac)
+    ws, vecs = np.linalg.eigh(hvac)
     uts = sorteig(ws, vecs)
     res = 0
     for i in range(3):
-        res += conj(utr[0, i]) * utr[0, i] * conj(uts[ff, i]) * uts[ff, i]
-    return real(res)
+        res += np.conj(utr[0, i]) * utr[0, i] * np.conj(uts[ff, i]) * uts[ff, i]
+    return np.real(res)
 
 # using Caylay-Hamilton theorem to calculate survival probability, it has probems at transitsion probabilities
 #
 # def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
 #                          op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
-#     o23 = matrix([[1, 0, 0],
-#                   [0, cos(op['t23']), sin(op['t23'])],
-#                   [0, -sin(op['t23']), cos(op['t23'])]])
-#     u13 = matrix([[cos(op['t13']), 0, sin(op['t13']) * (e ** (- op['delta'] * 1j))],
+#     o23 = np.matrix([[1, 0, 0],
+#                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+#                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+#     u13 = np.matrix([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
 #                   [0, 1, 0],
-#                   [-sin(op['t13'] * (e ** (op['delta'] * 1j))), 0, cos(op['t13'])]])
-#     o12 = matrix([[cos(op['t12']), sin(op['t12']), 0],
-#                   [-sin(op['t12']), cos(op['t12']), 0],
+#                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+#     o12 = np.matrix([[np.cos(op['t12']), np.sin(op['t12']), 0],
+#                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
 #                   [0, 0, 1]])
 #     umix = o23 * u13 * o12
-#     m = diag(array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
-#     vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+#     m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+#     vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
 #     hf = umix * m * umix.H + vf
-#     w, v = linalg.eigh(hf)
+#     w, v = np.linalg.eigh(hf)
 #     # print(w)
 #     b = e**(-1j*w*lenth)
 #     # print(b)
-#     a = array([[1, 1, 1], -1j * lenth * w, -lenth**2 * w**2]).T
+#     a = np.array([[1, 1, 1], -1j * lenth * w, -lenth**2 * w**2]).T
 #     # print(a)
-#     x = linalg.solve(a, b)
-#     tmatrix = x[0] + -1j * lenth * x[1] * hf - lenth**2 * x[2] * hf.dot(hf)
-#     # print(tmatrix)
-#     return abs(tmatrix[nui, nuf])**2
+#     x = np.linalg.solve(a, b)
+#     tnp.matrix = x[0] + -1j * lenth * x[1] * hf - lenth**2 * x[2] * hf.dot(hf)
+#     # print(tnp.matrix)
+#     return abs(tnp.matrix[nui, nuf])**2
 
 
 def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
@@ -112,29 +112,29 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     opt = op.copy()
     if nuf[-1] == 'r':
         opt['delta'] = -opt['delta']
-    o23 = matrix([[1, 0, 0],
-                  [0, cos(opt['t23']), sin(opt['t23'])],
-                  [0, -sin(opt['t23']), cos(opt['t23'])]])
-    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
-                  [0, 1, 0],
-                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
-    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
-                  [-sin(opt['t12']), cos(opt['t12']), 0],
-                  [0, 0, 1]])
-    umix = o23 * u13 * o12
-    m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
-    vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    o23 = np.array([[1, 0, 0],
+                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
+                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
+    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, 1, 0],
+                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
+    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
+                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [0, 0, 1]])
+    umix = o23 @ u13 @ o12
+    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
     if nuf[-1] == 'r':
-        hf = umix * m * umix.H - conj(vf)
+        hf = umix @ m @ umix.conj().T - np.conj(vf)
     else:
-        hf = umix * m * umix.H + vf
-    w, v = linalg.eigh(hf)
+        hf = umix @ m @ umix.conj().T + vf
+    w, v = np.linalg.eigh(hf)
     res = 0.0
     for i in range(3):
         for j in range(3):
             theta = (w[i]-w[j]) * lenth
-            res += v[ff, i] * conj(v[fi, i]) * conj(v[ff, j]) * v[fi, j] * (cos(theta) - 1j * sin(theta))
-    return real(res)
+            res += v[ff, i] * np.conj(v[fi, i]) * np.conj(v[ff, j]) * v[fi, j] * (np.cos(theta) - 1j * np.sin(theta))
+    return np.real(res)
 
 
 def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
@@ -145,27 +145,27 @@ def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
     ff = dic[nuf]
     if nuf[-1] == 'r':
         opt['delta'] = -opt['delta']
-    o23 = matrix([[1, 0, 0],
-                  [0, cos(opt['t23']), sin(opt['t23'])],
-                  [0, -sin(opt['t23']), cos(opt['t23'])]])
-    u13 = matrix([[cos(opt['t13']), 0, sin(opt['t13']) * (e ** (- opt['delta'] * 1j))],
-                  [0, 1, 0],
-                  [-sin(opt['t13'] * (e ** (opt['delta'] * 1j))), 0, cos(opt['t13'])]])
-    o12 = matrix([[cos(opt['t12']), sin(opt['t12']), 0],
-                  [-sin(opt['t12']), cos(opt['t12']), 0],
-                  [0, 0, 1]])
-    umix = o23 * u13 * o12
-    m = diag(array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
-    vf = sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    o23 = np.array([[1, 0, 0],
+                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
+                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
+    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, 1, 0],
+                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
+    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
+                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [0, 0, 1]])
+    umix = o23 @ u13 @ o12
+    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
     if nuf[-1] == 'r':
-        hf = umix * m * umix.H - conj(vf)
+        hf = umix @ m @ umix.conj().T - np.conj(vf)
     else:
-        hf = umix * m * umix.H + vf
-    w, v = linalg.eigh(hf)
+        hf = umix @ m @ umix.conj().T + vf
+    w, v = np.linalg.eigh(hf)
     res = 0.0
     for i in range(3):
-        res += v[ff, i] * conj(v[fi, i]) * conj(v[ff, i]) * v[fi, i]
-    return real(res)
+        res += v[ff, i] * np.conj(v[fi, i]) * np.conj(v[ff, i]) * v[fi, i]
+    return np.real(res)
 
 
 def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e'):
@@ -186,15 +186,15 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
     n_mantle = 4656.61/1.672621898e-27/2*(meter_by_mev**3)
     r_core = 3480000 / meter_by_mev
     r_mantle = 6368000 / meter_by_mev
-    cos_th = -sqrt(r_mantle**2 - r_core**2) / r_core
+    cos_th = -np.sqrt(r_mantle**2 - r_core**2) / r_core
     if zenith >= 0:
         return 1 if nui == nuf else 0
     elif zenith >= cos_th:
         lenth = -r_mantle * zenith * 2
         return survival_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
     else:
-        vert = r_mantle * sqrt(1 - zenith**2)
-        l_core = 2 * sqrt(r_core**2 - vert**2)
+        vert = r_mantle * np.sqrt(1 - zenith**2)
+        l_core = 2 * np.sqrt(r_core**2 - vert**2)
         l_mantle_half = -r_mantle * zenith - l_core / 2
         res = 0
         if nuf[-1] == 'r':

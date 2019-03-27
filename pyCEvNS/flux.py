@@ -34,25 +34,25 @@ class Flux:
             self.flUn = 0.02
             fpers = 3.0921 * (10 ** 16)  # antineutrinos per fission
             nuperf = 6.14102
-            self.__nuflux1m = nuperf * fpers / (4 * pi) * (meter_by_mev ** 2)
+            self.__nuflux1m = nuperf * fpers / (4 * np.pi) * (meter_by_mev ** 2)
         elif self.fl_name in ['sns', 'prompt', 'delayed']:
             self.evMin = 0
             self.evMax = 52  # MeV
             self.flUn = 0.1
-            self.__norm = 1.05 * (10 ** 11) * (meter_by_mev ** 2)
+            self.__norm = 1.13 * (10 ** 11) * (meter_by_mev ** 2)
         elif self.fl_name in ['solar', 'b8', 'f17', 'n13', 'o15', 'pp', 'hep']:
-            f = genfromtxt(pkg_resources.resource_filename(__name__, 'data/' + self.fl_name + '.csv'), delimiter=',')
+            f = np.genfromtxt(pkg_resources.resource_filename(__name__, 'data/' + self.fl_name + '.csv'), delimiter=',')
             self.flUn = 0
             self.evMin = f[0, 0]
             self.evMax = f[-1, 0]
             self.__nue = LinearInterp(f[:, 0], f[:, 1] * ((100 * meter_by_mev) ** 2))
         else:
-            if isinstance(fl_name, ndarray):
+            if isinstance(fl_name, np.ndarray):
                 f = fl_name
             else:
-                f = genfromtxt(fl_name, delimiter=delimiter)
-            self.evMin = amin(f[:, 0])
-            self.evMax = amax(f[:, 0])
+                f = np.genfromtxt(fl_name, delimiter=delimiter)
+            self.evMin = np.amin(f[:, 0])
+            self.evMax = np.amax(f[:, 0])
             self.flUn = fl_unc
             self.__nue = LinearInterp(f[:, 0], f[:, 1] * ((100 * meter_by_mev) ** 2))
             self.__numu = LinearInterp(f[:, 0], f[:, 2] * ((100 * meter_by_mev) ** 2))
@@ -78,12 +78,12 @@ class Flux:
             # reactor neutrino is actually anti-neutrino, this may cause problem when doing electron scattering
             if flavor == 'ebar':
                 if f is not None:
-                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
+                    return np.exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
                            f(ev, nui='ebar', nuf=flavor, **kwargs)
-                return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
+                return np.exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * self.__nuflux1m
             elif flavor[-1] == 'r':
                 if f is not None:
-                    return exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
+                    return np.exp(0.87 - 0.16 * ev - 0.091 * (ev ** 2)) / 5.323608902707208 * \
                            f(ev, nui='ebar', nuf=flavor, **kwargs)
                 return 0
             else:
@@ -148,12 +148,12 @@ class Flux:
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
-        emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * m) + er)
 
         def fx(ev):
             return self.flux(ev, flavor, f, **kwargs)
 
-        if not isinstance(emin, ndarray):
+        if not isinstance(emin, np.ndarray):
             res = quad(fx, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
@@ -171,7 +171,7 @@ class Flux:
                 elif f is not None and flavor[-1] != 'r':
                     res += self.__norm * f(29, nui='mu', nuf=flavor, **kwargs) if emin <= 29 else 0
         else:
-            res = zeros_like(emin)
+            res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = quad(fx, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':
@@ -203,7 +203,7 @@ class Flux:
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
-        emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * m) + er)
 
         def finv(ev):
             """
@@ -211,7 +211,7 @@ class Flux:
             """
             return self.flux(ev, flavor, f, **kwargs) / ev
 
-        if not isinstance(emin, ndarray):
+        if not isinstance(emin, np.ndarray):
             res = quad(finv, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
@@ -229,7 +229,7 @@ class Flux:
                 elif f is not None and flavor[-1] != 'r':
                     res += self.__norm / 29 * f(29, nui='mu', nuf=flavor, **kwargs) if emin <= 29 else 0
         else:
-            res = zeros_like(emin)
+            res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = quad(finv, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':
@@ -262,7 +262,7 @@ class Flux:
         :param kwargs: parameters with keys that goes into function f
         :return: the result of integration, it can be an array
         """
-        emin = 0.5 * (sqrt(er ** 2 + 2 * er * m) + er)
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * m) + er)
 
         def finvs(ev):
             """
@@ -270,7 +270,7 @@ class Flux:
             """
             return self.flux(ev, flavor, f, **kwargs) / (ev ** 2)
 
-        if not isinstance(emin, ndarray):
+        if not isinstance(emin, np.ndarray):
             res = quad(finvs, emin, self.evMax)[0]
             if self.fl_name == 'solar':
                 if f is None:
@@ -288,7 +288,7 @@ class Flux:
                 elif f is not None and flavor[-1] != 'r':
                     res += self.__norm / 29**2 * f(29, nui='mu', nuf=flavor, **kwargs) if emin <= 29 else 0
         else:
-            res = zeros_like(emin)
+            res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = quad(finvs, emin[i], self.evMax)[0]
                 if self.fl_name == 'solar':

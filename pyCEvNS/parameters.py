@@ -3,11 +3,11 @@ parameter classes
 """
 
 
+import numpy as np
 import pkg_resources
-from numpy import *  # pylint: disable=W0401, W0614, W0622
 from scipy.interpolate import interp1d
 
-from .constants import *  # pylint: disable=W0401, W0614, W0622
+from .constants import *
 
 
 class NSIparameters:
@@ -39,10 +39,10 @@ class NSIparameters:
         """
         if self.mz != 0:
             for i in self.epe:
-                self.epe[i] = (self.gel[i]+self.ger[i]) / (2*sqrt(2)*gf*self.mz**2)
-        return matrix([[self.epe['ee'], self.epe['em'], self.epe['et']],
-                       [conj(self.epe['em']), self.epe['mm'], self.epe['mt']],
-                       [conj(self.epe['et']), conj(self.epe['mt']), self.epe['tt']]]) + diag(array([1, 0, 0]))
+                self.epe[i] = (self.gel[i]+self.ger[i]) / (2*np.sqrt(2)*gf*self.mz**2)
+        return np.array([[self.epe['ee'], self.epe['em'], self.epe['et']],
+                        [np.conj(self.epe['em']), self.epe['mm'], self.epe['mt']],
+                        [np.conj(self.epe['et']), np.conj(self.epe['mt']), self.epe['tt']]]) + np.diag(np.array([1, 0, 0]))
 
     def eu(self):
         """
@@ -50,10 +50,10 @@ class NSIparameters:
         """
         if self.mz != 0:
             for i in self.epu:
-                self.epu[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
-        return matrix([[self.epu['ee'], self.epu['em'], self.epu['et']],
-                       [conj(self.epu['em']), self.epu['mm'], self.epu['mt']],
-                       [conj(self.epu['et']), conj(self.epu['mt']), self.epu['tt']]])
+                self.epu[i] = self.gu[i] / (2*np.sqrt(2)*gf*self.mz**2)
+        return np.array([[self.epu['ee'], self.epu['em'], self.epu['et']],
+                        [np.conj(self.epu['em']), self.epu['mm'], self.epu['mt']],
+                        [np.conj(self.epu['et']), np.conj(self.epu['mt']), self.epu['tt']]])
 
     def ed(self):
         """
@@ -61,16 +61,16 @@ class NSIparameters:
         """
         if self.mz != 0:
             for i in self.epd:
-                self.epd[i] = self.gu[i] / (2*sqrt(2)*gf*self.mz**2)
-        return matrix([[self.epd['ee'], self.epd['em'], self.epd['et']],
-                       [conj(self.epd['em']), self.epd['mm'], self.epd['mt']],
-                       [conj(self.epd['et']), conj(self.epd['mt']), self.epd['tt']]])
+                self.epd[i] = self.gu[i] / (2*np.sqrt(2)*gf*self.mz**2)
+        return np.array([[self.epd['ee'], self.epd['em'], self.epd['et']],
+                        [np.conj(self.epd['em']), self.epd['mm'], self.epd['mt']],
+                        [np.conj(self.epd['et']), np.conj(self.epd['mt']), self.epd['tt']]])
 
 
 def oscillation_parameters(t12=0.5763617589722192,
                            t13=0.14819001778459273,
                            t23=0.7222302630963306,
-                           delta=1.35*pi,
+                           delta=1.35*np.pi,
                            d21=7.37e-17,
                            d31=2.5e-15+3.685e-17):
     r"""
@@ -95,7 +95,7 @@ class Density:
         initializing with SSM
         """
         fpath = pkg_resources.resource_filename(__name__, 'data/density_data.txt')
-        density = genfromtxt(fpath, delimiter='  ')
+        density = np.genfromtxt(fpath, delimiter='  ')
         rs = density[:, 1]
         rho = density[:, 3]
         npd = rho * (density[:, 6] / massofh + density[:, 7] / massof4he * 2 + density[:, 8] / massof3he * 2 +
