@@ -36,9 +36,6 @@ def fit(events_generator, n_params, n_obs, n_bg, sigma, prior, out_put_dir, bg_m
             n_signal = events_generator(cube)
             likelihood = np.zeros(n_obs.shape[0])
             for i in range(n_obs.shape[0]):
-                if n_bg[i] <= 0:
-                    likelihood[i] = 1
-                    continue
                 n_bg_list = np.arange(max(0, int(n_bg[i] - 2*np.sqrt(n_bg[i]))), max(10, int(n_bg[i] + 2*np.sqrt(n_bg[i]))))
                 for nbgi in n_bg_list:
                     likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbgi) *
