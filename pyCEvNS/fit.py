@@ -52,6 +52,9 @@ def fit(events_generator, n_params, n_obs, n_bg, sigma, prior, out_put_dir, bg_m
             for nbg in np.arange(int(nbg_total - 2*np.sqrt(nbg_total)), int(nbg_total + 2*np.sqrt(nbg_total))):
                 likelihood = np.zeros(n_obs.shape[0])
                 for i in range(n_obs.shape[0]):
+                    if n_bg[i] <= 0:
+                        likelihood[i] = 1
+                        continue
                     likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a)*n_signal[i] + n_bg[i]*nbg/nbg_total) *
                                           _gaussian(a, 0, sigma), -3 * sigma, 3 * sigma)[0]
                 prod_like += np.prod(likelihood) * _poisson(nbg_total, nbg)

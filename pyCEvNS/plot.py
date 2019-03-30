@@ -59,8 +59,7 @@ class CrediblePlot:
             by = signal.savgol_filter(biny, 21, 2)
             ax.plot(binx, by/binw, label=label)
         else:
-            if not countour:
-                ax.bar(binx, biny, label=label, width=binw, alpha=0.5)
+            ax.bar(binx, biny, label=label, width=binw, alpha=0.5)
         if give_max:
             print(binx[np.argmax(biny)])
         sorted_idx = np.argsort(biny)[::-1]
