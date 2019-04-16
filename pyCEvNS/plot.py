@@ -25,7 +25,7 @@ class CrediblePlot:
             raise Exception("Invalid file!")
 
     def credible_1d(self, idx: int, credible_level=(0.6827, 0.9545), nbins=80, ax=None,
-                    give_max=False, label='', smooth=False, countour=True):
+                    give_max=False, label='', smooth=False, countour=True, give_edge=False):
         """
         plot binned parameter v.s. its probability on the bin
         :param idx: which parameter should be plotted? index starts from 0
@@ -36,6 +36,7 @@ class CrediblePlot:
         :param label: label for the plot, string
         :param smooth: whether to show smoothed probability density plot, default Fase, if True, will turn countour to False
         :param countour: draw countour plot with confidence region
+        :param give_edge: print edge of the contour
         :return: figure and axes object for further fine tuning the plot
         """
         if ax is not None:
@@ -76,6 +77,8 @@ class CrediblePlot:
                     if s > cl[ic]:
                         break
                 ax.bar(cxl, cyl, width=binw, alpha=al[ic], color='b')
+                if give_edge:
+                    print(cl[ic], '-->', np.sort(cxl))
         xleft, xright = ax.get_xlim()
         ybottom, ytop = ax.get_ylim()
         ax.set_aspect(abs((xright-xleft)/(ybottom-ytop)))
