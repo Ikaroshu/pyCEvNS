@@ -184,8 +184,8 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
     """
     n_core = 11850.56/1.672621898e-27/2*(meter_by_mev**3)
     n_mantle = 4656.61/1.672621898e-27/2*(meter_by_mev**3)
-    r_core = 3480000 / meter_by_mev
-    r_mantle = 6368000 / meter_by_mev
+    r_core = 3480000
+    r_mantle = 6368000
     cos_th = -np.sqrt(r_mantle**2 - r_core**2) / r_mantle
     if zenith >= 0:
         return 1 if nui == nuf else 0
