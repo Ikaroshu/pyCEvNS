@@ -31,17 +31,17 @@ class EventGen(ABC):
         pass
 
 
-def formfsquared(q, a):
+def formfsquared(q, rn=5.5):
     """
     form factor squared
-    Engel, 1991
+    1810.05606
     :param q: momentum transfered
-    :param a: number of nucleons
+    :param rn: neutron skin radius
     :return: form factor squared
     """
-    r = 1.2 * (10 ** -15) * (a ** (1 / 3)) / meter_by_mev
-    s = 0.5 * (10 ** -15) / meter_by_mev
-    r0 = np.sqrt(r ** 2 - 5 * (s ** 2))
+    r = rn * (10 ** -15) / meter_by_mev
+    s = 0.9 * (10 ** -15) / meter_by_mev
+    r0 = np.sqrt(5 / 3 * (r ** 2) - 5 * (s ** 2))
     return (3 * spherical_jn(1, q * r0) / (q * r0) * np.exp((-(q * s) ** 2) / 2)) ** 2
 
 
@@ -153,13 +153,13 @@ def rates_nucleus(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSI
                                          2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
                                          er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
                                          det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
-                   det.m * qvs * ffs(np.sqrt(2 * det.m * er), det.z + det.n), det.frac) * efficiency(er)
+                   det.m * qvs * ffs(np.sqrt(2 * det.m * er), **kwargs), det.frac) * efficiency(er)
     else:
         return np.dot(2 / np.pi * (gf ** 2) * (2 * fx.fint(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
                                          2 * er * fx.fintinv(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) +
                                          er * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs) -
                                          det.m * er * fx.fintinvs(er, det.m, flavor=flavor, f=f, epsi=nsip, op=op, **kwargs)) *
-                   det.m * qvs * ffs(np.sqrt(2 * det.m * er), det.z + det.n), det.frac)
+                   det.m * qvs * ffs(np.sqrt(2 * det.m * er), **kwargs), det.frac)
 
 
 def rates_electron(er, det: Detector, fx: Flux, efficiency=None, f=None, nsip=NSIparameters(), flavor='e',
