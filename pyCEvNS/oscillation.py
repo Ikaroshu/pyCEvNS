@@ -36,7 +36,7 @@ def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e
     umix = o23 @ u13 @ o12
     m = np.diag(np.array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
     v = np.sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
-    hvac = umix @ m @ umix.conj().H
+    hvac = umix @ m @ umix.conj().T
 
     def sorteig(w, vec):
         """
