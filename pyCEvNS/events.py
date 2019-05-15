@@ -256,19 +256,21 @@ class NSIEventsGen(EventGen):
     def rates(self, er, flavor='e', **kwargs):
         if self.target == 'nucleus':
             return rates_nucleus(er, self.detector, self.flux, efficiency=self.efficiency, f=self.osci_func,
-                                 nsip=self.nsi_param, flavor=flavor, op=self.osci_param, ffs=self.formfactsq, q2=self.q2form)
+                                 nsip=self.nsi_param, flavor=flavor, op=self.osci_param, ffs=self.formfactsq, q2=self.q2form, **kwargs)
         elif self.target == 'electron':
             return rates_electron(er, self.detector, self.flux, efficiency=self.efficiency, f=self.osci_func,
-                                  nsip=self.nsi_param, flavor=flavor, op=self.osci_param)
+                                  nsip=self.nsi_param, flavor=flavor, op=self.osci_param, **kwargs)
         else:
             raise Exception('Target should be either nucleus or electron!')
 
     def events(self, ea, eb, flavor='e', **kwargs):
-        if self.target == 'nulceus':
+        if self.target == 'nucleus':
             return binned_events_nucleus(ea, eb, self.expo, self.detector, self.flux, nsip=self.nsi_param, flavor=flavor,
-                                         efficiency=self.efficiency, f=self.osci_func, op=self.osci_param, q2=self.q2form)
+                                         efficiency=self.efficiency, f=self.osci_func, op=self.osci_param, q2=self.q2form, **kwargs)
         elif self.target == 'electron':
             return binned_events_electron(ea, eb, self.expo, self.detector, self.flux, nsip=self.nsi_param,
-                                          flavor=flavor, op=self.osci_param, efficiency=self.efficiency)
+                                          flavor=flavor, op=self.osci_param, efficiency=self.efficiency, **kwargs)
         else:
             return Exception('Target should be either nucleus or electron!')
+
+

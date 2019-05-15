@@ -308,3 +308,64 @@ class Flux:
                         res[i] += self.__norm / 29**2 * f(29, nui='mu', nuf=flavor, **kwargs) \
                             if emin[i] <= 29 else 0
         return res
+
+
+class DMFlux:
+    def __init__(self, dark_photon_mass, dark_matter_mass, coupling):
+        self.ex = 65.0
+        self.dp_mass = dark_photon_mass
+        self.dm_mass = dark_matter_mass
+        self.epsi_dm = coupling[0]
+        self.epsi_quark = coupling[1]
+
+    def fint(self, er, m, **kwargs):
+        """
+        flux/(ex^2-mx^2) integration
+        :param er:
+        :param m:
+        :param kwargs:
+        :return:
+        """
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+        if not isinstance(emin, np.ndarray):
+            res = 1/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+        else:
+            res = np.zeros_like(emin)
+            for i in range(emin.shape[0]):
+                res[i] = 1/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
+        return res
+
+    def fint1(self, er, m, **kwargs):
+        """
+        flux*ex/(ex^2-mx^2) integration
+        :param er:
+        :param m:
+        :param kwargs:
+        :return:
+        """
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+        if not isinstance(emin, np.ndarray):
+            res = self.ex/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+        else:
+            res = np.zeros_like(emin)
+            for i in range(emin.shape[0]):
+                res[i] = self.ex/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
+        return res
+
+    def fint2(self, er, m, **kwargs):
+        """
+        flux*ex^2/(ex^2-mx^2) integration
+        :param er:
+        :param m:
+        :param kwargs:
+        :return:
+        """
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+        if not isinstance(emin, np.ndarray):
+            res = self.ex**2/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+        else:
+            res = np.zeros_like(emin)
+            for i in range(emin.shape[0]):
+                res[i] = self.ex**2/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
+        return res
+
