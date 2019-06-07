@@ -311,12 +311,60 @@ class Flux:
 
 
 class DMFlux:
-    def __init__(self, dark_photon_mass, dark_matter_mass, coupling):
-        self.ex = 65.0
+    """
+    Dark matter flux at COHERENT
+    """
+    def __init__(self, dark_photon_mass, life_time, coupling_quark, dark_matter_mass,
+                 detector_distance=19.3, pot_mu=0.75, pot_sigma=0.25, size=100000):
         self.dp_mass = dark_photon_mass
         self.dm_mass = dark_matter_mass
-        self.epsi_dm = coupling[0]
-        self.epsi_quark = coupling[1]
+        self.epsi_quark = coupling_quark
+        self.det_dist = detector_distance / meter_by_mev
+        self.dp_life = life_time * 1e-6 * c_light / meter_by_mev
+        self.mu = pot_mu * 1e-6 * c_light / meter_by_mev
+        self.sigma = pot_sigma * 1e-6 * c_light / meter_by_mev
+        self.timing, self.energy = self._generate(size)
+        self.dm_norm = self.epsi_quark**2*0.23*1e20 / (4*np.pi*(detector_distance**2)*24*3600) * (meter_by_mev**2) * \
+            self.timing.shape[0] * 2 / size
+
+    def _generate(self, size=1000000):
+        dp_m = self.dp_mass
+        dp_e = ((massofpi+massofp)**2 - massofn**2 + dp_m**2)/(2*(massofpi+massofp))
+        dp_p = np.sqrt(dp_e ** 2 - dp_m ** 2)
+        dp_v = dp_p / dp_e
+        gamma = dp_e / dp_m
+        tau = self.dp_life * gamma
+        tf = np.random.normal(self.mu, self.sigma, size)  # POT
+        t = np.random.exponential(tau, size)  # life time of each dark photon
+        cs = np.random.uniform(-1, 1, size)  # direction of each dark photon
+        # in rest frame
+        estar = dp_m / 2
+        pstar = np.sqrt(estar ** 2 - self.dm_mass ** 2)
+        pstarx = pstar * cs
+        pstary = pstar * np.sqrt(1 - cs ** 2)
+        # boost to lab frame
+        elab = gamma * (estar + dp_v * pstarx)
+        plabx = gamma * (pstarx + dp_v * estar)
+        plaby = pstary
+        vx = plabx / elab
+        vy = plaby / elab
+        timing = []
+        energy = []
+        for i in range(size):
+            a = vx[i] ** 2 + vy[i] ** 2
+            b = 2 * vx[i] * t[i] * dp_v
+            cc = dp_v ** 2 * t[i] ** 2 - self.det_dist ** 2
+            if b ** 2 - 4 * a * cc >= 0:
+                if (-b - np.sqrt(b ** 2 - 4 * a * cc)) / (2 * a) > 0:
+                    timing.append((-b - np.sqrt(b ** 2 - 4 * a * cc)) / (2 * a) + t[i] + tf[i])
+                    energy.append(elab[i])
+                if (-b + np.sqrt(b ** 2 - 4 * a * cc)) / (2 * a) > 0:
+                    timing.append((-b + np.sqrt(b ** 2 - 4 * a * cc)) / (2 * a) + t[i] + tf[i])
+                    energy.append(elab[i])
+        return np.array(timing) / c_light * meter_by_mev * 1e6, np.array(energy)
+
+    def flux(self, ev):
+        pass
 
     def fint(self, er, m, **kwargs):
         """
@@ -333,7 +381,7 @@ class DMFlux:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = 1/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res
+        return res*self.dm_norm
 
     def fint1(self, er, m, **kwargs):
         """
@@ -350,7 +398,7 @@ class DMFlux:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = self.ex/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res
+        return res*self.dm_norm
 
     def fint2(self, er, m, **kwargs):
         """
@@ -367,5 +415,5 @@ class DMFlux:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
                 res[i] = self.ex**2/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res
+        return res*self.dm_norm
 

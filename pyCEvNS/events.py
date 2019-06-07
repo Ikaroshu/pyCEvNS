@@ -31,7 +31,7 @@ class EventGen(ABC):
         pass
 
 
-def formfsquared(q, rn=5.5):
+def formfsquared(q, rn=5.5, **kwargs):
     """
     form factor squared
     1810.05606
@@ -274,3 +274,15 @@ class NSIEventsGen(EventGen):
             return Exception('Target should be either nucleus or electron!')
 
 
+def rates_dm(er, det: Detector, fx: DMFlux, **kwargs):
+    return np.dot(det.frac, e_charge**4 * fx.epsi_dm**2 * fx.epsi_quark**2 * det.z**2 *
+                  (2*det.m*fx.fint2(er, det.m) -
+                   (er+(det.m**2*er-fx.dm_mass**2*er)/(2*det.m))*2*det.m*fx.fint(er, det.m) +
+                   er**2*det.m*fx.fint(er, det.m)) / (4*np.pi*(2*det.m*er+fx.dp_mass**2)**2) *
+                  formfsquared(np.sqrt(2*er*det.m), **kwargs))
+
+
+def binned_events_dm(era, erb, expo, det: Detector, fx: DMFlux, **kwargs):
+    def rates(er):
+        return rates_dm(er, det, fx, **kwargs)
+    return quad(rates, era, erb)[0] * expo * mev_per_kg * 24 * 60 * 60 / np.dot(det.m, det.frac)
