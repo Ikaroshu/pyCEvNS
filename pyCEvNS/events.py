@@ -2,33 +2,10 @@
 CEvNS events
 """
 
-from abc import ABC, abstractmethod
-
 from scipy.special import spherical_jn
 
 from .detectors import *
 from .flux import *
-
-
-class EventGen(ABC):
-    """
-    abstract class for events generator,
-    the inherited class must implement rates and events function
-    """
-    @abstractmethod
-    def rates(self, er, **kwargs):
-        """
-        :param er: recoil energy in MeV
-        :return: dN/dE_r
-        """
-        pass
-
-    @abstractmethod
-    def events(self, ea, eb, **kwargs):
-        """
-        :return: number of events in [ea, eb]
-        """
-        pass
 
 
 def formfsquared(q, rn=5.5, **kwargs):
@@ -239,7 +216,7 @@ def binned_events_electron(era, erb, expo, det: Detector, fx: Flux, nsip: NSIpar
         expo * mev_per_kg * 24 * 60 * 60 / np.dot(det.m, det.frac)
 
 
-class NSIEventsGen(EventGen):
+class NSIEventsGen:
     def __init__(self, flux: Flux, detector: Detector, expo: float, target='nucleus', nsi_param=NSIparameters(),
                  osci_param=oscillation_parameters(), osci_func=None, formfactsq=formfsquared, q2form=False, efficiency=None):
         self.flux = flux
@@ -274,15 +251,111 @@ class NSIEventsGen(EventGen):
             return Exception('Target should be either nucleus or electron!')
 
 
-def rates_dm(er, det: Detector, fx: DMFlux, **kwargs):
-    return np.dot(det.frac, e_charge**4 * fx.epsi_dm**2 * fx.epsi_quark**2 * det.z**2 *
+def rates_dm(er, det: Detector, fx: DMFlux, mediator_mass=None, epsilon=None, efficiency=None,  **kwargs):
+    """
+    calculating dark matter scattering rates per nucleus
+    :param er: recoil energy in MeV
+    :param det: detector
+    :param fx: dark matter flux
+    :param mediator_mass: mediator mass in MeV
+    :param epsilon: mediator to quark coupling multiply by mediator to dark matter coupling
+    :param efficiency: efficiency function
+    :return: dark matter scattering rates per nucleus
+    """
+    if mediator_mass is None:
+        mediator_mass = fx.dp_mass
+    if epsilon is None:
+        epsilon = fx.epsi_quark
+    if efficiency is not None:
+        return np.dot(det.frac, e_charge**4 * epsilon**2 * det.z**2 *
                   (2*det.m*fx.fint2(er, det.m) -
                    (er+(det.m**2*er-fx.dm_mass**2*er)/(2*det.m))*2*det.m*fx.fint(er, det.m) +
-                   er**2*det.m*fx.fint(er, det.m)) / (4*np.pi*(2*det.m*er+fx.dp_mass**2)**2) *
-                  formfsquared(np.sqrt(2*er*det.m), **kwargs))
+                   er**2*det.m*fx.fint(er, det.m)) / (4*np.pi*(2*det.m*er+mediator_mass**2)**2) *
+                  formfsquared(np.sqrt(2*er*det.m), **kwargs)) * efficiency(er)
+    else:
+        return np.dot(det.frac, e_charge ** 4 * epsilon ** 2 * det.z ** 2 *
+                      (2 * det.m * fx.fint2(er, det.m) -
+                       (er + (det.m ** 2 * er - fx.dm_mass ** 2 * er) / (2 * det.m)) * 2 * det.m * fx.fint(er, det.m) +
+                       er**2 * det.m * fx.fint(er, det.m)) / (4 * np.pi * (2 * det.m * er + mediator_mass**2)**2) *
+                      formfsquared(np.sqrt(2 * er * det.m), **kwargs))
 
 
-def binned_events_dm(era, erb, expo, det: Detector, fx: DMFlux, **kwargs):
+def binned_events_dm(era, erb, expo, det: Detector, fx: DMFlux, mediator_mass=None, epsilon=None, efficiency=None, **kwargs):
+    """
+    :return: number of nucleus recoil events in the bin [era, erb]
+    """
     def rates(er):
-        return rates_dm(er, det, fx, **kwargs)
+        return rates_dm(er, det, fx, mediator_mass, epsilon, efficiency, **kwargs)
     return quad(rates, era, erb)[0] * expo * mev_per_kg * 24 * 60 * 60 / np.dot(det.m, det.frac)
+
+
+class DmEventsGen:
+    """
+    Dark matter events generator for COHERENT
+    """
+    def __init__(self, dark_photon_mass, life_time, dark_matter_mass, detector_type='csi',
+                 detector_distance=19.3, pot_mu=0.75, pot_sigma=0.25, size=100000):
+        self.dp_mass = dark_photon_mass
+        self.tau = life_time
+        self.dm_mass = dark_matter_mass
+        self.det_dist = detector_distance
+        self.mu = pot_mu
+        self.sigma = pot_sigma
+        self.size = size
+        self.det = Detector(detector_type)
+        self.fx = None
+        self.generate_flux()
+
+    def generate_flux(self):
+        self.fx = DMFlux(self.dp_mass, self.tau, 1, self.dm_mass, self.det_dist, self.mu, self.sigma, self.size)
+
+    def set_dark_photon_mass(self, dark_photon_mass):
+        self.dp_mass = dark_photon_mass
+        self.generate_flux()
+
+    def set_life_time(self, life_time):
+        self.tau = life_time
+        self.generate_flux()
+
+    def set_dark_matter_mass(self, dark_matter_mass):
+        self.dm_mass = dark_matter_mass
+        self.generate_flux()
+
+    def set_detector_distance(self, detector_distance):
+        self.det_dist = detector_distance
+        self.generate_flux()
+
+    def set_pot_mu(self, pot_mu):
+        self.mu = pot_mu
+        self.generate_flux()
+
+    def set_pot_sigma(self, pot_sigma):
+        self.sigma = pot_sigma
+        self.generate_flux()
+
+    def set_size(self, size):
+        self.size = size
+        self.generate_flux()
+
+    def events(self, mediator_mass, epsilon, n_meas):
+        """
+        generate events according to the time and energy in measured data
+        :param mediator_mass: mediator mass
+        :param epsilon: mediator coupling to quark multiply by mediator coupling to dark matter
+        :param n_meas: measured data
+        :return: predicted number of event according to the time and energy in the measured data
+        """
+        pe_per_mev = 0.0878 * 13.348 * 1000
+        n_dm = np.zeros(n_meas.shape[0])
+        tmin = n_meas[:, 1].min()
+        plist = np.zeros(int((n_meas[:, 1].max()-tmin)/0.5)+1)
+        for tt in self.fx.timing:
+            if int((tt-tmin+0.25)/0.5) < plist.shape[0]:
+                plist[int((tt-tmin+0.25)/0.5)] += 1
+        plist /= self.fx.timing.shape[0]
+        for i in range(n_meas.shape[0]):
+            pe = n_meas[i, 0]
+            t = n_meas[i, 1]
+            n_dm[i] = binned_events_dm((pe - 1)/pe_per_mev, (pe + 1)/pe_per_mev, 4466,
+                                       self.det, self.fx, mediator_mass, epsilon, eff_coherent, rn=5.5) * plist[int((t-tmin)/0.5)]
+        return n_dm

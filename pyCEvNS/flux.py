@@ -154,7 +154,7 @@ class Flux:
             return self.flux(ev, flavor, f, **kwargs)
 
         if not isinstance(emin, np.ndarray):
-            res = quad(fx, emin, self.evMax)[0]
+            res = quad(fx, emin, self.evMax)[0]  # no need to check range, because outside evMin and evMax are 0
             if self.fl_name == 'solar':
                 if f is None:
                     f = survival_solar
@@ -316,6 +316,17 @@ class DMFlux:
     """
     def __init__(self, dark_photon_mass, life_time, coupling_quark, dark_matter_mass,
                  detector_distance=19.3, pot_mu=0.75, pot_sigma=0.25, size=100000):
+        """
+        initialize and generate flux
+        :param dark_photon_mass: dark photon mass
+        :param life_time: life time of dark photon in rest frame, unit in micro second
+        :param coupling_quark: dark photon coupling to quarks
+        :param dark_matter_mass: mass of dark matter, unit in MeV
+        :param detector_distance: distance from the detector to the Hg target
+        :param pot_mu: mean of guassian distribution of proton on target, unit in micro second
+        :param pot_sigma: std of guassian distribution of proton on target, unit in micro second
+        :param size: size of sampling dark photons
+        """
         self.dp_mass = dark_photon_mass
         self.dm_mass = dark_matter_mass
         self.epsi_quark = coupling_quark
@@ -324,10 +335,17 @@ class DMFlux:
         self.mu = pot_mu * 1e-6 * c_light / meter_by_mev
         self.sigma = pot_sigma * 1e-6 * c_light / meter_by_mev
         self.timing, self.energy = self._generate(size)
+        self.ed_min = self.energy.min()
+        self.ed_max = self.energy.max()
         self.dm_norm = self.epsi_quark**2*0.23*1e20 / (4*np.pi*(detector_distance**2)*24*3600) * (meter_by_mev**2) * \
             self.timing.shape[0] * 2 / size
 
     def _generate(self, size=1000000):
+        """
+        generate dark matter flux at COHERENT
+        :param size: size of sampling dark photons
+        :return: time and energy histogram of dark matter
+        """
         dp_m = self.dp_mass
         dp_e = ((massofpi+massofp)**2 - massofn**2 + dp_m**2)/(2*(massofpi+massofp))
         dp_p = np.sqrt(dp_e ** 2 - dp_m ** 2)
@@ -364,56 +382,73 @@ class DMFlux:
         return np.array(timing) / c_light * meter_by_mev * 1e6, np.array(energy)
 
     def flux(self, ev):
-        pass
+        """
+        dark matter flux
+        :param ev: dark matter energy
+        :return: dark matter flux
+        """
+        return 1/(self.ed_max-self.ed_min)*self.dm_norm if self.ed_min <= ev <= self.ed_max else 0
 
     def fint(self, er, m, **kwargs):
         """
         flux/(ex^2-mx^2) integration
-        :param er:
-        :param m:
-        :param kwargs:
-        :return:
+        :param er: recoil energy in MeV
+        :param m: target nucleus mass in MeV
+        :param kwargs: other argument
+        :return: flux/(ex^2-mx^2) integration
         """
         emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+
+        def integrand(ex):
+            return self.flux(ex)/(ex**2 - self.dm_mass**2)
+
         if not isinstance(emin, np.ndarray):
-            res = 1/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+            res = quad(integrand, emin, self.ed_max)[0]
         else:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
-                res[i] = 1/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res*self.dm_norm
+                res[i] = quad(integrand, emin[i], self.ed_max)[0]
+        return res
 
     def fint1(self, er, m, **kwargs):
         """
         flux*ex/(ex^2-mx^2) integration
-        :param er:
-        :param m:
-        :param kwargs:
-        :return:
+        :param er: recoil energy in MeV
+        :param m: target nucleus mass in MeV
+        :param kwargs: other argument
+        :return: flux*ex/(ex^2-mx^2) integration
         """
         emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+
+        def integrand(ex):
+            return self.flux(ex) * ex / (ex ** 2 - self.dm_mass ** 2)
+
         if not isinstance(emin, np.ndarray):
-            res = self.ex/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+            res = quad(integrand, emin, self.ed_max)[0]
         else:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
-                res[i] = self.ex/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res*self.dm_norm
+                res[i] = quad(integrand, emin[i], self.ed_max)[0]
+        return res
 
     def fint2(self, er, m, **kwargs):
         """
         flux*ex^2/(ex^2-mx^2) integration
-        :param er:
-        :param m:
-        :param kwargs:
-        :return:
+        :param er: recoil energy in MeV
+        :param m: target nucleus mass in MeV
+        :param kwargs: other argument
+        :return: flux*ex^2/(ex^2-mx^2) integration
         """
         emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_mass**2+4*m*self.dm_mass**2)/m) + er)
+
+        def integrand(ex):
+            return self.flux(ex) * ex**2 / (ex ** 2 - self.dm_mass ** 2)
+
         if not isinstance(emin, np.ndarray):
-            res = self.ex**2/(self.ex**2-self.dm_mass**2) if emin < self.ex else 0
+            res = quad(integrand, emin, self.ed_max)[0]
         else:
             res = np.zeros_like(emin)
             for i in range(emin.shape[0]):
-                res[i] = self.ex**2/(self.ex**2-self.dm_mass**2) if emin[i] < self.ex else 0
-        return res*self.dm_norm
+                res[i] = quad(integrand, emin[i], self.ed_max)[0]
+        return res
 
