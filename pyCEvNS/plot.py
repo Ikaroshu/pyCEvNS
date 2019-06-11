@@ -85,7 +85,7 @@ class CrediblePlot:
         return fig, ax
 
     def credible_2d(self, idx: tuple, credible_level=(0.6827, 0.9545), nbins=80, ax=None,
-                    center=None, heat=False, xlim=None, ylim=None):
+                    center=None, heat=False, xlim=None, ylim=None, mark_best=False):
         """
         plot the correlation between parameters
         :param idx: the index of the two parameters to be ploted
@@ -125,6 +125,9 @@ class CrediblePlot:
             else:
                 zv[posy-1, posx-1] += self.ftxt[i, 0]
         sorted_idx = np.unravel_index(np.argsort(zv, axis=None)[::-1], zv.shape)
+        if mark_best:
+            print(xv[sorted_idx[0][0], sorted_idx[1][0]], yv[sorted_idx[0][0], sorted_idx[1][0]])
+            ax.plot([xv[sorted_idx[0][0], sorted_idx[1][0]]], [yv[sorted_idx[0][0], sorted_idx[1][0]]], '*')
         if heat:
             im = ax.pcolormesh(xv, yv, zv/(binxw*binyw), cmap='rainbow', edgecolors='face')
             if xlim is not None:
