@@ -137,6 +137,51 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     return np.real(res)
 
 
+def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
+                   ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
+    """
+    survival/transitional amplitude with constant matter density
+    :param ev: nuetrino energy in MeV
+    :param lenth: oscillation lenth in meters
+    :param epsi: epsilons
+    :param nui: initail flavor
+    :param nuf: final flavor
+    :param op: oscillation parameters
+    :param ne: electron number density in MeV^3
+    :return: survival/transitional probability
+    """
+    dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
+    fi = dic[nui]
+    ff = dic[nuf]
+    lenth = lenth / meter_by_mev
+    opt = op.copy()
+    if nuf[-1] == 'r':
+        opt['delta'] = -opt['delta']
+    o23 = np.array([[1, 0, 0],
+                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
+                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
+    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, 1, 0],
+                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
+    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
+                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [0, 0, 1]])
+    umix = o23 @ u13 @ o12
+    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    if nuf[-1] == 'r':
+        hf = umix @ m @ umix.conj().T - np.conj(vf)
+    else:
+        hf = umix @ m @ umix.conj().T + vf
+    w, v = np.linalg.eigh(hf)
+    res = 0.0
+    for i in range(3):
+        # for j in range(3):
+        theta = (w[i]) * lenth
+        res += v[ff, i] * np.conj(v[fi, i]) * (np.cos(theta) - 1j * np.sin(theta))
+    return res
+
+
 def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
                      ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     opt = op.copy()
@@ -203,7 +248,7 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
             f_list = ['e', 'mu', 'tau']
         for i in f_list:
             for j in f_list:
-                res += survival_const(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle) * \
-                       survival_const(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core) * \
-                       survival_const(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle)
-        return res
+                res += survival_const_amp(ev, l_mantle_half, epsi=epsi, nui=nui, nuf=i, op=op, ne=n_mantle) * \
+                       survival_const_amp(ev, l_core, epsi=epsi, nui=i, nuf=j, ne=n_core) * \
+                       survival_const_amp(ev, l_mantle_half, epsi=epsi, nui=j, nuf=nuf, ne=n_mantle)
+        return np.real(res * np.conj(res))

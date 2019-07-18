@@ -85,7 +85,7 @@ class CrediblePlot:
         return fig, ax
 
     def credible_2d(self, idx: tuple, credible_level=(0.6827, 0.9545), nbins=80, ax=None,
-                    center=None, heat=False, xlim=None, ylim=None, mark_best=False):
+                    center=None, heat=False, xlim=None, ylim=None, mark_best=False, color='b'):
         """
         plot the correlation between parameters
         :param idx: the index of the two parameters to be ploted
@@ -150,7 +150,7 @@ class CrediblePlot:
                     if s > cl[ic]:
                         cll = zv[sorted_idx[0][i], sorted_idx[1][i]]
                         break
-                ax.contourf(xv, yv, zv, (cll, 1), colors=('b', 'white'), alpha=al[ic])
+                ax.contourf(xv, yv, zv, (cll, 1), colors=(color, 'white'), alpha=al[ic])
             ax.axis('scaled')
         if center is not None:
             ax.plot(np.array([center[0]]), np.array([center[1]]), "*")
