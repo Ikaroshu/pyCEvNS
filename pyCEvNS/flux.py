@@ -2,8 +2,11 @@
 flux related class and functions
 """
 
-from .helper import *
-from .oscillation import *
+from scipy.integrate import quad
+
+from .helper import LinearInterp
+from .oscillation import survival_solar
+from .parameters import *
 
 
 class Flux:
@@ -450,12 +453,12 @@ class DMFlux:
         return res
 
 
-class NetrinoFlux:
+class NeutrinoFlux:
     def __init__(self, continuous_fluxes=None, delta_fluxes=None, norm=1):
-        self.norm = norm
+        self.norm = norm * ((100 * meter_by_mev) ** 2)
         if continuous_fluxes is None:
             self.nu = None
-        elif isinstance(continuous_fluxes, np.ndarray):
+        elif isinstance(continuous_fluxes, dict):
             self.ev = continuous_fluxes['ev']
             sorted_idx = np.argsort(self.ev)
             self.ev = self.ev[sorted_idx]
@@ -464,16 +467,16 @@ class NetrinoFlux:
             if self.ev_min == 0:
                 raise Exception('flux with neutrino energy equal to zeros is not supported. '
                                 'please consider using a small value for your lower bound.')
-            self.nu = {'e': continuous_fluxes['e'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'e' in continuous_fluxes else None,
-                       'mu': continuous_fluxes['mu'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'mu' in continuous_fluxes else None,
-                       'tau': continuous_fluxes['tau'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'tau' in continuous_fluxes else None,
-                       'ebar': continuous_fluxes['ebar'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'ebar' in continuous_fluxes else None,
-                       'mubar': continuous_fluxes['mubar'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'mubar' in continuous_fluxes else None,
-                       'taubar': continuous_fluxes['taubar'][sorted_idx] * ((100 * meter_by_mev) ** 2) if 'taubar' in continuous_fluxes else None}
+            self.nu = {'e': continuous_fluxes['e'][sorted_idx] if 'e' in continuous_fluxes else None,
+                       'mu': continuous_fluxes['mu'][sorted_idx] if 'mu' in continuous_fluxes else None,
+                       'tau': continuous_fluxes['tau'][sorted_idx] if 'tau' in continuous_fluxes else None,
+                       'ebar': continuous_fluxes['ebar'][sorted_idx] if 'ebar' in continuous_fluxes else None,
+                       'mubar': continuous_fluxes['mubar'][sorted_idx] if 'mubar' in continuous_fluxes else None,
+                       'taubar': continuous_fluxes['taubar'][sorted_idx] if 'taubar' in continuous_fluxes else None}
             self.binw = self.ev[1:] - self.ev[:-1]
             self.precalc = {None: {flr: self.binw*(flx[1:]+flx[:-1])/2 if flx is not None else None for flr, flx in self.nu.items()}}
         else:
-            raise Exception('only support ndarray as input.')
+            raise Exception('only support dict as input.')
         if delta_fluxes is None:
             self.delta_nu = None
         elif isinstance(delta_fluxes, dict):
@@ -503,14 +506,21 @@ class NetrinoFlux:
         return 0
 
     def integrate(self, ea, eb, flavor, weight_function=None):
+        """
+        Please avoid using lambda as your weight_function!!!
+        :param ea:
+        :param eb:
+        :param flavor:
+        :param weight_function:
+        :return:
+        """
         if eb <= ea:
             return 0
         res = 0
         if self.delta_nu is not None and self.delta_nu[flavor] is not None:
             for deltas in self.delta_nu[flavor]:
                 if ea < deltas[0] < eb:
-                    res += deltas[1] * (100 * meter_by_mev) ** 2 if weight_function is None \
-                        else deltas[1]*weight_function(deltas[0]) * (100 * meter_by_mev) ** 2
+                    res += deltas[1] if weight_function is None else deltas[1]*weight_function(deltas[0])
         if self.nu is not None and self.nu[flavor] is not None:
             if weight_function not in self.precalc:
                 weight = weight_function(self.ev)
@@ -626,7 +636,7 @@ class DMFluxFromPiMinusObsorption:
 
     def integrate(self, ea, eb, weight_function=None):
         """
-        adaptive quadrature can achieve almost linear time on simple weight function, no need to do precalculatio
+        adaptive quadrature can achieve almost linear time on simple weight function, no need to do precalculation
         :param ea: lowerbound
         :param eb: upperbound
         :param weight_function: weight function
@@ -660,37 +670,37 @@ class NeutrinoFluxFactory:
         self.flux_list = ['solar', 'solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp', 'solar_pep', 'solar_be7',
                           'coherent', 'coherent_prompt', 'coherent_delayed']
 
-    def print_available_fluxes(self):
+    def print_available(self):
         print(self.flux_list)
 
-    def get_flux(self, flux_name, **kwargs):
+    def get(self, flux_name, **kwargs):
         if flux_name not in self.flux_list:
             print('flux name not in current list: ', self.flux_list)
             raise Exception('flux not found.')
         if flux_name in ['solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp']:
             f = np.genfromtxt(pkg_resources.resource_filename(__name__, 'data/' + flux_name[6:] + '.csv'), delimiter=',')
-            return NetrinoFlux(continuous_fluxes={'ev': f[:,0], 'e': f[:, 1]})
+            return NeutrinoFlux(continuous_fluxes={'ev': f[:, 0], 'e': f[:, 1]})
         if flux_name == 'solar':
-            f = np.genfromtxt(pkg_resources.resource_filename(__name__, 'data/' + flux_name[6:] + '.csv'), delimiter=',')
-            return NetrinoFlux(continuous_fluxes={'ev': f[:,0], 'e': f[:, 1]}, delta_fluxes={'e': [(1.439, 1.44e8), (0.8613, 5e9)]})
+            f = np.genfromtxt(pkg_resources.resource_filename(__name__, 'data/' + flux_name + '.csv'), delimiter=',')
+            return NeutrinoFlux(continuous_fluxes={'ev': f[:, 0], 'e': f[:, 1]}, delta_fluxes={'e': [(1.439, 1.44e8), (0.8613, 5e9)]})
         if flux_name == 'pep':
-            return NetrinoFlux(delta_fluxes={'e': [(1.439, 1.44e8), ]})
+            return NeutrinoFlux(delta_fluxes={'e': [(1.439, 1.44e8), ]})
         if flux_name == 'be7':
-            return NetrinoFlux(delta_fluxes={'e': [(0.8613, 5e9), ]})
+            return NeutrinoFlux(delta_fluxes={'e': [(0.8613, 5e9), ]})
         if flux_name == 'coherent':
             def de(evv):
                 return (3 * ((evv / (2 / 3 * 52)) ** 2) - 2 * ((evv / (2 / 3 * 52)) ** 3)) / 29.25
             def dmubar(evv):
                 return (3 * ((evv / 52) ** 2) - 2 * ((evv / 52) ** 3)) / 26
             ev = np.linspace(0.001, 52, 100)
-            return NetrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)},
-                               delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))
+            return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)},
+                                delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))
         if flux_name == 'coherent_delayed':
             def de(evv):
                 return (3 * ((evv / (2 / 3 * 52)) ** 2) - 2 * ((evv / (2 / 3 * 52)) ** 3)) / 29.25
             def dmubar(evv):
                 return (3 * ((evv / 52) ** 2) - 2 * ((evv / 52) ** 3)) / 26
             ev = np.linspace(0.001, 52, kwargs['npoints'] if 'npoints' in kwargs else 100)
-            return NetrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
+            return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
         if flux_name == 'coherent_prompt':
-            return NetrinoFlux(delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))
+            return NeutrinoFlux(delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))

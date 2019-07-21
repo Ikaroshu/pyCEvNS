@@ -113,6 +113,23 @@ class OSCparameters:
         self.d21 = d21
         self.d31 = d31
 
+    def __getitem__(self, item):
+        if item == 't12':
+            return self.t12
+        if item == 't13':
+            return self.t13
+        if item == 't23':
+            return self.t23
+        if item == 'delta':
+            return self.delta
+        if item == 'd21':
+            return self.d21
+        if item == 'd31':
+            return self.d31
+
+    def copy(self):
+        return OSCparameters(self.t12, self.t13, self.t23, self.delta, self.d21, self.d31)
+
 
 class Density:
     """
