@@ -9,12 +9,13 @@ from .flux import *
 from .helper import _poisson
 
 
-def formfsquared(q, rn=5.5):
+def formfsquared(q, rn=5.5, **kwargs):
     """
     form factor squared
     1810.05606
     :param q: momentum transfered
     :param rn: neutron skin radius
+    :param kwargs: this is for legacy compatibility
     :return: form factor squared
     """
     r = rn * (10 ** -15) / meter_by_mev

@@ -20,6 +20,7 @@ def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e
     :param op: oscillation parameters
     :return: survival/transitional probability
     """
+    op = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2}
     fi = dic[nui]
     ff = dic[nuf]
@@ -73,6 +74,7 @@ def survival_solar_amp(ev, epsi=NSIparameters(), op=oscillation_parameters(), nu
     :param op: oscillation parameters
     :return: survival/transitional probability
     """
+    op = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2}
     fi = dic[nui]
     ff = dic[nuf]
@@ -157,6 +159,7 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     :param ne: electron number density in MeV^3
     :return: survival/transitional probability
     """
+    op = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
     fi = dic[nui]
     ff = dic[nuf]
@@ -201,6 +204,7 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
     :param ne: electron number density in MeV^3
     :return: survival/transitional probability
     """
+    op = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
     fi = dic[nui]
     ff = dic[nuf]
@@ -235,6 +239,7 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
 def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
                      ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
+    op = op.copy()
     fi = dic[nui]
     ff = dic[nuf]
     if nuf[-1] == 'r':
@@ -276,6 +281,7 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
     :param op: oscillation parameters
     :return: survival probability in this direction
     """
+    op = op.copy()
     n_core = 11850.56/1.672621898e-27/2*(meter_by_mev**3)
     n_mantle = 4656.61/1.672621898e-27/2*(meter_by_mev**3)
     r_core = 3480000
@@ -317,6 +323,7 @@ def survial_atmos_amp(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_param
     :param op: oscillation parameters
     :return: survival probability in this direction
     """
+    op = op.copy()
     n_core = 11850.56/1.672621898e-27/2*(meter_by_mev**3)
     n_mantle = 4656.61/1.672621898e-27/2*(meter_by_mev**3)
     r_core = 3480000

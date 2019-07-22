@@ -146,7 +146,7 @@ class OSCparameters:
             return self.d31
 
     def copy(self):
-        return OSCparameters(self.t12, self.t13, self.t23, self.delta, self.d21, self.d31)
+        return oscillation_parameters(self.t12, self.t13, self.t23, self.delta, self.d21, self.d31)
 
 
 class Density:
