@@ -9,7 +9,7 @@ from .flux import *
 from .helper import _poisson
 
 
-def formfsquared(q, rn=5.5, **kwargs):
+def formfsquared(q, rn=5.5):
     """
     form factor squared
     1810.05606
@@ -291,7 +291,6 @@ def rates_dm(er, det: Detector, fx: DMFlux, mediator_mass=None, epsilon=None, ef
         return quad(func, 0, 60)[0]
 
 
-
 def binned_events_dm(era, erb, expo, det: Detector, fx: DMFlux, mediator_mass=None, epsilon=None, efficiency=None, smear=False, **kwargs):
     """
     :return: number of nucleus recoil events in the bin [era, erb]
@@ -374,3 +373,84 @@ class DmEventsGen:
             n_dm[i] = binned_events_dm((pe - 1)/pe_per_mev, (pe + 1)/pe_per_mev, self.expo,
                                        self.det, self.fx, mediator_mass, epsilon, eff_coherent, self.smear, rn=self.rn) * plist[int((t-tmin)/0.5)]
         return n_dm
+
+
+class HelmFormFactor:
+    """
+    square of the form factor!
+    """
+    def __init__(self, rn=4.7):
+        self.rn = rn
+
+    def __call__(self, q):
+        r = self.rn * (10 ** -15) / meter_by_mev
+        s = 0.9 * (10 ** -15) / meter_by_mev
+        r0 = np.sqrt(5 / 3 * (r ** 2) - 5 * (s ** 2))
+        return (3 * spherical_jn(1, q * r0) / (q * r0) * np.exp((-(q * s) ** 2) / 2)) ** 2
+
+    def change_parameters(self, rn=None):
+        self.rn = rn if rn is not None else self.rn
+
+
+def _inv(ev):
+    return 1/ev
+
+
+def _invs(ev):
+    return 1/ev**2
+
+
+class NeutrinoNucleusElasticVector:
+    def __init__(self, nsi_parameters: NSIparameters, form_factor_square=HelmFormFactor()):
+        self.nsi_parameters = nsi_parameters
+        self.form_factor_square = form_factor_square
+
+    def rates(self, er, flavor, flux: NeutrinoFlux, detector: Detector):
+        rho = 1.0086
+        knu = 0.9978
+        lul = -0.0031
+        ldl = -0.0025
+        ldr = 7.5e-5
+        lur = ldr / 2
+        epu = self.nsi_parameters.eu().copy()
+        epd = self.nsi_parameters.ed().copy()
+        scale = 1
+        if self.nsi_parameters.mz != 0:
+            scale = self.nsi_parameters.mz**2 / (self.nsi_parameters.mz**2 + 2*detector.m*er)
+        qvs = 0
+        if flavor[0] == 'e':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[0, 0]*scale+epd[0, 0]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[0, 0]*scale + 2*epd[0, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[0, 1]*scale + epd[0, 1]*scale) + 0.5*detector.n*(epu[0, 1]*scale + 2*epd[0, 1]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[0, 2]*scale + epd[0, 2]*scale) + 0.5*detector.n*(epu[0, 2]*scale + 2*epd[0, 2]*scale)) ** 2
+        if flavor[0] == 'm':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[1, 1]*scale+epd[1, 1]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[1, 1]*scale + 2*epd[1, 1]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[1, 0]*scale + epd[1, 0]*scale) + 0.5*detector.n*(epu[1, 0]*scale + 2*epd[1, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[1, 2]*scale + epd[1, 2]*scale) + 0.5*detector.n*(epu[1, 2]*scale + 2*epd[1, 2]*scale)) ** 2
+        if flavor[0] == 't':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[2, 2]*scale+epd[2, 2]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[2, 2]*scale + 2*epd[2, 2]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[2, 0]*scale + epd[2, 0]*scale) + 0.5*detector.n*(epu[2, 0]*scale + 2*epd[2, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[2, 1]*scale + epd[2, 1]*scale) + 0.5*detector.n*(epu[2, 1]*scale + 2*epd[2, 1]*scale)) ** 2
+        fint = np.zeros(detector.iso)
+        fintinv = np.zeros(detector.iso)
+        fintinvs = np.zeros(detector.iso)
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * detector.m) + er)
+        for i in range(detector.iso):
+            fint[i] = flux.integrate(emin[i], flux.ev_max, flavor)
+            fintinv[i] = flux.integrate(emin[i], flux.ev_max, flavor, weight_function=_inv)
+            fintinvs[i] = flux.integrate(emin[i], flux.ev_max, flavor, weight_function=_invs)
+        res = np.dot(2 / np.pi * (gf ** 2) * (2 * fint - 2 * er * fintinv + er * er * fintinvs - detector.m * er * fintinvs) *
+                     detector.m * qvs * self.form_factor_square(np.sqrt(2 * detector.m * er)), detector.frac)
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return res
+
+    def events(self, ea, eb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flavor, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+    def change_parameters(self):
+        pass

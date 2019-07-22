@@ -29,6 +29,8 @@ class NSIparameters:
         self.ger = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.gu = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.gd = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.epel = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
+        self.eper = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.epe = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.epu = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
         self.epd = {'ee': 0, 'mm': 0, 'tt': 0, 'em': 0, 'et': 0, 'mt': 0}
@@ -42,7 +44,7 @@ class NSIparameters:
                 self.epe[i] = (self.gel[i]+self.ger[i]) / (2*np.sqrt(2)*gf*self.mz**2)
         return np.array([[self.epe['ee'], self.epe['em'], self.epe['et']],
                         [np.conj(self.epe['em']), self.epe['mm'], self.epe['mt']],
-                        [np.conj(self.epe['et']), np.conj(self.epe['mt']), self.epe['tt']]]) + np.diag(np.array([1, 0, 0]))
+                        [np.conj(self.epe['et']), np.conj(self.epe['mt']), self.epe['tt']]])
 
     def eu(self):
         """
@@ -65,6 +67,22 @@ class NSIparameters:
         return np.array([[self.epd['ee'], self.epd['em'], self.epd['et']],
                         [np.conj(self.epd['em']), self.epd['mm'], self.epd['mt']],
                         [np.conj(self.epd['et']), np.conj(self.epd['mt']), self.epd['tt']]])
+
+    def eel(self):
+        if self.mz != 0:
+            for i in self.epel:
+                self.epel[i] = (self.gel[i]) / (2*np.sqrt(2)*gf*self.mz**2)
+        return np.array([[self.epel['ee'], self.epel['em'], self.epel['et']],
+                        [np.conj(self.epel['em']), self.epel['mm'], self.epel['mt']],
+                        [np.conj(self.epel['et']), np.conj(self.epel['mt']), self.epel['tt']]])
+
+    def eer(self):
+        if self.mz != 0:
+            for i in self.eper:
+                self.eper[i] = (self.ger[i]) / (2*np.sqrt(2)*gf*self.mz**2)
+        return np.array([[self.eper['ee'], self.eper['em'], self.eper['et']],
+                        [np.conj(self.eper['em']), self.eper['mm'], self.eper['mt']],
+                        [np.conj(self.eper['et']), np.conj(self.eper['mt']), self.eper['tt']]])
 
 
 def oscillation_parameters(t12=0.5763617589722192,

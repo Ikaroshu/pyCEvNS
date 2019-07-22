@@ -2,7 +2,6 @@
 neutrino oscillation related funtions
 """
 
-from .flux import NeutrinoFlux
 from .parameters import *
 
 # solar number density at r=0.05 solar radius, unit is MeV^3 (natural unit)
@@ -21,22 +20,21 @@ def survival_solar(ev, epsi=NSIparameters(), op=oscillation_parameters(), nui='e
     :param op: oscillation parameters
     :return: survival/transitional probability
     """
-    opt = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2}
     fi = dic[nui]
     ff = dic[nuf]
     o23 = np.array([[1, 0, 0],
-                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
-                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
-    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+    u13 = np.array([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
                    [0, 1, 0],
-                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
-    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
-                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+    o12 = np.array([[np.cos(op['t12']), np.sin(op['t12']), 0],
+                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
                    [0, 0, 1]])
     umix = o23 @ u13 @ o12
-    m = np.diag(np.array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
-    v = np.sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
+    m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    v = np.sqrt(2) * gf * (__ne_solar * (epsi.ee() + np.diag(np.array([1, 0, 0]))) + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
     hvac = umix @ m @ umix.conj().T
 
     def sorteig(w, vec):
@@ -75,22 +73,21 @@ def survival_solar_amp(ev, epsi=NSIparameters(), op=oscillation_parameters(), nu
     :param op: oscillation parameters
     :return: survival/transitional probability
     """
-    opt = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2}
     fi = dic[nui]
     ff = dic[nuf]
     o23 = np.array([[1, 0, 0],
-                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
-                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
-    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+    u13 = np.array([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
                    [0, 1, 0],
-                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
-    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
-                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+    o12 = np.array([[np.cos(op['t12']), np.sin(op['t12']), 0],
+                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
                    [0, 0, 1]])
     umix = o23 @ u13 @ o12
-    m = np.diag(np.array([0, opt['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
-    v = np.sqrt(2) * gf * (__ne_solar * epsi.ee() + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
+    m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    v = np.sqrt(2) * gf * (__ne_solar * (epsi.ee() + np.diag(np.array([1, 0, 0]))) + __nu_solar * epsi.eu() + __nd_solar * epsi.ed())
     hvac = umix @ m @ umix.conj().T
 
     def sorteig(w, vec):
@@ -164,21 +161,20 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     fi = dic[nui]
     ff = dic[nuf]
     lenth = lenth / meter_by_mev
-    opt = op.copy()
     if nuf[-1] == 'r':
-        opt['delta'] = -opt['delta']
+        op['delta'] = -op['delta']
     o23 = np.array([[1, 0, 0],
-                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
-                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
-    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+    u13 = np.array([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
                    [0, 1, 0],
-                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
-    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
-                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+    o12 = np.array([[np.cos(op['t12']), np.sin(op['t12']), 0],
+                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
                    [0, 0, 1]])
     umix = o23 @ u13 @ o12
-    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
-    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * ((epsi.ee() + np.diag(np.array([1, 0, 0]))) + 3 * epsi.eu() + 3 * epsi.ed())
     if nuf[-1] == 'r':
         hf = umix @ m @ umix.conj().T - np.conj(vf)
     else:
@@ -209,21 +205,20 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
     fi = dic[nui]
     ff = dic[nuf]
     lenth = lenth / meter_by_mev
-    opt = op.copy()
     if nuf[-1] == 'r':
-        opt['delta'] = -opt['delta']
+        op['delta'] = -op['delta']
     o23 = np.array([[1, 0, 0],
-                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
-                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
-    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+    u13 = np.array([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
                    [0, 1, 0],
-                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
-    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
-                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+    o12 = np.array([[np.cos(op['t12']), np.sin(op['t12']), 0],
+                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
                    [0, 0, 1]])
     umix = o23 @ u13 @ o12
-    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
-    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * (epsi.ee() + np.diag(np.array([1, 0, 0])) + 3 * epsi.eu() + 3 * epsi.ed())
     if nuf[-1] == 'r':
         hf = umix @ m @ umix.conj().T - np.conj(vf)
     else:
@@ -239,24 +234,23 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
 
 def survival_average(ev, epsi=NSIparameters(), op=oscillation_parameters(),
                      ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
-    opt = op.copy()
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
     fi = dic[nui]
     ff = dic[nuf]
     if nuf[-1] == 'r':
-        opt['delta'] = -opt['delta']
+        op['delta'] = -op['delta']
     o23 = np.array([[1, 0, 0],
-                   [0, np.cos(opt['t23']), np.sin(opt['t23'])],
-                   [0, -np.sin(opt['t23']), np.cos(opt['t23'])]])
-    u13 = np.array([[np.cos(opt['t13']), 0, np.sin(opt['t13']) * (np.exp(- opt['delta'] * 1j))],
+                   [0, np.cos(op['t23']), np.sin(op['t23'])],
+                   [0, -np.sin(op['t23']), np.cos(op['t23'])]])
+    u13 = np.array([[np.cos(op['t13']), 0, np.sin(op['t13']) * (np.exp(- op['delta'] * 1j))],
                    [0, 1, 0],
-                   [-np.sin(opt['t13'] * (np.exp(opt['delta'] * 1j))), 0, np.cos(opt['t13'])]])
-    o12 = np.array([[np.cos(opt['t12']), np.sin(opt['t12']), 0],
-                   [-np.sin(opt['t12']), np.cos(opt['t12']), 0],
+                   [-np.sin(op['t13'] * (np.exp(op['delta'] * 1j))), 0, np.cos(op['t13'])]])
+    o12 = np.array([[np.cos(op['t12']), np.sin(op['t12']), 0],
+                   [-np.sin(op['t12']), np.cos(op['t12']), 0],
                    [0, 0, 1]])
     umix = o23 @ u13 @ o12
-    m = np.diag(np.array([0, opt['d21'] / (2 * ev), opt['d31'] / (2 * ev)]))
-    vf = np.sqrt(2) * gf * ne * (epsi.ee() + 3 * epsi.eu() + 3 * epsi.ed())
+    m = np.diag(np.array([0, op['d21'] / (2 * ev), op['d31'] / (2 * ev)]))
+    vf = np.sqrt(2) * gf * ne * ((epsi.ee() + np.diag(np.array([1, 0, 0]))) + 3 * epsi.eu() + 3 * epsi.ed())
     if nuf[-1] == 'r':
         hf = umix @ m @ umix.conj().T - np.conj(vf)
     else:
@@ -352,6 +346,13 @@ def survial_atmos_amp(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_param
 
 class Oscillator:
     def __init__(self, layers, nsi_parameter: NSIparameters, oscillation_parameter: OSCparameters, **kwargs):
+        """
+        init
+        :param layers:
+        :param nsi_parameter:
+        :param oscillation_parameter:
+        :param kwargs: the parameters that goes into each layer
+        """
         self.layers = layers
         self.nsi_parameter = nsi_parameter
         self.oscillation_paramter = oscillation_parameter
@@ -426,7 +427,12 @@ class Oscillator:
                         dnu['ebar'].append((d[0], d[1]*self.transition_probability(d[0], flavor, 'ebar')))
                         dnu['mubar'].append((d[0], d[1]*self.transition_probability(d[0], flavor, 'mubar')))
                         dnu['taubar'].append((d[0], d[1]*self.transition_probability(d[0], flavor, 'taubar')))
+        from .flux import NeutrinoFlux
         return NeutrinoFlux(continuous_fluxes=nu, delta_fluxes=dnu, norm=flux.norm/((100 * meter_by_mev) ** 2))
+
+    def change_parameters(self, **kwargs):
+        for k, v in kwargs.items():
+            self.kwargs[k] = v
 
 
 class OscillatorFactory:

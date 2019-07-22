@@ -530,16 +530,16 @@ class NeutrinoFlux:
             ea = max(ea, self.ev_min)
             idxmin = self.ev.searchsorted(ea, side='right')
             idxmax = self.ev.searchsorted(eb, side='left')
-            res += np.sum(self.precalc[weight_function][idxmin:idxmax])
+            res += np.sum(self.precalc[weight_function][flavor][idxmin:idxmax])
             l1 = ea - self.ev[idxmin-1]
             l2 = self.ev[idxmin] - ea
-            h1 = self.nu[flavor][idxmin-1]*weight_function(self.ev[idxmin-1])
-            h2 = self.nu[flavor][idxmin]*weight_function(self.ev[idxmin])
+            h1 = self.nu[flavor][idxmin-1]*weight_function(self.ev[idxmin-1]) if weight_function is not None else self.nu[flavor][idxmin-1]
+            h2 = self.nu[flavor][idxmin]*weight_function(self.ev[idxmin]) if weight_function is not None else self.nu[flavor][idxmin]
             res += ((l1*h2+l2*h1)/(l1+l2)+h2)*l2/2
-            l1 = ea - self.ev[idxmax - 1]
-            l2 = self.ev[idxmax] - ea
-            h1 = self.nu[flavor][idxmax - 1] * weight_function(self.ev[idxmax - 1])
-            h2 = self.nu[flavor][idxmax] * weight_function(self.ev[idxmax])
+            l1 = eb - self.ev[idxmax - 1]
+            l2 = self.ev[idxmax] - eb
+            h1 = self.nu[flavor][idxmax - 1] * weight_function(self.ev[idxmax - 1]) if weight_function is not None else self.nu[flavor][idxmax-1]
+            h2 = self.nu[flavor][idxmax] * weight_function(self.ev[idxmax]) if weight_function is not None else self.nu[flavor][idxmax]
             res += ((l1 * h2 + l2 * h1) / (l1 + l2) + h1) * l1 / 2
         return res * self.norm
 
@@ -668,7 +668,7 @@ class DMFluxFromPiMinusObsorption:
 class NeutrinoFluxFactory:
     def __init__(self):
         self.flux_list = ['solar', 'solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp', 'solar_pep', 'solar_be7',
-                          'coherent', 'coherent_prompt', 'coherent_delayed']
+                          'coherent', 'coherent_prompt', 'coherent_delayed', 'atmospheric']
 
     def print_available(self):
         print(self.flux_list)
@@ -694,7 +694,7 @@ class NeutrinoFluxFactory:
                 return (3 * ((evv / 52) ** 2) - 2 * ((evv / 52) ** 3)) / 26
             ev = np.linspace(0.001, 52, 100)
             return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)},
-                                delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))
+                                delta_fluxes={'mu': [(29, 1)]}, norm=1.13 * (10 ** 7)) ## default unit is /(cm^2*s)
         if flux_name == 'coherent_delayed':
             def de(evv):
                 return (3 * ((evv / (2 / 3 * 52)) ** 2) - 2 * ((evv / (2 / 3 * 52)) ** 3)) / 29.25
@@ -703,4 +703,20 @@ class NeutrinoFluxFactory:
             ev = np.linspace(0.001, 52, kwargs['npoints'] if 'npoints' in kwargs else 100)
             return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
         if flux_name == 'coherent_prompt':
-            return NeutrinoFlux(delta_fluxes={'mu': (29, 1)}, norm=1.13 * (10 ** 11))
+            return NeutrinoFlux(delta_fluxes={'mu': [(29, 1)]}, norm=1.13 * (10 ** 7))
+        if flux_name == 'atmospheric':
+            if 'zenith' not in kwargs:
+                raise Exception('please specify zenith angle')
+            zen = kwargs['zenith']
+            zen_list = np.linspace(-0.975, 0.975, 40)
+            if zen not in zen_list:
+                print('available choice of zenith angle: ', zen_list)
+                raise Exception('zenith angle not available')
+            idx = (0.975 - zen) / 0.05 * 61
+            f_atmos = np.genfromtxt(pkg_resources.resource_filename(__name__, 'data/atmos.txt'), delimiter=',')
+            nu = {'ev': f_atmos[int(round(idx)):int(round(idx))+61, 0],
+                  'e': f_atmos[int(round(idx)):int(round(idx))+61, 2],
+                  'mu': f_atmos[int(round(idx)):int(round(idx))+61, 3],
+                  'ebar': f_atmos[int(round(idx)):int(round(idx))+61, 5],
+                  'mubar': f_atmos[int(round(idx)):int(round(idx))+61, 6]}
+            return NeutrinoFlux(continuous_fluxes=nu)

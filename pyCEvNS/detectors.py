@@ -12,7 +12,7 @@ class Detector:
     """
     detector class
     """
-    def __init__(self, det_type):
+    def __init__(self, det_type, efficiency=None):
         """
         initializing Detector,
         it reads ./det_init.json for detector information,
@@ -20,6 +20,7 @@ class Detector:
         :param det_type: name of the detector
         """
         self.det_type = det_type
+        self.detectoin_efficiency = efficiency
         fpath = pkg_resources.resource_filename(__name__, 'data/det_init.json')
         f = open(fpath, 'r')
         det_file = json.load(f)
@@ -83,3 +84,6 @@ class Detector:
                         json.dump(det_file, f)
                 else:
                     raise Exception("No such detector in det_init.json.")
+
+    def change_parameters(self, efficiency=None):
+        self.detectoin_efficiency = efficiency if efficiency is not None else self.detectoin_efficiency
