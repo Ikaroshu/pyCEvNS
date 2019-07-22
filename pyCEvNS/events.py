@@ -413,8 +413,8 @@ class NeutrinoNucleusElasticVector:
         ldl = -0.0025
         ldr = 7.5e-5
         lur = ldr / 2
-        epu = self.nsi_parameters.eu().copy()
-        epd = self.nsi_parameters.ed().copy()
+        epu = self.nsi_parameters.eu()
+        epd = self.nsi_parameters.ed()
         scale = 1
         if self.nsi_parameters.mz != 0:
             scale = self.nsi_parameters.mz**2 / (self.nsi_parameters.mz**2 + 2*detector.m*er)
@@ -444,6 +444,66 @@ class NeutrinoNucleusElasticVector:
             fintinvs[i] = flux.integrate(emin[i], flux.ev_max, flavor, weight_function=_invs)
         res = np.dot(2 / np.pi * (gf ** 2) * (2 * fint - 2 * er * fintinv + er * er * fintinvs - detector.m * er * fintinvs) *
                      detector.m * qvs * self.form_factor_square(np.sqrt(2 * detector.m * er)), detector.frac)
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return res
+
+    def events(self, ea, eb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flavor, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+    def change_parameters(self):
+        pass
+
+
+class NeutrinoElectronElasticVector:
+    def __init__(self, nsi_parameters: NSIparameters):
+        self.nsi_parameters = nsi_parameters
+
+    def rates(self, er, flavor, flux: NeutrinoFlux, detector: Detector):
+        epel = self.nsi_parameters.eel()
+        eper = self.nsi_parameters.eer()
+        scale = 1
+        if self.nsi_parameters.mz != 0:
+            scale = self.nsi_parameters.mz**2 / (self.nsi_parameters.mz**2 + 2*me*er)
+        epls = 0
+        eprs = 0
+        eplr = 0
+        if flavor[0] == 'e':
+            epls = (0.5 + ssw + epel[0, 0] * scale) ** 2 + np.abs(epel[0, 1] * scale) ** 2 + np.abs(epel[0, 3] * scale) ** 2
+            eprs = (ssw + eper[0, 0] * scale) ** 2 + np.abs(eper[0, 1] * scale) ** 2 + np.abs(eper[0, 2] * scale) ** 2
+            eplr = (0.5 + ssw + epel[0, 0] * scale) * (ssw + eper[0, 0] * scale) + \
+                0.5 * (np.real(epel[0, 1] * scale) * np.real(eper[0, 1] * scale) +
+                       np.imag(epel[0, 1] * scale) * np.imag(eper[0, 1] * scale)) + \
+                0.5 * (np.real(epel[0, 2] * scale) * np.real(eper[0, 2] * scale) +
+                       np.imag(epel[0, 2] * scale) * np.imag(eper[0, 2] * scale))
+        elif flavor[0] == 'm':
+            epls = (-0.5 + ssw + epel[1, 1] * scale) ** 2 + np.abs(epel[1, 0] * scale) ** 2 + np.abs(epel[1, 2] * scale) ** 2
+            eprs = (ssw + eper[1, 1] * scale) ** 2 + np.abs(eper[1, 0] * scale) ** 2 + np.abs(eper[1, 2] * scale) ** 2
+            eplr = (-0.5 + ssw + epel[1, 1] * scale) * (ssw + eper[1, 1] * scale) + \
+                0.5 * (np.real(epel[1, 0] * scale) * np.real(eper[1, 0] * scale) +
+                       np.imag(epel[1, 0] * scale) * np.imag(eper[1, 0] * scale)) + \
+                0.5 * (np.real(epel[1, 2] * scale) * np.real(eper[1, 2] * scale) +
+                       np.imag(epel[1, 2] * scale) * np.imag(eper[1, 2] * scale))
+        elif flavor[0] == 't':
+            epls = (-0.5 + ssw + epel[2, 2] * scale) ** 2 + np.abs(epel[2, 1] * scale) ** 2 + np.abs(epel[2, 0] * scale) ** 2
+            eprs = (ssw + eper[2, 2] * scale) ** 2 + np.abs(eper[2, 1] * scale) ** 2 + np.abs(eper[2, 0] * scale) ** 2
+            eplr = (-0.5 + ssw + epel[2, 2] * scale) * (ssw + eper[2, 2] * scale) + \
+                0.5 * (np.real(epel[2, 0] * scale) * np.real(eper[2, 0] * scale) +
+                       np.imag(epel[2, 0] * scale) * np.imag(eper[2, 0] * scale)) + \
+                0.5 * (np.real(epel[2, 1] * scale) * np.real(eper[2, 1] * scale) +
+                       np.imag(epel[2, 1] * scale) * np.imag(eper[2, 1] * scale))
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * me) + er)
+        fint = flux.integrate(emin, flux.ev_max, flavor)
+        fintinv = flux.integrate(emin, flux.ev_max, flavor, weight_function=_inv)
+        fintinvs = flux.integrate(emin, flux.ev_max, flavor, weight_function=_invs)
+        if flavor[-1] == 'r':
+            tmp = epls
+            epls = eprs
+            eprs = tmp
+        res = np.dot(2 / np.pi * (gf ** 2) * me * detector.z *
+                     (epls * fint + eprs * (fint - 2 * er * fintinv + (er ** 2) * fintinvs) - eplr * me * er * fintinvs), detector.frac)
         if detector.detectoin_efficiency is not None:
             res *= detector.detectoin_efficiency(er)
         return res
