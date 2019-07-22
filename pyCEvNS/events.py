@@ -471,7 +471,7 @@ class NeutrinoElectronElasticVector:
         eprs = 0
         eplr = 0
         if flavor[0] == 'e':
-            epls = (0.5 + ssw + epel[0, 0] * scale) ** 2 + np.abs(epel[0, 1] * scale) ** 2 + np.abs(epel[0, 3] * scale) ** 2
+            epls = (0.5 + ssw + epel[0, 0] * scale) ** 2 + np.abs(epel[0, 1] * scale) ** 2 + np.abs(epel[0, 2] * scale) ** 2
             eprs = (ssw + eper[0, 0] * scale) ** 2 + np.abs(eper[0, 1] * scale) ** 2 + np.abs(eper[0, 2] * scale) ** 2
             eplr = (0.5 + ssw + epel[0, 0] * scale) * (ssw + eper[0, 0] * scale) + \
                 0.5 * (np.real(epel[0, 1] * scale) * np.real(eper[0, 1] * scale) +
