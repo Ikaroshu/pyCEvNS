@@ -22,7 +22,7 @@ mtau = 1.77699e3
 m_neutron = 939.57
 m_proton = 938.28
 m_pi = 134.98
-axial_mass = 1014  # MeV
+axial_mass = 1014
 
 # masses in gram
 massofh = 1.67372e-24
