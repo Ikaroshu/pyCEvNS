@@ -515,3 +515,70 @@ class NeutrinoElectronElasticVector:
 
     def change_parameters(self):
         pass
+
+
+# Charged Current Quasi-Elastic (CCQE) cross-section, assuming no CC NSI. Follows Bodek, Budd, Christy [1106.0340].
+class NeutrinoNucleonCCQE:
+    def __init__(self, masq=axial_mass ** 2):
+        self.masq = masq
+
+    def rates(self, ev, flavor='e', masq=self.masq):
+        m_lepton = me
+        m_nucleon = m_neutron
+        xi = 4.706  # Difference between proton and neutron magnetic moments.
+        sign = -1
+
+        if flavor == "mu" or flavor == "mubar":
+            m_lepton = mmu
+        if flavor == "tau" or flavor == "taubar":
+            m_lepton = mtau
+
+        if flavor == "ebar" or flavor == "mubar" or flavor == "taubar":
+            sign = 1
+            m_nucleon = m_proton
+
+        def dsigma(qsq):
+            tau = qsq / (4 * m_nucleon ** 2)
+            GD = (1 / (1 + qsq / 710000) ** 2)  # Dipole form factor with vector mass.
+            TE = np.sqrt(1 + (6e-6 * qsq) * np.exp(-qsq / 350000))  # Transverse Enhancement of the magnetic dipole.
+
+            FA = -1.267 / (1 + (qsq / masq)) ** 2  # Axial form factor.
+            Fp = (2 * FA * (m_nucleon) ** 2) / (m_pi ** 2 + qsq)  # Pion dipole form factor (only relevant for low ev).
+            F1 = GD * ((1 + xi * tau * TE) / (1 + tau))  # First nuclear form factor in dipole approximation.
+            F2 = GD * (xi * TE - 1) / (1 + tau)  # Second nuclear form factor in dipole approximation.
+
+            # A, B, and C are the vector, pseudoscalar, and axial vector terms, respectively.
+            A = ((m_lepton ** 2 + qsq) / m_nucleon ** 2) * (
+                    (1 + tau) * FA ** 2 - (1 - tau) * F1 ** 2 + tau * (1 - tau) * (F2) ** 2 + 4 * tau * F1 * F2
+                    - 0.25 * ((m_lepton / m_nucleon) ** 2) * ((F1 + F2) ** 2 + (FA + 2 * Fp) ** 2
+                                                              - 4 * (tau + 1) * Fp ** 2))
+            B = 4 * tau * (F1 + F2) * FA
+            C = 0.25 * (FA ** 2 + F1 ** 2 + tau * (F2) ** 2)
+
+            return ((1 / (8 * np.pi)) * (gf * cabibbo * m_nucleon / ev) ** 2) * \
+                   (A + sign * B * ((4 * m_nucleon * ev - qsq - m_lepton ** 2) / (m_nucleon) ** 2)
+                    + C * ((4 * m_nucleon * ev - qsq - m_lepton ** 2) / (m_nucleon) ** 2) ** 2)
+
+        sqts = np.sqrt(m_nucleon ** 2 + 2 * m_nucleon * ev)
+        E_l = (sqts ** 2 + m_lepton ** 2 - m_nucleon ** 2) / (2 * sqts)
+        if E_l ** 2 < m_lepton ** 2:
+            return 0
+        q2min = -m_lepton ** 2 + (sqts ** 2 - m_nucleon ** 2) / (sqts) * \
+                (E_l - np.sqrt(E_l ** 2 - m_lepton ** 2))
+        q2max = -m_lepton ** 2 + (sqts ** 2 - m_nucleon ** 2) / (sqts) * \
+                (E_l + np.sqrt(E_l ** 2 - m_lepton ** 2))
+
+        return quad(dsigma, q2min, q2max)[0]
+
+    def events(self, eva, evb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+        nucleons = detector.z  # convert the per-nucleon cross section into total cross section.
+        if flavor == 'ebar' or flavor == 'mubar' or flavor == 'taubar':
+            nucleons = detector.n
+
+        def cross_section(ev):
+            return self.rates(ev, flavor=flavor)
+
+        return nucleons * flux.integrate(eva, evb, flavor, weight_function=cross_section) * \
+               exposure * mev_per_kg * 24 *60 * 60 / np.dot(detector.m, detector.frac)
+    def change_parameters(self):
+        pass
