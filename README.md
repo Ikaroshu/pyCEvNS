@@ -36,7 +36,7 @@ print(interaction.events(det.er_min, det.er_max, 'e', flux, det, exposure) +
 ### Oscllations
 The neutrino flux can go through a long distance and oscillate, this can be done via:
 ```python
-fs =NeutrinoFluxFactory().get('solar')
+fs = NeutrinoFluxFactory().get('solar')
 osc = OscillatorFactory().get('solar')
 fs = osc.transform(fs)
 ```
