@@ -519,10 +519,12 @@ class NeutrinoElectronElasticVector:
 
 # Charged Current Quasi-Elastic (CCQE) cross-section, assuming no CC NSI. Follows Bodek, Budd, Christy [1106.0340].
 class NeutrinoNucleonCCQE:
-    def __init__(self, masq=axial_mass ** 2):
-        self.masq = masq
+    def __init__(self, flavor, flux: NeutrinoFlux):
+        self.flavor = flavor
+        self.flux = flux
+        self.FastXS = np.vectorize(self.rates)
 
-    def rates(self, ev, flavor='e', masq=self.masq):
+    def rates(self, ev, flavor='e', masq=axial_mass**2):
         m_lepton = me
         m_nucleon = m_neutron
         xi = 4.706  # Difference between proton and neutron magnetic moments.
@@ -570,15 +572,15 @@ class NeutrinoNucleonCCQE:
 
         return quad(dsigma, q2min, q2max)[0]
 
-    def events(self, eva, evb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+
+    def events(self, eva, evb, detector: Detector, exposure):
         nucleons = detector.z  # convert the per-nucleon cross section into total cross section.
-        if flavor == 'ebar' or flavor == 'mubar' or flavor == 'taubar':
+        if self.flavor == 'ebar' or self.flavor == 'mubar' or self.flavor == 'taubar':
             nucleons = detector.n
 
-        def cross_section(ev):
-            return self.rates(ev, flavor=flavor)
-
-        return nucleons * flux.integrate(eva, evb, flavor, weight_function=cross_section) * \
+        return nucleons * self.flux.integrate(eva, evb, self.flavor, weight_function=self.FastXS) * \
                exposure * mev_per_kg * 24 *60 * 60 / np.dot(detector.m, detector.frac)
+
+
     def change_parameters(self):
         pass
