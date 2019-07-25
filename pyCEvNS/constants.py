@@ -19,9 +19,10 @@ cabibbo = 0.9743  # Cosine of the Cabibbo angle
 me = 0.511
 mmu = 105.658369
 mtau = 1.77699e3
-m_neutron = 939.57
-m_proton = 938.28
-m_pi = 134.98
+massofpi = 139.57
+massofpi0 = 134.98
+massofp = 938.27
+massofn = 939.56
 axial_mass = 1014
 
 # masses in gram
@@ -31,8 +32,3 @@ massof3he = 5.008234e-24
 massof12c = 1.993e-23
 massof14n = 2.3252651e-23
 massof16o = 2.656018e-23
-
-massofpi = 139.57
-massofpi0 = 134.98
-massofp = 938.27
-massofn = 939.56
