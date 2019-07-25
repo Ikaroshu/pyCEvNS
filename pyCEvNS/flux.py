@@ -530,16 +530,32 @@ class NeutrinoFlux:
             ea = max(ea, self.ev_min)
             idxmin = self.ev.searchsorted(ea, side='right')
             idxmax = self.ev.searchsorted(eb, side='left')
+            if idxmin == idxmax:
+                l1 = ea - self.ev[idxmin - 1]
+                l2 = self.ev[idxmin] - ea
+                h1 = self.nu[flavor][idxmin - 1] * weight_function(self.ev[idxmin - 1]) \
+                    if weight_function is not None else self.nu[flavor][idxmin - 1]
+                h2 = self.nu[flavor][idxmin] * weight_function(self.ev[idxmin]) \
+                    if weight_function is not None else self.nu[flavor][idxmin]
+                ha = (l1*h2+l2*h1)/(l1+l2)
+                l1 = eb - self.ev[idxmax - 1]
+                l2 = self.ev[idxmax] - eb
+                hb = (l1*h2+l2*h1)/(l1+l2)
+                return (ha + hb) * (eb - ea) / 2 * self.norm
             res += np.sum(self.precalc[weight_function][flavor][idxmin:idxmax])
             l1 = ea - self.ev[idxmin-1]
             l2 = self.ev[idxmin] - ea
-            h1 = self.nu[flavor][idxmin-1]*weight_function(self.ev[idxmin-1]) if weight_function is not None else self.nu[flavor][idxmin-1]
-            h2 = self.nu[flavor][idxmin]*weight_function(self.ev[idxmin]) if weight_function is not None else self.nu[flavor][idxmin]
+            h1 = self.nu[flavor][idxmin-1]*weight_function(self.ev[idxmin-1]) \
+                if weight_function is not None else self.nu[flavor][idxmin-1]
+            h2 = self.nu[flavor][idxmin]*weight_function(self.ev[idxmin]) \
+                if weight_function is not None else self.nu[flavor][idxmin]
             res += ((l1*h2+l2*h1)/(l1+l2)+h2)*l2/2
             l1 = eb - self.ev[idxmax - 1]
             l2 = self.ev[idxmax] - eb
-            h1 = self.nu[flavor][idxmax - 1] * weight_function(self.ev[idxmax - 1]) if weight_function is not None else self.nu[flavor][idxmax-1]
-            h2 = self.nu[flavor][idxmax] * weight_function(self.ev[idxmax]) if weight_function is not None else self.nu[flavor][idxmax]
+            h1 = self.nu[flavor][idxmax - 1] * weight_function(self.ev[idxmax - 1]) \
+                if weight_function is not None else self.nu[flavor][idxmax-1]
+            h2 = self.nu[flavor][idxmax] * weight_function(self.ev[idxmax]) \
+                if weight_function is not None else self.nu[flavor][idxmax]
             res += ((l1 * h2 + l2 * h1) / (l1 + l2) + h1) * l1 / 2
         return res * self.norm
 
