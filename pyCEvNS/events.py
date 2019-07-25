@@ -526,7 +526,7 @@ class NeutrinoNucleonCCQE:
 
     def rates(self, ev, flavor='e', masq=axial_mass**2):
         m_lepton = me
-        m_nucleon = m_neutron
+        m_nucleon = massofn
         xi = 4.706  # Difference between proton and neutron magnetic moments.
         sign = -1
 
@@ -537,7 +537,7 @@ class NeutrinoNucleonCCQE:
 
         if flavor == "ebar" or flavor == "mubar" or flavor == "taubar":
             sign = 1
-            m_nucleon = m_proton
+            m_nucleon = massofp
 
         def dsigma(qsq):
             tau = qsq / (4 * m_nucleon ** 2)
@@ -545,7 +545,7 @@ class NeutrinoNucleonCCQE:
             TE = np.sqrt(1 + (6e-6 * qsq) * np.exp(-qsq / 350000))  # Transverse Enhancement of the magnetic dipole.
 
             FA = -1.267 / (1 + (qsq / masq)) ** 2  # Axial form factor.
-            Fp = (2 * FA * (m_nucleon) ** 2) / (m_pi ** 2 + qsq)  # Pion dipole form factor (only relevant for low ev).
+            Fp = (2 * FA * (m_nucleon) ** 2) / (massofpi0 ** 2 + qsq)  # Pion dipole form factor (only relevant for low ev).
             F1 = GD * ((1 + xi * tau * TE) / (1 + tau))  # First nuclear form factor in dipole approximation.
             F2 = GD * (xi * TE - 1) / (1 + tau)  # Second nuclear form factor in dipole approximation.
 
