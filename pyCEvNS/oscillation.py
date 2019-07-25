@@ -449,12 +449,12 @@ class OscillatorFactory:
     def print_available(self):
         print(self.oscillator_list)
 
-    def get(self, oscillator_name, **kwargs):
+    def get(self, oscillator_name, nsi_parameter, oscilation_parameter, **kwargs):
         if oscillator_name not in self.oscillator_list:
             raise Exception('such oscillator not in factory yet, consider build your own.')
         if oscillator_name == 'solar':
-            return Oscillator([survival_solar_amp], NSIparameters(), OSCparameters())
+            return Oscillator([survival_solar_amp], nsi_parameter, oscilation_parameter, **kwargs)
         if oscillator_name == 'atmospheric':
             if 'zenith' not in kwargs:
                 raise Exception('please specify zenith angle')
-            return Oscillator([survial_atmos_amp], NSIparameters(), OSCparameters(), **kwargs)
+            return Oscillator([survial_atmos_amp], nsi_parameter, oscilation_parameter, **kwargs)
