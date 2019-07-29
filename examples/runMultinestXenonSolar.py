@@ -1,9 +1,7 @@
-import sys
 import json
 import numpy as np
 from numpy import log, exp, pi, zeros, genfromtxt
 import matplotlib.pyplot as plt
-import pandas as pd
 
 import pymultinest
 import mpi4py
@@ -91,7 +89,7 @@ def main():
   n_sm = EventsGenerator(sm_params, exposure, solar_flux, osc_factory)
   width = np.sqrt(n_sm) + 1
 
-  def LogLikelihood(cube):
+  def LogLikelihood(cube, N, D):
     n_signal = EventsGenerator(cube, exposure, solar_flux, osc_factory)
     likelihood = np.zeros(n_signal.shape[0])
 
