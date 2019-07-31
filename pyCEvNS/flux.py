@@ -667,8 +667,9 @@ class DMFluxFromPiMinusObsorption:
 
 class NeutrinoFluxFactory:
     def __init__(self):
-        self.flux_list = ['solar', 'solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp', 'solar_pep', 'solar_be7',
-                          'coherent', 'coherent_prompt', 'coherent_delayed', 'atmospheric']
+        self.flux_list = ['solar', 'solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp',
+                          'solar_pep', 'solar_be7', 'coherent', 'coherent_prompt', 'coherent_delayed',
+                          'far_beam_nu', 'far_beam_nu', 'atmospheric']
 
     def print_available(self):
         print(self.flux_list)
@@ -704,11 +705,29 @@ class NeutrinoFluxFactory:
             return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
         if flux_name == 'coherent_prompt':
             return NeutrinoFlux(delta_fluxes={'mu': [(29, 1)]}, norm=1.13 * (10 ** 7))
+                if flux_name == 'far_beam_nu':
+            far_beam_txt = 'data/dune_beam_fd_nu_flux_120GeVoptimized.txt'
+            f_beam = np.genfromtxt(pkg_resources.resource_filename(__name__, far_beam_txt), delimiter=',')
+            nu = {'ev': f_beam[:, 0],
+                  'e': f_beam[:, 2],
+                  'mu': f_beam[:, 3],
+                  'ebar': f_beam[:, 5],
+                  'mubar': f_beam[:, 6]}
+            return NeutrinoFlux(continuous_fluxes=nu)
+        if flux_name == 'far_beam_nubar':
+            far_beam_txt = 'data/dune_beam_fd_antinu_flux_120GeVoptimized.txt'
+            f_beam = np.genfromtxt(pkg_resources.resource_filename(__name__, far_beam_txt), delimiter=',')
+            nu = {'ev': f_beam[:, 0],
+                  'e': f_beam[:, 2],
+                  'mu': f_beam[:, 3],
+                  'ebar': f_beam[:, 5],
+                  'mubar': f_beam[:, 6]}
+            return NeutrinoFlux(continuous_fluxes=nu)
         if flux_name == 'atmospheric':
             if 'zenith' not in kwargs:
                 raise Exception('please specify zenith angle')
-            zen = kwargs['zenith']
-            zen_list = np.linspace(-0.975, 0.975, 40)
+            zen = np.round(kwargs['zenith'], decimals=3)
+            zen_list = np.round(np.linspace(-0.975, 0.975, 40), decimals=3)
             if zen not in zen_list:
                 print('available choice of zenith angle: ', zen_list)
                 raise Exception('zenith angle not available')
