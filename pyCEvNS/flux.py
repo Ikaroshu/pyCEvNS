@@ -705,7 +705,7 @@ class NeutrinoFluxFactory:
             return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
         if flux_name == 'coherent_prompt':
             return NeutrinoFlux(delta_fluxes={'mu': [(29, 1)]}, norm=1.13 * (10 ** 7))
-                if flux_name == 'far_beam_nu':
+        if flux_name == 'far_beam_nu':
             far_beam_txt = 'data/dune_beam_fd_nu_flux_120GeVoptimized.txt'
             f_beam = np.genfromtxt(pkg_resources.resource_filename(__name__, far_beam_txt), delimiter=',')
             nu = {'ev': f_beam[:, 0],
