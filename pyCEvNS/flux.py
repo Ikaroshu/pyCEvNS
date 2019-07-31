@@ -685,7 +685,7 @@ class NeutrinoFluxFactory:
     def __init__(self):
         self.flux_list = ['solar', 'solar_b8', 'solar_f17', 'solar_hep', 'solar_n13', 'solar_o15', 'solar_pp',
                           'solar_pep', 'solar_be7', 'coherent', 'coherent_prompt', 'coherent_delayed',
-                          'far_beam_nu', 'far_beam_nu', 'atmospheric']
+                          'far_beam_nu', 'far_beam_nubar', 'atmospheric']
 
     def print_available(self):
         print(self.flux_list)
