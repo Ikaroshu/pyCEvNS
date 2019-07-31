@@ -119,7 +119,7 @@ def survival_solar_amp(ev, epsi=NSIparameters(), op=oscillation_parameters(), nu
 
 # using Caylay-Hamilton theorem to calculate survival probability, it has probems at transitsion probabilities
 #
-# def survival_probability(ev, lenth, epsi=NSIparameters(), nui=0, nuf=0,
+# def survival_probability(ev, length, epsi=NSIparameters(), nui=0, nuf=0,
 #                          op=ocsillation_parameters(), ne=2.2*6.02e23*(100*meter_by_mev)**3):
 #     o23 = np.matrix([[1, 0, 0],
 #                   [0, np.cos(op['t23']), np.sin(op['t23'])],
@@ -136,22 +136,22 @@ def survival_solar_amp(ev, epsi=NSIparameters(), op=oscillation_parameters(), nu
 #     hf = umix * m * umix.H + vf
 #     w, v = np.linalg.eigh(hf)
 #     # print(w)
-#     b = e**(-1j*w*lenth)
+#     b = e**(-1j*w*length)
 #     # print(b)
-#     a = np.array([[1, 1, 1], -1j * lenth * w, -lenth**2 * w**2]).T
+#     a = np.array([[1, 1, 1], -1j * length * w, -length**2 * w**2]).T
 #     # print(a)
 #     x = np.linalg.solve(a, b)
-#     tnp.matrix = x[0] + -1j * lenth * x[1] * hf - lenth**2 * x[2] * hf.dot(hf)
+#     tnp.matrix = x[0] + -1j * length * x[1] * hf - length**2 * x[2] * hf.dot(hf)
 #     # print(tnp.matrix)
 #     return abs(tnp.matrix[nui, nuf])**2
 
 
-def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
+def survival_const(ev, length=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
                    ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     """
     survival/transitional probability with constant matter density
     :param ev: nuetrino energy in MeV
-    :param lenth: oscillation lenth in meters
+    :param length: oscillation length in meters
     :param epsi: epsilons
     :param nui: initail flavor
     :param nuf: final flavor
@@ -163,7 +163,7 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
     fi = dic[nui]
     ff = dic[nuf]
-    lenth = lenth / meter_by_mev
+    length = length / meter_by_mev
     if nuf[-1] == 'r':
         op['delta'] = -op['delta']
     o23 = np.array([[1, 0, 0],
@@ -186,17 +186,17 @@ def survival_const(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameter
     res = 0.0
     for i in range(3):
         for j in range(3):
-            theta = (w[i]-w[j]) * lenth
+            theta = (w[i]-w[j]) * length
             res += v[ff, i] * np.conj(v[fi, i]) * np.conj(v[ff, j]) * v[fi, j] * (np.cos(theta) - 1j * np.sin(theta))
     return np.real(res)
 
 
-def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
+def survival_const_amp(ev, length=0.0, epsi=NSIparameters(), op=oscillation_parameters(),
                    ne=2.2 * 6.02e23 * (100 * meter_by_mev) ** 3, nui='e', nuf='e'):
     """
     survival/transitional amplitude with constant matter density
     :param ev: nuetrino energy in MeV
-    :param lenth: oscillation lenth in meters
+    :param length: oscillation length in meters
     :param epsi: epsilons
     :param nui: initail flavor
     :param nuf: final flavor
@@ -208,7 +208,7 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
     dic = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
     fi = dic[nui]
     ff = dic[nuf]
-    lenth = lenth / meter_by_mev
+    length = length / meter_by_mev
     if nuf[-1] == 'r':
         op['delta'] = -op['delta']
     o23 = np.array([[1, 0, 0],
@@ -231,7 +231,7 @@ def survival_const_amp(ev, lenth=0.0, epsi=NSIparameters(), op=oscillation_param
     res = 0.0
     for i in range(3):
         # for j in range(3):
-        theta = (w[i]) * lenth
+        theta = (w[i]) * length
         res += v[ff, i] * np.conj(v[fi, i]) * (np.cos(theta) - 1j * np.sin(theta))
     return res
 
@@ -290,8 +290,8 @@ def survial_atmos(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_parameter
     if zenith >= 0:
         return 1 if nui == nuf else 0
     elif zenith >= cos_th:
-        lenth = -r_mantle * zenith * 2
-        return survival_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
+        length = -r_mantle * zenith * 2
+        return survival_const(ev, length, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
     else:
         vert = r_mantle * np.sqrt(1 - zenith**2)
         l_core = 2 * np.sqrt(r_core**2 - vert**2)
@@ -332,8 +332,8 @@ def survial_atmos_amp(ev, zenith=1.0, epsi=NSIparameters(), op=oscillation_param
     if zenith >= 0:
         return 1 if nui == nuf else 0
     elif zenith >= cos_th:
-        lenth = -r_mantle * zenith * 2
-        return survival_const(ev, lenth, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
+        length = -r_mantle * zenith * 2
+        return survival_const(ev, length, epsi=epsi, nui=nui, nuf=nuf, op=op, ne=n_mantle)
     else:
         vert = r_mantle * np.sqrt(1 - zenith**2)
         l_core = 2 * np.sqrt(r_core**2 - vert**2)
@@ -441,20 +441,23 @@ class Oscillator:
         for k, v in kwargs.items():
             self.kwargs[k] = v
 
-
 class OscillatorFactory:
     def __init__(self):
-        self.oscillator_list = ['solar', 'atmospheric']
+        self.oscillator_list = ['solar', 'atmospheric', 'beam']
 
     def print_available(self):
         print(self.oscillator_list)
 
-    def get(self, oscillator_name, nsi_parameter, oscilation_parameter, **kwargs):
+    def get(self, oscillator_name, **kwargs):
         if oscillator_name not in self.oscillator_list:
             raise Exception('such oscillator not in factory yet, consider build your own.')
         if oscillator_name == 'solar':
-            return Oscillator([survival_solar_amp], nsi_parameter, oscilation_parameter, **kwargs)
+            return Oscillator([survival_solar_amp], **kwargs)
+        if oscillator_name == 'beam':
+            if 'length' not in kwargs:
+                raise Exception('Please specify the oscillation length in meters.')
+            return Oscillator([survival_const_amp], **kwargs)
         if oscillator_name == 'atmospheric':
             if 'zenith' not in kwargs:
                 raise Exception('please specify zenith angle')
-            return Oscillator([survial_atmos_amp], nsi_parameter, oscilation_parameter, **kwargs)
+            return Oscillator([survial_atmos_amp], **kwargs)
