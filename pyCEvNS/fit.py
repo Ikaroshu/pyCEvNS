@@ -77,3 +77,61 @@ def fit(events_generator, n_params, n_obs, n_bg, sigma, prior, out_put_dir, bg_m
                     resume=resume, verbose=verbose, n_live_points=n_live_points,
                     evidence_tolerance=evidence_tolerance, sampling_efficiency=sampling_efficiency,
                     **kwargs)
+
+
+class PoissonLoglike:
+    def __init__(self, systematic_uncertainty, kind='vary'):
+        self.sigma = systematic_uncertainty
+        background_models = {'vary': self.vary, 'shape': self.shape}
+        self.__call__ = background_models[kind]
+
+    def vary(self, n_obs, n_bg, n_pred):
+        likelihood = np.zeros(n_obs.shape[0])
+        for i in range(n_obs.shape[0]):
+            n_bg_list = np.arange(max(0, int(n_bg[i] - 2 * np.sqrt(n_bg[i]))),
+                                  max(10, int(n_bg[i] + 2 * np.sqrt(n_bg[i]))))
+            for nbgi in n_bg_list:
+                likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_pred[i] + nbgi) *
+                                      _gaussian(a, 0, self.sigma), -3 * self.sigma, 3 * self.sigma)[0] * _poisson(n_bg[i], nbgi)
+        return np.sum(np.log(likelihood))
+
+    def shape(self, n_obs, n_bg, n_pred):
+        prod_like = 0
+        nbg_total = sum(n_bg)
+        for nbg in np.arange(int(nbg_total - 2 * np.sqrt(nbg_total)), int(nbg_total + 2 * np.sqrt(nbg_total))):
+            likelihood = np.zeros(n_obs.shape[0])
+            for i in range(n_obs.shape[0]):
+                if n_bg[i] <= 0:
+                    likelihood[i] = 1
+                    continue
+                likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_pred[i] + n_bg[i] * nbg / nbg_total) *
+                                      _gaussian(a, 0, self.sigma), -3 * self.sigma, 3 * self.sigma)[0]
+            prod_like += np.prod(likelihood) * _poisson(nbg_total, nbg)
+        return np.log(prod_like) if prod_like > 0 else -np.inf
+
+    def fixed(self, n_obs, n_bg, n_pred):
+        likelihood = np.zeros(n_obs.shape[0])
+        for i in range(n_obs.shape[0]):
+            if n_bg[i] <= 0:
+                likelihood[i] = 1
+                continue
+            likelihood[i] = quad(lambda a: _poisson(n_obs[i], (1 + a) * n_pred[i] + n_bg[i]) *
+                                           _gaussian(a, 0, self.sigma), -3 * self.sigma, 3 * self.sigma)[0]
+        return np.sum(np.log(likelihood))
+
+
+class Fit:
+    def __init__(self, n_obs, n_bg, loglike, output_dir, **kwargs):
+        self.n_obs = n_obs
+        self.n_bg = n_bg
+        self.loglike = loglike
+        self.output_dir = output_dir
+        self.kwargs = kwargs
+
+    def __call__(self, generator, prior, nparams):
+        def lgl(cube, ndim, nparams):
+            n_pred = generator(cube)
+            return self.loglike(self.n_obs, self.n_bg, n_pred)
+        def prr(cube, ndim, nparams):
+            prior(cube)
+        pymultinest.run(lgl, prr, nparams, outputfiles_basename=self.output_dir + '_', **self.kwargs)
