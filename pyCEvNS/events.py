@@ -4,6 +4,7 @@ CEvNS events
 
 from scipy.special import spherical_jn
 
+from .constants import *
 from .detectors import *
 from .flux import *
 from .helper import _poisson
@@ -572,7 +573,6 @@ class NeutrinoNucleonCCQE:
 
         return quad(dsigma, q2min, q2max)[0]
 
-
     def events(self, eva, evb, detector: Detector, exposure):
         nucleons = detector.z  # convert the per-nucleon cross section into total cross section.
         if self.flavor == 'ebar' or self.flavor == 'mubar' or self.flavor == 'taubar':
@@ -580,7 +580,6 @@ class NeutrinoNucleonCCQE:
 
         return nucleons * self.flux.integrate(eva, evb, self.flavor, weight_function=self.FastXS) * \
                exposure * mev_per_kg * 24 *60 * 60 / np.dot(detector.m, detector.frac)
-
 
     def change_parameters(self):
         pass

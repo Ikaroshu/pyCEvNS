@@ -542,7 +542,7 @@ class NeutrinoFlux:
                 l2 = self.ev[idxmax] - eb
                 hb = (l1*h2+l2*h1)/(l1+l2)
                 return (ha + hb) * (eb - ea) / 2 * self.norm
-            res += np.sum(self.precalc[weight_function][flavor][idxmin:idxmax])
+            res += np.sum(self.precalc[weight_function][flavor][idxmin:idxmax-1])
             l1 = ea - self.ev[idxmin-1]
             l2 = self.ev[idxmin] - ea
             h1 = self.nu[flavor][idxmin-1]*weight_function(self.ev[idxmin-1]) \
