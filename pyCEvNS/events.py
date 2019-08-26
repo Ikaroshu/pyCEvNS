@@ -274,15 +274,15 @@ def rates_dm(er, det: Detector, fx: DMFlux, mediator_mass=None, epsilon=None, ef
         if efficiency is not None:
             return np.dot(det.frac, e_charge**4 * epsilon**2 * det.z**2 *
                       (2*det.m*fx.fint2(err, det.m) -
-                       (err+(det.m**2*err-fx.dm_mass**2*err)/(2*det.m))*2*det.m*fx.fint(err, det.m) +
+                       (err)*2*det.m*fx.fint1(err, det.m) -(det.m**2*err-fx.dm_mass**2*err)*fx.fint(err, det.m) +
                        err**2*det.m*fx.fint(err, det.m)) / (4*np.pi*(2*det.m*err+mediator_mass**2)**2) *
                       formfsquared(np.sqrt(2*err*det.m), **kwargs)) * efficiency(err)
         else:
-            return np.dot(det.frac, e_charge ** 4 * epsilon ** 2 * det.z ** 2 *
-                          (2 * det.m * fx.fint2(err, det.m) -
-                           (err + (det.m ** 2 * err - fx.dm_mass ** 2 * err) / (2 * det.m)) * 2 * det.m * fx.fint(err, det.m) +
-                           err**2 * det.m * fx.fint(err, det.m)) / (4 * np.pi * (2 * det.m * err + mediator_mass**2)**2) *
-                          formfsquared(np.sqrt(2 * err * det.m), **kwargs))
+            return np.dot(det.frac, e_charge**4 * epsilon**2 * det.z**2 *
+                      (2*det.m*fx.fint2(err, det.m) -
+                       (err)*2*det.m*fx.fint1(err, det.m) -(det.m**2*err-fx.dm_mass**2*err)*fx.fint(err, det.m) +
+                       err**2*det.m*fx.fint(err, det.m)) / (4*np.pi*(2*det.m*err+mediator_mass**2)**2) *
+                      formfsquared(np.sqrt(2*err*det.m), **kwargs))
 
     if not smear:
         return rates(er)
@@ -583,3 +583,102 @@ class NeutrinoNucleonCCQE:
 
     def change_parameters(self):
         pass
+
+
+class DMNucleusElasticVector:
+    def __init__(self, epsilon_dm, epsilon_q, mediator_mass, form_factor_square=HelmFormFactor()):
+        self.epsilon_dm = epsilon_dm
+        self.epsilon_q = epsilon_q
+        self.mediator_mass = mediator_mass
+        self.form_factor_square = form_factor_square
+
+    def rates(self, er, flux, detector: Detector):
+        f0 = np.zeros(detector.iso)
+        f1 = np.zeros(detector.iso)
+        f2 = np.zeros(detector.iso)
+        emin = 0.5 * (np.sqrt((er**2*detector.m+2*er*detector.m**2+2*er*flux.dm_m**2+4*detector.m*flux.dm_m**2)/detector.m) + er)
+        for i in range(detector.iso):
+            f0[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f0)
+            f1[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f1)
+            f2[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f2)
+        res = np.dot(detector.frac, e_charge**4 * self.epsilon_dm**2 * self.epsilon_q**2 * detector.z**2 *
+                      (2*detector.m*f2 - (er)*2*detector.m*f1 - (detector.m**2*er+flux.dm_m**2*er)*f0 + er**2*detector.m*f0) /
+                          (4*np.pi*(2*detector.m*er+self.mediator_mass**2)**2) * self.form_factor_square(np.sqrt(2*detector.m*er)))
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return res
+
+    def events(self, ea, eb, flux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+
+class DMNucleusQuasiElasticVector:
+    def __init__(self, epsilon_dm, epsilon_q, mediator_mass, dark_matter_mass, form_factor_square=HelmFormFactor()):
+        self.epsilon_dm = epsilon_dm
+        self.epsilon_q = epsilon_q
+        self.mediator_mass = mediator_mass
+        self.dm_mass = dark_matter_mass
+        self.form_factor_square = form_factor_square
+        self.gep0 = 1
+        self.aep = [1, 3.253, 1.422, 0.08582, 0.3318, -0.09371, 0.01076]
+        self.amp = [1, 3.104, 1.428, 0.1112, -0.006981, 0.0003705, -0.7063 * 1e-5]
+        self.amn = [1, 3.043, 0.8548, 0.6806, -0.1287, 0.008912, 0]
+        self.gmp0 = 2.793
+        self.gmn0 = -1.913
+        self.mun = -1.913
+        self.aen = 0.942
+        self.ben = 4.61
+        self.mup = 2.793
+        self.mv2 = 0.71
+
+    def gepact(self, q2):
+        return self.gep0/(1 + self.aep[1]*q2 + self.aep[2]*pow(q2,2) + self.aep[3]*pow(q2,3)+ self.aep[4]*pow(q2,4)+self.aep[5]*pow(q2,5)+ self.aep[6]*pow(q2,6))
+
+    def dmp03(self, q2):
+        return self.gmp0/(1 + self.amp[1]*q2 + self.amp[2]*pow(q2,2) + self.amp[3]*pow(q2,3)+ self.amp[4]*pow(q2,4)+self.amp[5]*pow(q2,5)+ self.amp[6]*pow(q2,6))
+
+    def gen03(self, q2):
+        return -self.mun * self.aen * q2/(4*massofn*massofn*1e-6) / (1 + self.ben*q2/(4 * massofn*massofn*1e-6)) / pow((1+ q2/self.mv2),2)
+
+    def gmp03(self, q2):
+        return self.gmp0 / (1 + self.amp[1]*q2 + self.amp[2]*pow(q2,2) + self.amp[3]*pow(q2,3)+ self.amp[4]*pow(q2,4)+self.amp[5]*pow(q2,5)+ self.amp[6]*pow(q2,6))
+
+    def gep03(self, q2):
+        return self.gmp03(q2)*self.gepact(6)/self.gmp03(6) if q2>= 6 else self.gepact(q2)
+
+    def f2p(self, q2):
+        return (self.gmp03(q2)-self.gep03(q2))/(1+q2/(4*pow(massofp*1e-3,2))) if q2<=10 else 0
+
+    def f1p(self, q2):
+        return (self.gep03(q2) + q2/(4*pow(massofp*1e-3,2)) * self.gmp03(q2))/(1+q2/(4 * pow(massofp*1e-3,2))) if q2<=10 else 0
+
+    def aa(self, ev, er):
+        return 2*massofp*ev*(ev-er)-self.dm_mass**2*er
+
+    def bb(self, ev, er):
+        return -er*((2*ev-er)**2-2*massofp*er-4*self.dm_mass**2)
+
+    def cc(self, er):
+        return -er*(massofp*er+2*self.dm_mass**2)
+
+    def rates(self, er, flux, detector: Detector):
+        emin = 0.5 * (np.sqrt((er**2*massofp+2*er*massofp**2+2*er*flux.dm_m**2+4*massofp*flux.dm_m**2)/massofp) + er)
+        f0 = flux.integrate(emin, flux.ev_max, weight_function=flux.f0)
+        f1 = flux.integrate(emin, flux.ev_max, weight_function=flux.f1)
+        f2 = flux.integrate(emin, flux.ev_max, weight_function=flux.f2)
+        ff1p = self.f1p(2*massofp*er*1e-6)
+        ff2p = self.f2p(2*massofp*er*1e-6)
+        res = np.dot(detector.frac, e_charge**4 * self.epsilon_dm**2 * self.epsilon_q**2 * detector.z**2 *
+                     ((ff1p**2*2*massofp+ff2p**2*er)*f2 - (ff1p**2*2*massofp*er+er**2*ff2p**2)*f1 +
+                      (-self.dm_mass**2*er*ff1p**2+0.25*ff2p**2*(er**2-2*massofp*er-4*self.dm_mass**2)+ff1p*ff2p*self.cc(er))*f0) /
+                          (4*np.pi*(2*massofp*er+self.mediator_mass**2)**2) * self.form_factor_square(np.sqrt(2*detector.m*er)))
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return res
+
+    def events(self, ea, eb, flux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)

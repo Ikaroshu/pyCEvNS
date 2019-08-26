@@ -3,8 +3,9 @@ flux related class and functions
 """
 
 from scipy.integrate import quad
+import pandas as pd
 
-from .helper import LinearInterp
+from .helper import LinearInterp, polar_to_cartesian, lorentz_boost
 from .oscillation import survival_solar
 from .parameters import *
 
@@ -453,6 +454,71 @@ class DMFlux:
         return res
 
 
+class FluxBaseContinuous:
+    def __init__(self, ev, flux, norm=1):
+        self.norm = norm
+        self.ev = ev
+        self.fx = flux
+        self.ev_min = self.ev[0]
+        self.ev_max = self.ev[-1]
+        self.binw = self.ev[1:] - self.ev[:-1]
+        self.precalc = {None: self.binw*(self.fx[1:]+self.fx[:-1])/2}
+
+    def __call__(self, ev):
+        if ev == self.ev_min:
+            return self.fx[0] * self.norm
+        if ev == self.ev_max:
+            return self.fx[-1] * self.norm
+        if self.ev_min < ev < self.ev_max:
+            idx = self.ev.searchsorted(ev)
+            l1 = ev - self.ev[idx-1]
+            l2 = self.ev[idx] - ev
+            h1 = self.fx[idx-1]
+            h2 = self.fx[idx]
+            return (l1*h2 + l2*h1) / (l1 + l2) * self.norm
+        return 0
+
+    def integrate(self, ea, eb, weight_function=None):
+        if eb <= ea:
+            return 0
+        res = 0
+        if weight_function not in self.precalc:
+            weighted = weight_function(self.ev)*self.fx
+            self.precalc[weight_function] = self.binw * (weighted[1:]+weighted[:-1]) / 2
+        eb = min(eb, self.ev_max)
+        ea = max(ea, self.ev_min)
+        idxmin = self.ev.searchsorted(ea, side='right')
+        idxmax = self.ev.searchsorted(eb, side='left')
+        if idxmin == idxmax:
+            l1 = ea - self.ev[idxmin - 1]
+            l2 = self.ev[idxmin] - ea
+            h1 = self.fx[idxmin - 1] * weight_function(self.ev[idxmin - 1]) \
+                if weight_function is not None else self.fx[idxmin - 1]
+            h2 = self.fx[idxmin] * weight_function(self.ev[idxmin]) \
+                if weight_function is not None else self.fx[idxmin]
+            ha = (l1*h2+l2*h1)/(l1+l2)
+            l1 = eb - self.ev[idxmax - 1]
+            l2 = self.ev[idxmax] - eb
+            hb = (l1*h2+l2*h1)/(l1+l2)
+            return (ha + hb) * (eb - ea) / 2 * self.norm
+        res += np.sum(self.precalc[weight_function][idxmin:idxmax-1])
+        l1 = ea - self.ev[idxmin-1]
+        l2 = self.ev[idxmin] - ea
+        h1 = self.fx[idxmin-1]*weight_function(self.ev[idxmin-1]) \
+            if weight_function is not None else self.fx[idxmin-1]
+        h2 = self.fx[idxmin]*weight_function(self.ev[idxmin]) \
+            if weight_function is not None else self.fx[idxmin]
+        res += ((l1*h2+l2*h1)/(l1+l2)+h2)*l2/2
+        l1 = eb - self.ev[idxmax - 1]
+        l2 = self.ev[idxmax] - eb
+        h1 = self.fx[idxmax - 1] * weight_function(self.ev[idxmax - 1]) \
+            if weight_function is not None else self.fx[idxmax-1]
+        h2 = self.fx[idxmax] * weight_function(self.ev[idxmax]) \
+            if weight_function is not None else self.fx[idxmax]
+        res += ((l1 * h2 + l2 * h1) / (l1 + l2) + h1) * l1 / 2
+        return res * self.norm
+
+
 class NeutrinoFlux:
     def __init__(self, continuous_fluxes=None, delta_fluxes=None, norm=1):
         self.norm = norm * ((100 * meter_by_mev) ** 2)
@@ -585,6 +651,7 @@ class DMFluxFromPiMinusObsorption:
         """
         self.dp_mass = dark_photon_mass
         self.dm_mass = dark_matter_mass
+        self.dm_m = dark_matter_mass
         self.epsi_quark = coupling_quark
         self.det_dist = detector_distance / meter_by_mev
         self.dp_life = life_time * 1e-6 * c_light / meter_by_mev
@@ -598,6 +665,8 @@ class DMFluxFromPiMinusObsorption:
         self.ed_max = None
         self.norm = None
         self._generate()
+        self.ev_min = self.ed_min
+        self.ev_max = self.ed_max
 
     def _generate(self):
         """
@@ -640,7 +709,7 @@ class DMFluxFromPiMinusObsorption:
         self.ed_min = min(energy)
         self.ed_max = max(energy)
         self.norm = self.epsi_quark ** 2 * self.pot_rate * self.pion_rate / (4 * np.pi * (self.det_dist ** 2) * 24 * 3600) * \
-                    (meter_by_mev ** 2) * self.timing.shape[0] * 2 / self.sampling_size
+                    self.timing.shape[0] * 2 / self.sampling_size
 
     def __call__(self, ev):
         """
@@ -679,6 +748,15 @@ class DMFluxFromPiMinusObsorption:
         self.pion_rate = self.pion_rate if pion_rate is not None else self.pion_rate
         self.sampling_size = sampling_size if sampling_size is not None else self.sampling_size
         self._generate()
+
+    def f0(self, ev):
+        return 1/(ev**2 - self.dm_m**2)
+
+    def f1(self, ev):
+        return ev/(ev**2 - self.dm_m**2)
+
+    def f2(self, ev):
+        return ev**2 / (ev**2 - self.dm_m**2)
 
 
 class NeutrinoFluxFactory:
@@ -755,3 +833,131 @@ class NeutrinoFluxFactory:
                   'ebar': f_atmos[int(round(idx)):int(round(idx))+61, 5],
                   'mubar': f_atmos[int(round(idx)):int(round(idx))+61, 6]}
             return NeutrinoFlux(continuous_fluxes=nu)
+
+
+def _invs(ev):
+    return 1/ev**2
+
+
+class DMFluxFromPi0Decay(FluxBaseContinuous):
+    """
+    z direction is the direction of the beam
+    """
+    def __init__(self, pi0_distribution, dark_photon_mass, life_time, coupling_quark, dark_matter_mass,
+                 detector_distance=19.3, detector_direction=0, detector_width=0.1, pot_rate=5e20, pot_mu=0.7, pot_sigma=0.15,
+                 pion_rate=52935/500000, nbins=50):
+        self.dp_m = dark_photon_mass
+        self.life_time = life_time * 1e-6
+        self.epsilon = coupling_quark
+        self.dm_m = dark_matter_mass
+        self.det_dist = detector_distance
+        self.det_direc = detector_direction
+        self.det_width = detector_width
+        self.pot_rate = pot_rate
+        self.pot_mu = pot_mu * 1e-6
+        self.pot_sigma = pot_sigma * 1e-6
+        self.pion_rate = pion_rate
+        self.time = []
+        self.energy = []
+        self.dm_mass = dark_matter_mass
+        for pi0_events in pi0_distribution:
+            self._simulate_dm_events(pi0_events)
+        self.timing = np.array(self.time)*1e6
+        hist, bin_edges = np.histogram(self.energy, bins=nbins, density=True)
+        super().__init__((bin_edges[:-1]+bin_edges[1:])/2, hist,
+                         norm=self.epsilon**2*pot_rate*pion_rate*len(self.time)/len(pi0_distribution)/
+                              (2*np.pi*(min(1.0, detector_direction+detector_width/2)-max(-1.0, detector_direction-detector_width/2))*detector_distance**2*24*3600)
+                              *(meter_by_mev**2))
+
+    def _simulate_dm_events(self, pi0_events):
+        pos = np.zeros(3)
+        t = 0
+        t += np.random.normal(self.pot_mu, self.pot_sigma)
+        pi_e = massofpi0 + pi0_events[2]
+        pi_p = np.sqrt(pi_e**2 - massofpi0**2)
+        pi_v = pi_p / pi_e
+        t_pi = np.random.exponential(8.4e-17*pi_e/massofpi0)
+        pos += pi_v * polar_to_cartesian(pi0_events[:2]) * t_pi * c_light
+        t += t_pi
+        # pi0 to dark photon
+        dp_m = self.dp_m
+        dp_e = (massofpi0**2 + dp_m**2)/(2*massofpi0)
+        dp_p = (massofpi0**2 - dp_m**2)/(2*massofpi0)
+        cs = np.random.uniform(-1, 1)
+        phi = np.random.uniform(0, 2*np.pi)
+        dp_momentum = np.array([dp_e, dp_p*np.sqrt(1-cs**2)*np.cos(phi), dp_p*np.sqrt(1-cs**2)*np.sin(phi), dp_p*cs])
+        dp_momentum = lorentz_boost(dp_momentum, -pi_v*polar_to_cartesian(pi0_events[:2]))
+        t_dp = np.random.exponential(self.life_time*dp_momentum[0]/dp_m)
+        pos += c_light*t_dp*np.array([dp_momentum[1]/dp_momentum[0], dp_momentum[2]/dp_momentum[0], dp_momentum[3]/dp_momentum[0]])
+        t += t_dp
+        # dark photon to dark matter
+        dm_m = self.dm_m
+        dm_e = dp_m / 2
+        dm_p = np.sqrt(dm_e**2 - dm_m**2)
+        csd = np.random.uniform(-1, 1)
+        phid = np.random.uniform(0, 2*np.pi)
+        dm_momentum = np.array([dm_e, dm_p*np.sqrt(1-csd**2)*np.cos(phid), dm_p*np.sqrt(1-csd**2)*np.sin(phid), dm_p*csd])
+        dm_momentum = lorentz_boost(dm_momentum, np.array([-dp_momentum[1]/dp_momentum[0], -dp_momentum[2]/dp_momentum[0], -dp_momentum[3]/dp_momentum[0]]))
+        # print(lorentz_boost(dm_momentum, np.array([dp_momentum[1]/dp_momentum[0], dp_momentum[2]/dp_momentum[0], dp_momentum[3]/dp_momentum[0]])) +
+        #       lorentz_boost(dp_momentum-dm_momentum, np.array([dp_momentum[1]/dp_momentum[0], dp_momentum[2]/dp_momentum[0], dp_momentum[3]/dp_momentum[0]])))
+        # dark matter arrives at detector, assuming azimuthal symmetric
+        v = dm_momentum[1:]/dm_momentum[0]*c_light
+        a = np.sum(v**2)
+        b = 2*np.sum(v)
+        c = np.sum(pos**2) - self.det_dist**2
+        if b**2 - 4*a*c >= 0:
+            t_dm = (-b+np.sqrt(b**2-4*a*c))/(2*a)
+            if t_dm >= 0 and self.det_direc-self.det_width/2 <= (pos[2]+v[2]*t_dm)/np.sqrt(np.sum((v*t_dm + pos)**2)) <= self.det_direc+self.det_width/2:
+                self.time.append(t+t_dm)
+                self.energy.append(dm_momentum[0])
+            t_dm = (-b-np.sqrt(b**2-4*a*c))/(2*a)
+            if t_dm >= 0 and self.det_direc-self.det_width/2 <= (pos[2]+v[2]*t_dm)/np.sqrt(np.sum((v*t_dm + pos)**2)) <= self.det_direc+self.det_width/2:
+                self.time.append(t+t_dm)
+                self.energy.append(dm_momentum[0])
+        v = (dp_momentum-dm_momentum)[1:]/(dp_momentum-dm_momentum)[0]*c_light
+        a = np.sum(v**2)
+        b = 2*np.sum(v)
+        c = np.sum(pos**2) - self.det_dist**2
+        if b**2 - 4*a*c >= 0:
+            t_dm = (-b+np.sqrt(b**2-4*a*c))/(2*a)
+            if t_dm >= 0 and self.det_direc-self.det_width/2 <= (pos[2]+v[2]*t_dm)/np.sqrt(np.sum((v*t_dm + pos)**2)) <= self.det_direc+self.det_width/2:
+                self.time.append(t+t_dm)
+                self.energy.append((dp_momentum-dm_momentum)[0])
+            t_dm = (-b-np.sqrt(b**2-4*a*c))/(2*a)
+            if t_dm >= 0 and self.det_direc-self.det_width/2 <= (pos[2]+v[2]*t_dm)/np.sqrt(np.sum((v*t_dm + pos)**2)) <= self.det_direc+self.det_width/2:
+                self.time.append(t+t_dm)
+                self.energy.append((dp_momentum-dm_momentum)[0])
+
+    def to_pandas(self):
+        return pd.DataFrame({'time': self.time, 'energy': self.energy})
+
+    def fint(self, er, m):
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_m**2+4*m*self.dm_m**2)/m) + er)
+        res = np.zeros_like(emin)
+        for i in range(emin.shape[0]):
+            res[i] = self.integrate(emin[i], self.ev_max, weight_function=self.f0)
+        return res
+
+    def fint1(self, er, m):
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_m**2+4*m*self.dm_m**2)/m) + er)
+        res = np.zeros_like(emin)
+        for i in range(emin.shape[0]):
+            res[i] = self.integrate(emin[i], self.ev_max, weight_function=self.f1)
+        return res
+
+    def fint2(self, er, m):
+        emin = 0.5 * (np.sqrt((er**2*m+2*er*m**2+2*er*self.dm_m**2+4*m*self.dm_m**2)/m) + er)
+        res = np.zeros_like(emin)
+        for i in range(emin.shape[0]):
+            res[i] = self.integrate(emin[i], self.ev_max, weight_function=self.f2)
+        return res
+
+    def f0(self, ev):
+        return 1/(ev**2 - self.dm_m**2)
+
+    def f1(self, ev):
+        return ev/(ev**2 - self.dm_m**2)
+
+    def f2(self, ev):
+        return ev**2 / (ev**2 - self.dm_m**2)
+
