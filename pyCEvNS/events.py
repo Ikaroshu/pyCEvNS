@@ -381,8 +381,10 @@ class HelmFormFactor:
     """
     square of the form factor!
     """
-    def __init__(self, rn=4.7):
+    def __init__(self, rn=4.7, detector=None):
         self.rn = rn
+        if detector is not None:
+            self.rn = 4.7*((detector.n[0]+detector.z[0])/133)**(1/3)
 
     def __call__(self, q):
         r = self.rn * (10 ** -15) / meter_by_mev
@@ -440,9 +442,9 @@ class NeutrinoNucleusElasticVector:
         fintinvs = np.zeros(detector.iso)
         emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * detector.m) + er)
         for i in range(detector.iso):
-            fint[i] = flux.integrate(emin[i], flux.ev_max, flavor)
-            fintinv[i] = flux.integrate(emin[i], flux.ev_max, flavor, weight_function=_inv)
-            fintinvs[i] = flux.integrate(emin[i], flux.ev_max, flavor, weight_function=_invs)
+            fint[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor)
+            fintinv[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor, weight_function=_inv)
+            fintinvs[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor, weight_function=_invs)
         res = np.dot(2 / np.pi * (gf ** 2) * (2 * fint - 2 * er * fintinv + er * er * fintinvs - detector.m * er * fintinvs) *
                      detector.m * qvs * self.form_factor_square(np.sqrt(2 * detector.m * er)), detector.frac)
         if detector.detectoin_efficiency is not None:
@@ -496,9 +498,9 @@ class NeutrinoElectronElasticVector:
                 0.5 * (np.real(epel[2, 1] * scale) * np.real(eper[2, 1] * scale) +
                        np.imag(epel[2, 1] * scale) * np.imag(eper[2, 1] * scale))
         emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * me) + er)
-        fint = flux.integrate(emin, flux.ev_max, flavor)
-        fintinv = flux.integrate(emin, flux.ev_max, flavor, weight_function=_inv)
-        fintinvs = flux.integrate(emin, flux.ev_max, flavor, weight_function=_invs)
+        fint = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, flavor)
+        fintinv = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, flavor, weight_function=_inv)
+        fintinvs = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, flavor, weight_function=_invs)
         if flavor[-1] == 'r':
             tmp = epls
             epls = eprs
@@ -598,9 +600,9 @@ class DMNucleusElasticVector:
         f2 = np.zeros(detector.iso)
         emin = 0.5 * (np.sqrt((er**2*detector.m+2*er*detector.m**2+2*er*flux.dm_m**2+4*detector.m*flux.dm_m**2)/detector.m) + er)
         for i in range(detector.iso):
-            f0[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f0)
-            f1[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f1)
-            f2[i] = flux.integrate(emin[i], flux.ev_max, weight_function=flux.f2)
+            f0[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, weight_function=flux.f0)
+            f1[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, weight_function=flux.f1)
+            f2[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, weight_function=flux.f2)
         res = np.dot(detector.frac, e_charge**4 * self.epsilon_dm**2 * self.epsilon_q**2 * detector.z**2 *
                       (2*detector.m*f2 - (er)*2*detector.m*f1 - (detector.m**2*er+flux.dm_m**2*er)*f0 + er**2*detector.m*f0) /
                           (4*np.pi*(2*detector.m*er+self.mediator_mass**2)**2) * self.form_factor_square(np.sqrt(2*detector.m*er)))
@@ -665,9 +667,9 @@ class DMNucleusQuasiElasticVector:
 
     def rates(self, er, flux, detector: Detector):
         emin = 0.5 * (np.sqrt((er**2*massofp+2*er*massofp**2+2*er*flux.dm_m**2+4*massofp*flux.dm_m**2)/massofp) + er)
-        f0 = flux.integrate(emin, flux.ev_max, weight_function=flux.f0)
-        f1 = flux.integrate(emin, flux.ev_max, weight_function=flux.f1)
-        f2 = flux.integrate(emin, flux.ev_max, weight_function=flux.f2)
+        f0 = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, weight_function=flux.f0)
+        f1 = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, weight_function=flux.f1)
+        f2 = flux.integrate(emin, flux.ev_max if flux.ev_max is not None else emin+100, weight_function=flux.f2)
         ff1p = self.f1p(2*massofp*er*1e-6)
         ff2p = self.f2p(2*massofp*er*1e-6)
         res = np.dot(detector.frac, e_charge**4 * self.epsilon_dm**2 * self.epsilon_q**2 * detector.z**2 *
@@ -682,3 +684,92 @@ class DMNucleusQuasiElasticVector:
         def func(er):
             return self.rates(er, flux, detector)
         return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+
+class NeutrinoNucleusElasticScalar:
+    def __init__(self, cu, cd, ms, form_factor_square=None):
+        fpd = 0.0411
+        fpu = 0.0208
+        fnd = 0.0451
+        fnu = 0.0189
+        self.form_factor_square = form_factor_square
+        self.ms = ms
+        self.cp = massofp * (cu * fpu / massofu + cd * fpd / massofd)
+        self.cn = massofn * (cu * fnu / massofu + cd * fnd / massofd)
+        self.sm_interaction = NeutrinoNucleusElasticVector(NSIparameters())
+
+    def rates(self, er, flavor, flux, detector):
+        cn = detector.z * self.cp + detector.n * self.cn
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * detector.m) + er)
+        fintinvs = np.zeros(detector.iso)
+        for i in range(detector.iso):
+            fintinvs[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor, weight_function=_invs)
+        if self.form_factor_square is not None:
+            res = np.dot(1 / (4*np.pi) * detector.m**2 * cn**2 * er / (2*detector.m*er+self.ms**2)**2 * fintinvs * self.form_factor_square(np.sqrt(2*detector.m*er)), detector.frac)
+        else:
+             res = np.dot(1 / (4*np.pi) * detector.m**2 * cn**2 * er / (2*detector.m*er+self.ms**2)**2 * fintinvs, detector.frac)
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return self.sm_interaction.rates(er, flavor, flux, detector) + res
+
+    def events(self, ea, eb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flavor, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+
+class NeutrinoNucleusElascticVectorQ2:
+    def __init__(self, nsi_parameters: NSIparameters, lmd, form_factor_square=HelmFormFactor()):
+        self.nsi_parameters = nsi_parameters
+        self.form_factor_square = form_factor_square
+        self.lmd = lmd
+
+    def rates(self, er, flavor, flux: NeutrinoFlux, detector: Detector):
+        rho = 1.0086
+        knu = 0.9978
+        lul = -0.0031
+        ldl = -0.0025
+        ldr = 7.5e-5
+        lur = ldr / 2
+        epu = self.nsi_parameters.eu()
+        epd = self.nsi_parameters.ed()
+        scale = 1
+        if self.nsi_parameters.mz != 0:
+            scale = self.nsi_parameters.mz**2 / (self.nsi_parameters.mz**2 + 2*detector.m*er)
+        qvs = 0
+        if flavor[0] == 'e':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[0, 0]*scale+epd[0, 0]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[0, 0]*scale + 2*epd[0, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[0, 1]*scale + epd[0, 1]*scale) + 0.5*detector.n*(epu[0, 1]*scale + 2*epd[0, 1]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[0, 2]*scale + epd[0, 2]*scale) + 0.5*detector.n*(epu[0, 2]*scale + 2*epd[0, 2]*scale)) ** 2
+        if flavor[0] == 'm':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[1, 1]*scale+epd[1, 1]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[1, 1]*scale + 2*epd[1, 1]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[1, 0]*scale + epd[1, 0]*scale) + 0.5*detector.n*(epu[1, 0]*scale + 2*epd[1, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[1, 2]*scale + epd[1, 2]*scale) + 0.5*detector.n*(epu[1, 2]*scale + 2*epd[1, 2]*scale)) ** 2
+        if flavor[0] == 't':
+            qvs = (0.5 * detector.z * (rho*(0.5 - 2*knu*ssw)+2*lul+2*lur+ldl+ldr+2*epu[2, 2]*scale+epd[2, 2]*scale) +
+                   0.5*detector.n*(-0.5*rho + lul + lur + 2*ldl + 2*ldr + epu[2, 2]*scale + 2*epd[2, 2]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[2, 0]*scale + epd[2, 0]*scale) + 0.5*detector.n*(epu[2, 0]*scale + 2*epd[2, 0]*scale)) ** 2 + \
+                np.abs(0.5*detector.z*(2*epu[2, 1]*scale + epd[2, 1]*scale) + 0.5*detector.n*(epu[2, 1]*scale + 2*epd[2, 1]*scale)) ** 2
+        fint = np.zeros(detector.iso)
+        fintinv = np.zeros(detector.iso)
+        fintinvs = np.zeros(detector.iso)
+        emin = 0.5 * (np.sqrt(er ** 2 + 2 * er * detector.m) + er)
+        for i in range(detector.iso):
+            fint[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor)
+            fintinv[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor, weight_function=_inv)
+            fintinvs[i] = flux.integrate(emin[i], flux.ev_max if flux.ev_max is not None else emin[i]+100, flavor, weight_function=_invs)
+        res = np.dot(2 / np.pi * (gf ** 2) * (2 * fint - 2 * er * fintinv + er * er * fintinvs - detector.m * er * fintinvs) *
+                     detector.m * qvs * self.form_factor_square(np.sqrt(2 * detector.m * er)) * 2*detector.m*er/self.lmd**2, detector.frac)
+        if detector.detectoin_efficiency is not None:
+            res *= detector.detectoin_efficiency(er)
+        return res
+
+    def events(self, ea, eb, flavor, flux: NeutrinoFlux, detector: Detector, exposure):
+        def func(er):
+            return self.rates(er, flavor, flux, detector)
+        return quad(func, ea, eb)[0] * exposure * mev_per_kg * 24 * 60 * 60 / np.dot(detector.m, detector.frac)
+
+    def change_parameters(self):
+        pass

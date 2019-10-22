@@ -13,14 +13,19 @@ class LinearInterp:
     linear interpolation that deals with numbers
     for better performance than interp1d
     """
-    def __init__(self, x: np.ndarray, y: np.ndarray):
+    def __init__(self, x: np.ndarray, y: np.ndarray, extend=False):
         self.x = x.copy()
         self.y = y.copy()
         ind = np.argsort(self.x)
         self.x = self.x[ind]
         self.y = self.y[ind]
+        self.extend = extend
 
     def __call__(self, xv):
+        if self.extend and xv < self.x[0]:
+            return self.y[0]
+        if self.extend and xv > self.x[-1]:
+            return self.y[-1]
         if xv < self.x[0] or xv > self.x[-1]:
             return 0
         elif xv == self.x[0]:

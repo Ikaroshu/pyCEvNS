@@ -40,7 +40,8 @@ def fit(events_generator, n_params, n_obs, n_bg, sigma, prior, out_put_dir, bg_m
                 for nbgi in n_bg_list:
                     likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_signal[i] + nbgi) *
                                           _gaussian(a, 0, sigma), -3 * sigma, 3 * sigma)[0] * _poisson(n_bg[i], nbgi)
-            return np.sum(np.log(likelihood))
+            prod_like = np.prod(likelihood)
+            return np.log(prod_like) if prod_like > 0 else -np.inf
     elif bg_model == 'shape':
         def lgl(cube, ndim, nparams):
             n_signal = events_generator(cube)
@@ -93,7 +94,8 @@ class PoissonLoglike:
             for nbgi in n_bg_list:
                 likelihood[i] += quad(lambda a: _poisson(n_obs[i], (1 + a) * n_pred[i] + nbgi) *
                                       _gaussian(a, 0, self.sigma), -3 * self.sigma, 3 * self.sigma)[0] * _poisson(n_bg[i], nbgi)
-        return np.sum(np.log(likelihood))
+        prod_like = np.prod(likelihood)
+        return np.log(prod_like) if prod_like > 0 else -np.inf
 
     def shape(self, n_obs, n_bg, n_pred):
         prod_like = 0

@@ -522,6 +522,8 @@ class FluxBaseContinuous:
 class NeutrinoFlux:
     def __init__(self, continuous_fluxes=None, delta_fluxes=None, norm=1):
         self.norm = norm * ((100 * meter_by_mev) ** 2)
+        self.ev_min = None
+        self.ev_max = None
         if continuous_fluxes is None:
             self.nu = None
         elif isinstance(continuous_fluxes, dict):
@@ -634,7 +636,7 @@ class DMFluxFromPiMinusObsorption:
     Dark matter flux from pi^- + p -> A^\prime + n -> \chi + \chi + n
     """
     def __init__(self, dark_photon_mass, life_time, coupling_quark, dark_matter_mass,
-                 detector_distance=19.3, pot_rate=5e20, pot_mu=0.7, pot_sigma=0.15, pion_rate=0.046, sampling_size=100000):
+                 detector_distance=19.3, pot_rate=5e20, pot_mu=0.7, pot_sigma=0.15, pion_rate=18324/500000, sampling_size=100000):
         """
         initialize and generate flux
         default values are COHERENT experiment values
@@ -661,6 +663,7 @@ class DMFluxFromPiMinusObsorption:
         self.pion_rate = pion_rate
         self.sampling_size = sampling_size
         self.timing = None
+        self.energy = None
         self.ed_min = None
         self.ed_max = None
         self.norm = None
@@ -706,6 +709,7 @@ class DMFluxFromPiMinusObsorption:
                     timing.append((-b + np.sqrt(b ** 2 - 4 * a * cc)) / (2 * a) + t[i] + tf[i])
                     energy.append(elab[i])
         self.timing = np.array(timing) / c_light * meter_by_mev * 1e6
+        self.energy = np.array(energy)
         self.ed_min = min(energy)
         self.ed_max = max(energy)
         self.norm = self.epsi_quark ** 2 * self.pot_rate * self.pion_rate / (4 * np.pi * (self.det_dist ** 2) * 24 * 3600) * \
@@ -796,7 +800,7 @@ class NeutrinoFluxFactory:
             def dmubar(evv):
                 return (3 * ((evv / 52) ** 2) - 2 * ((evv / 52) ** 3)) / 26
             ev = np.linspace(0.001, 52, kwargs['npoints'] if 'npoints' in kwargs else 100)
-            return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 11))
+            return NeutrinoFlux(continuous_fluxes={'ev': ev, 'e': de(ev), 'mubar': dmubar(ev)}, norm=1.13 * (10 ** 7))
         if flux_name == 'coherent_prompt':
             return NeutrinoFlux(delta_fluxes={'mu': [(29, 1)]}, norm=1.13 * (10 ** 7))
         if flux_name == 'far_beam_nu':

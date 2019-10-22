@@ -461,3 +461,16 @@ class OscillatorFactory:
             if 'zenith' not in kwargs:
                 raise Exception('please specify zenith angle')
             return Oscillator([survial_atmos_amp], **kwargs)
+
+
+def survival_sterile(ev, dm41=0, ua4=(0,0,0), epsi=NSIparameters(), op=oscillation_parameters(), nui='e', nuf='e', lenth=19.3/meter_by_mev):
+    idx = {'e': 0, 'mu': 1, 'tau': 2, 'ebar': 0, 'mubar': 1, 'taubar': 2}
+    ni = idx[nui]
+    nf = idx[nuf]
+    if ni == nf:
+        u = ua4[ni]
+        return 1 - 4 * u * (1 - u) * np.sin(dm41 * lenth / 4 / ev)
+    else:
+        ua = ua4[ni]
+        ub = ua4[nf]
+        return 4 * ua * ub * np.sin(dm41 * lenth / 4 / ev)
