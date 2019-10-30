@@ -24,10 +24,13 @@ class Axion:
 
     def photon_axion_cross(self, pgamma):
         # Primakoff
-        def func(cs):
-            t = self.axion_mass**2 + 2*(-pgamma**2+pgamma*np.sqrt(pgamma**2-self.axion_mass**2)*cs)
-            return (1-cs**2)/t**2
-        return 1/4*self.axion_coupling**2*1/137*self.target_z**2*(pgamma**2-self.axion_mass**2)**2*quad(func, -1, 1)[0]*self.form_factor()
+        # def func(cs):
+        #     t = self.axion_mass**2 + 2*(-pgamma**2+pgamma*np.sqrt(pgamma**2-self.axion_mass**2)*cs)
+        #     return (1-cs**2)/t**2
+        # return 1/4*self.axion_coupling**2*1/137*self.target_z**2*(pgamma**2-self.axion_mass**2)**2*quad(func, -1, 1)[0]*self.form_factor()
+        ma = self.axion_mass
+        it = 1/(ma**2*pgamma**2-pgamma**4)+(ma**2-2*pgamma**2)*np.arctanh(2*pgamma*np.sqrt(-ma**2+pgamma**2)/(ma**2-2*pgamma**2))/(2*pgamma**3*(-ma**2+pgamma**2)**1.5)
+        return 1/4*self.axion_coupling**2*1/137*self.target_z**2*(pgamma**2-self.axion_mass**2)**2*it*self.form_factor()
 
     def axion_probability(self, pgamma):
         # target_n_gamma is in cm^2
@@ -36,7 +39,9 @@ class Axion:
         return cross_prim / (cross_prim + (self.target_photon_cross/(100*meter_by_mev)**2))
 
     def simulate_single(self, energy, rate, nsamplings=1000):
-        if energy <= self.axion_mass:
+        pgamma=energy
+        ma = self.axion_mass
+        if energy <= 1.5*self.axion_mass or np.abs(2*pgamma*np.sqrt(-ma**2+pgamma**2)/(ma**2-2*pgamma**2))>=1:
             return
         prob = self.axion_probability(energy)
         axion_count = 0
