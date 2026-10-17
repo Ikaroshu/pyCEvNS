@@ -1,0 +1,27 @@
+Data corresponding to the COHERENT Collaboration result shown in arXiv:1708.01294[nucl-ex]
+Part of a release package including a descriptive document and code examples showing interaction with the data
+
+The full release package can be found at http://coherent.ornl.gov/data. The example code can be found, on its own, at https://code.ornl.gov/COHERENT/codeExamples_dataRelease_april2018.
+
+Note that the quenching factor (QF) data points are included for those who might want to develop their own parameterization of the QF, introducing (say) energy dependence.
+The QF used for the analysis of the 2017 publication was an energy-independent value determined by global literature data.
+The QF in the 2017 analysis is included in the YAML file.
+
+For a full description, and the recommended way to cite this data, see the PDF document accompanying this release.
+
+Files included here:
+	data_anticoincidence_beamOff.txt: Data taken with NO SNS beam, representing the anti-coincidence (AC) region of the waveform where no neutrino events are expected.
+	data_coincidence_beamOff.txt: Data taken with NO SNS beam, representing the coincidence (C) region of the waveform where neutrino and neutron events are expected to occur.
+	data_anticoincidence_beamOn.txt: Data taken WITH SNS beam, representing the AC region. This would generally be considered the background region.
+	data_coincidence_beamOn.txt: Data taken WITH SNS beam, representing the C region. This would generally be considered the signal region.
+	
+	arrivalTimePDF_promptNeutrons.txt: Data describing the arrival-time distribution of signals associated with prompt neutrons. Overall normalization effectively arbitrary.
+	arrivalTimePDF_promptNeutrinos.txt: Data describing the arrival-time distribution of signals associated with the prompt neutrino population (i.e., muon neutrinos from pion decay). Overall normalization effectively arbitrary.
+	arrivalTimePDF_delayedNeutrinos.txt: Data describing the arrival-time distribution of signals associated with the delayed neutrino population (i.e., anti-muon and electron neutrinos from muon decay). Overall normalization effectively arbitrary.	
+
+	promptPDF.txt: Distribution of the expected number of events from prompt, SNS-produced neutrons in photoelectron space per gigawatt-hour of SNS beam exposure. No analysis efficiency is applied in advance to this data, and this must be done by the user.
+	
+	qfData_chicago.txt: CsI-Na quenching factor data points from Chicago experiment shown in publication. 
+	qfData_tunl.txt: CsI-Na quenching factor data points from TUNL experiment shown in publication.
+
+	coherent_parameters.yaml: YAML file with entries corresponding to relevant bits of information which can be expressed as single numbers.

@@ -1,0 +1,21 @@
+# Source: https://zenodo.org/records/1228631 (DOI 10.5281/zenodo.1228631)
+# Release files: data_coincidence_beamOn.txt, data_anticoincidence_beamOn.txt,
+# promptPDF.txt, coherent_parameters.yaml; conversion date: 2026-10-17.
+# Analysis: 6 <= PE < 30, edges 6,8,...,30; full release 0 <= time < 12 us.
+# Raw beamOn C and AC counts summed over all 24 time centers 0.25,...,11.75 us.
+# AC scale = 1 (same duration/exposure); no acceptance correction to observed/AC.
+# Prompt neutrons: efficiency at each 1-PE center, times 7.47594 GWhr, then rebin.
+# Timing integrated in full; no timing rescaling. Paper likelihood uses time < 6 us.
+# pe_lower,pe_upper,observed,steady_state,prompt_neutrons
+6,8,50,41,0.2052613967068698
+8,10,103,90,0.3537340711270489
+10,12,137,111,0.5181318652982085
+12,14,119,87,0.6247137332845394
+14,16,94,66,0.6415237872796489
+16,18,81,54,0.5988842562092498
+18,20,56,57,0.5339878114674406
+20,22,41,52,0.4713862478218398
+22,24,43,39,0.4302469815555767
+24,26,37,33,0.3816474927643609
+26,28,50,43,0.3475680817927573
+28,30,44,30,0.3122557753988744

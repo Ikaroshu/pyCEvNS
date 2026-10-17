@@ -1,8 +1,8 @@
 """Spec Verification test 2: the new vector cross section against legacy `NeutrinoNucleusElasticVector.rates`.
 
-The new dR/dT is `xsec.dsigma_dt` folded with the legacy flux through legacy `NeutrinoFlux.integrate`
-(see legacy_folding.py), compared pointwise at 50 recoil energies spanning each detector's threshold
-range. Rates are compared in events per MeV for the README exposure (4466 kg day), the units of the
+The production dR/dT folds the new flux and detector response, compared pointwise at 50 recoil energies
+spanning each detector's threshold range. Rates are compared in events per MeV for the README exposure
+(4466 kg day), the units of the
 integrand of legacy `events`; the raw legacy rate is of order 1e-30, so an absolute floor of 1e-6 in raw
 units would make every comparison pass.
 
@@ -16,15 +16,18 @@ Two legacy issues are accounted for, not fixed:
 
 import numpy as np
 import pytest
-from legacy_folding import detector_isotopes, events_per_mev, fold_coefficients
+from experiment_fixtures import detector_isotopes, events_per_mev, production_detector
 from pyCEvNS.constants import gf
 from pyCEvNS.detectors import Detector
 from pyCEvNS.events import HelmFormFactor, NeutrinoNucleusElasticVector, eff_coherent
 from pyCEvNS.flux import NeutrinoFlux, NeutrinoFluxFactory
 from pyCEvNS.parameters import NSIparameters
 
+from nuagent.experiments.flux import NeutrinoFlux as ProductionFlux
+from nuagent.experiments.flux import coherent_flux
 from nuagent.physics.couplings import GF, PAIR_INDEX, SQRT2, sm, vector_charge
 from nuagent.physics.modelcard import Contact, FlavorMatrix, Mediator, ModelCard, QuarkCouplings
+from nuagent.rates import differential_rate
 
 HELM_RADIUS_FM = {"csi": 5.5, "ar": 4.7 * (40 / 133) ** (1 / 3)}
 OFF_DIAGONAL = ("em", "et", "mt")
@@ -152,12 +155,17 @@ def test_legacy_ed_uses_gu():
 def test_vector_rates_match_legacy(fluxes, detector_name, label, card, legacy_nsi):
     detector = Detector(detector_name, efficiency=eff_coherent if detector_name == "csi" else None)
     radius = HELM_RADIUS_FM[detector_name]
-    isotopes = detector_isotopes(detector, radius)
+    new_detector = production_detector(detector, radius)
+    new_flux = coherent_flux()
+    extra_flux = ProductionFlux(
+        new_flux.energy_mev,
+        {f: new_flux.continuous["e"] for f in ("ebar", "tau", "taubar")},
+        {"tau": ((29.0, 1.0),)},
+        new_flux.normalization_cm2_s,
+    )
+    production_fluxes = {"coherent": new_flux, "all_flavors": extra_flux}
     legacy = NeutrinoNucleusElasticVector(legacy_nsi, HelmFormFactor(radius))
     recoil = np.linspace(detector.er_min, detector.er_max, 50)
-
-    def total(q2):
-        return sm(q2) + card.coefficients(q2)
 
     for flux_name, flavor in FLAVOR_FLUXES:
         flux = fluxes[flux_name]
@@ -165,7 +173,10 @@ def test_vector_rates_match_legacy(fluxes, detector_name, label, card, legacy_ns
             [events_per_mev(np.real(legacy.rates(t, flavor, flux, detector)), detector) for t in recoil]
         )
         new = np.array(
-            [events_per_mev(fold_coefficients(t, flavor, flux, detector, isotopes, total), detector) for t in recoil]
+            [
+                differential_rate(t, production_fluxes[flux_name], new_detector, 4466, card.coefficients, flavor=flavor)
+                for t in recoil
+            ]
         )
         assert np.any(expected > 0)
         np.testing.assert_allclose(new, expected, rtol=1e-4, atol=1e-6, err_msg=f"{detector_name} {flavor}")

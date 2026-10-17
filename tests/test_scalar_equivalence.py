@@ -3,17 +3,19 @@
 Legacy is built with `form_factor_square=HelmFormFactor()` (4.7 fm; its default is no form factor on the
 scalar term), and its scalar-only rate is `scalar.rates - scalar.sm_interaction.rates`. Legacy `cu`, `cd`
 are the products g_nu g_q of a flavor-universal mediator. The new side folds `xsec.dsigma_dt` with the
-scalar card's coefficients alone (no SM), pointwise at 50 recoil energies of the CsI threshold range.
+scalar card, subtracting the SM, pointwise at 50 recoil energies of the CsI threshold range.
 """
 
 import numpy as np
 import pytest
-from legacy_folding import detector_isotopes, events_per_mev, fold_coefficients
+from experiment_fixtures import events_per_mev, production_detector
 from pyCEvNS.detectors import Detector
 from pyCEvNS.events import HelmFormFactor, NeutrinoNucleusElasticScalar, eff_coherent
 from pyCEvNS.flux import NeutrinoFluxFactory
 
+from nuagent.experiments.flux import coherent_flux
 from nuagent.physics.modelcard import template_card
+from nuagent.rates import differential_rate
 
 # (g_nu, g_u, g_d, m_phi in MeV), each giving a scalar rate of order the SM rate; legacy cu = g_nu g_u, cd = g_nu g_d.
 # The last point has g_u != g_d so that a mix-up of the u and d scalar charges is caught.
@@ -29,7 +31,8 @@ SCALAR_POINTS = [
 def test_scalar_rates_match_legacy(g_nu, g_u, g_d, mass_mev):
     detector = Detector("csi", efficiency=eff_coherent)
     flux = NeutrinoFluxFactory().get("coherent")
-    isotopes = detector_isotopes(detector, 4.7)
+    new_detector = production_detector(detector, 4.7)
+    new_flux = coherent_flux()
     legacy = NeutrinoNucleusElasticScalar(g_nu * g_u, g_nu * g_d, mass_mev, form_factor_square=HelmFormFactor())
     card = template_card("scalar_universal", {"g_nu": g_nu, "g_u": g_u, "g_d": g_d, "mass_mev": mass_mev})
     recoil = np.linspace(detector.er_min, detector.er_max, 50)
@@ -45,7 +48,8 @@ def test_scalar_rates_match_legacy(g_nu, g_u, g_d, mass_mev):
         )
         new = np.array(
             [
-                events_per_mev(fold_coefficients(t, flavor, flux, detector, isotopes, card.coefficients), detector)
+                differential_rate(t, new_flux, new_detector, 4466, card.coefficients, flavor=flavor)
+                - differential_rate(t, new_flux, new_detector, 4466, flavor=flavor)
                 for t in recoil
             ]
         )
