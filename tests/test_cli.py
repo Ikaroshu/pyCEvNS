@@ -1,5 +1,6 @@
 """Exercise installed CLI commands and their parseable per-bin output."""
 
+import csv
 import json
 from pathlib import Path
 import subprocess
@@ -13,11 +14,15 @@ from test_plugins import RAW_SM_PLUGIN
 from nuagent.experiments.registry import get
 from nuagent.physics.modelcard import ModelCard
 from nuagent.rates import predicted_counts
+from nuagent.stats import asimov, likelihood
+
+
+def run(*arguments: str) -> str:
+    return subprocess.run([str(Path(sys.executable).with_name("nuagent")), *arguments], check=True, capture_output=True, text=True).stdout
 
 
 def cli(*arguments: str) -> dict:
-    result = subprocess.run([str(Path(sys.executable).with_name("nuagent")), *arguments], check=True, capture_output=True, text=True)
-    return json.loads(result.stdout)
+    return json.loads(run(*arguments))
 
 
 def test_experiments_command():
@@ -65,3 +70,42 @@ def test_predict_raw_sm_plugin(tmp_path):
     plugin.write_text(RAW_SM_PLUGIN)
     output = cli("predict", "--experiment", "coherent_csi_2017", "--raw-plugin", str(plugin))
     np.testing.assert_allclose([row["signal"] for row in output["bins"]], predicted_counts(get("coherent_csi_2017")), rtol=1e-12, atol=0)
+
+
+def test_compare_example_card(tmp_path):
+    card_text = example_blocks(CONTEXT / "examples" / "01_zprime_universal.md", "json")[0]
+    card = tmp_path / "card.json"
+    card.write_text(card_text)
+    output = cli("compare", "--experiment", "coherent_csi_2017", "--card", str(card))
+    experiment = get("coherent_csi_2017")
+    signal = predicted_counts(experiment, ModelCard.model_validate_json(card_text).coefficients)
+    assert output["delta"] == pytest.approx(likelihood.delta(experiment, signal), abs=1e-9)
+    assert output["delta"] == pytest.approx(
+        output["new_physics"]["neg2_log_likelihood"] - output["sm"]["neg2_log_likelihood"], abs=1e-12
+    )
+    standard = likelihood.profiled(experiment, predicted_counts(experiment))
+    assert output["sm"]["alpha"] == pytest.approx(standard.alpha, abs=1e-9)
+    assert list(output["sm"]["beta"]) == ["steady_state", "prompt_neutrons"]
+
+
+def test_scan_grid_csv():
+    output = run(
+        "scan", "--experiment", "coherent_csi_2017", "--template", "zprime_universal",
+        "--param", "g_nu=1e-5:1e-4:2:log", "--param", "mass_mev=10:30:2", "--set", "g_q=1e-4",
+    )
+    rows = list(csv.DictReader(output.splitlines()))
+    assert [(float(row["g_nu"]), float(row["mass_mev"])) for row in rows] == [(1e-5, 10), (1e-5, 30), (1e-4, 10), (1e-4, 30)]
+    expected = asimov.scan(
+        get("coherent_csi_2017"), "zprime_universal", {"g_nu": [1e-5, 1e-4], "mass_mev": [10.0, 30.0]}, {"g_q": 1e-4}
+    )
+    np.testing.assert_allclose([float(row["delta"]) for row in rows], expected.delta.ravel(), rtol=1e-9, atol=1e-12)
+
+
+def test_scan_unknown_parameter_names_choices():
+    result = subprocess.run(
+        [str(Path(sys.executable).with_name("nuagent")), "scan", "--experiment", "coherent_csi_2017",
+         "--template", "zprime_lmu_ltau", "--param", "g=1e-4:1e-3:2:log", "--set", "mass_mev=10"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    assert "valid parameters: g_prime, mass_mev, kinetic_mixing" in result.stderr
