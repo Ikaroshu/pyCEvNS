@@ -8,7 +8,21 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from nuagent.physics.couplings import E_CHARGE, GF, KAPPA_LMU_LTAU, SQRT2, scalar_charge, sm, vector_charge
+from nuagent.physics.couplings import (
+    E_CHARGE,
+    GF,
+    KAPPA_LMU_LTAU,
+    M_N,
+    M_P,
+    QUARK_MASS_MEV,
+    SCALAR_CONTENT_N,
+    SCALAR_CONTENT_P,
+    SIN2_THETA_W,
+    SQRT2,
+    scalar_charge,
+    sm,
+    vector_charge,
+)
 from nuagent.physics.modelcard import TEMPLATES, ModelCard, template_card, u1_card
 from nuagent.physics.plugin import load_coefficient_plugin
 from nuagent.physics.xsec import FLAVOR_ROW, Isotope, dsigma_dt
@@ -39,6 +53,15 @@ def test_u1_card_from_b_minus_l_charges():
     assert (mediator.quark_couplings.u, mediator.quark_couplings.d) == pytest.approx((g / 3, g / 3))
     c = card.coefficients(Q2)
     np.testing.assert_allclose(c.values["V", "u"][1, 1], -g * g / 3 / (SQRT2 * GF * (Q2 + 100.0)), rtol=1e-14)
+
+
+def test_u1_card_from_arbitrary_charges():
+    g = 2e-5
+    card = u1_card(g, 15.0, q_nu_e=0.5, q_nu_mu=-2.0, q_nu_tau=3.0, q_u=0.7, q_d=-1.3, kinetic_mixing=1e-3)
+    mediator = card.mediators[0]
+    np.testing.assert_allclose(mediator.nu_couplings.matrix(), g * np.diag([0.5, -2.0, 3.0]))
+    assert (mediator.quark_couplings.u, mediator.quark_couplings.d) == pytest.approx((0.7 * g, -1.3 * g))
+    assert mediator.kinetic_mixing == 1e-3
 
 
 def test_kinetic_mixing_adds_e_epsilon_q():
@@ -186,18 +209,101 @@ def test_example_06_reduces_to_example_03b(tmp_path):
     )
 
 
-def test_example_tabulated_numbers():
-    """Rounded values printed in docs/agent/examples and conventions.md."""
-    sm_charge = vector_charge(sm(Q2), 55, 78)[0, 0, 0].real
-    tree = 55 * (0.5 - 2 * 0.2312) + 78 * (-0.5)
-    assert round(sm_charge, 2) == -38.28
-    assert round(tree, 2) == -36.93
-    universal = template_card("zprime_universal", {"g_nu": 1e-4, "g_q": 1e-4, "mass_mev": 30.0}).coefficients(Q2)
-    np.testing.assert_allclose(universal.values["V", "u"][0, 0].real, [2.8355e-01, 1.3139e-01, 8.5506e-02], rtol=5e-5)
-    scalar = template_card("scalar_universal", {"g_nu": 1e-5, "g_q": 1e-5, "mass_mev": 10.0}).coefficients(Q2)
-    np.testing.assert_allclose(scalar.values["S", "u"][0, 0].real, [4.5309e-03, 1.5895e-03, 9.6382e-04], rtol=5e-5)
-    np.testing.assert_allclose(
-        scalar_charge(scalar, 55, 78)[0, 0].real, [1.6980e-10, 5.9570e-11, 3.6121e-11], rtol=5e-5
+def significant(x: float, digits: int) -> float:
+    return float(f"{x:.{digits}g}")
+
+
+A_CS = 133
+Q_SM_TREE = 55 * (0.5 - 2 * 0.2312) + 78 * (-0.5)
+
+
+def test_conventions_numbers():
+    q_sm = vector_charge(sm(Q2), 55, 78)[0, 0, 0].real
+    assert round(q_sm, 2) == -38.28
+    assert round(Q_SM_TREE, 2) == -36.93
+    assert round(0.5 - 4 / 3 * SIN2_THETA_W, 4) == 0.1917
+    assert round(-0.5 + 2 / 3 * SIN2_THETA_W, 4) == -0.3459
+    c_p = M_P * sum(SCALAR_CONTENT_P[q] / QUARK_MASS_MEV[q] for q in ("u", "d"))
+    c_n = M_N * sum(SCALAR_CONTENT_N[q] / QUARK_MASS_MEV[q] for q in ("u", "d"))
+    assert (round(c_p, 2), round(c_n, 2), round(c_p, 1), round(c_n, 1)) == (17.08, 17.09, 17.1, 17.1)
+    nucleon = np.array(
+        [
+            [M_P * SCALAR_CONTENT_P[q] / QUARK_MASS_MEV[q] for q in ("u", "d")],
+            [M_N * SCALAR_CONTENT_N[q] / QUARK_MASS_MEV[q] for q in ("u", "d")],
+        ]
     )
-    loop = template_card("zprime_lmu_ltau", {"g_prime": 1e-4, "mass_mev": 10.0}).coefficients(Q2)
-    np.testing.assert_allclose(loop.values["V", "u"][1, 1].real, [1.3218e-03, 4.6370e-04, 2.8117e-04], rtol=5e-5)
+    g_u, g_d = np.linalg.solve(nucleon, [1.0, 1.0])
+    assert (round(g_u, 6), round(g_d, 6)) == (0.058970, 0.058122)
+
+
+def test_example_01_numbers():
+    c = template_card("zprime_universal", {"g_nu": 1e-4, "g_q": 1e-4, "mass_mev": 30.0}).coefficients(Q2)
+    for quark in ("u", "d"):
+        np.testing.assert_allclose(c.values["V", quark][0, 0].real, [2.8355e-01, 1.3139e-01, 8.5506e-02], rtol=5e-5)
+    shift = vector_charge(c, 55, 78)[0, 0, 0].real
+    assert round(shift, 1) == 113.1
+    assert round(shift + Q_SM_TREE, 1) == 76.2
+    assert round(((shift + Q_SM_TREE) / Q_SM_TREE) ** 2, 1) == 4.3
+    # Delta Q is proportional to g'^2: the coupling with Delta Q = -Q_SM, and with Delta Q = -2 Q_SM.
+    q_sm = vector_charge(sm(Q2), 55, 78)[0, 0, 0].real
+    cancel = [1e-4 * np.sqrt(-charge / shift) for charge in (Q_SM_TREE, q_sm)]
+    assert [significant(g, 3) for g in cancel] == [5.71e-05, 5.82e-05]
+    assert [significant(np.sqrt(2) * g, 3) for g in cancel] == [8.08e-05, 8.23e-05]
+
+
+def test_example_02_numbers():
+    card = u1_card(1e-4, 10.0, q_nu_e=-1, q_nu_mu=-1, q_nu_tau=-1, q_u=1 / 3, q_d=1 / 3)
+    c = card.coefficients(Q2)
+    for quark in ("u", "d"):
+        for alpha in range(3):
+            np.testing.assert_allclose(
+                c.values["V", quark][alpha, alpha].real, [-1.5103e-01, -5.2984e-02, -3.2127e-02], rtol=5e-5
+            )
+    assert round(vector_charge(c, 55, 78)[0, 0, 0].real, 3) == -60.262
+
+
+def test_example_03_numbers():
+    cases = {
+        "A": (
+            {"g_prime": 5e-5, "mass_mev": 20.0, "kinetic_mixing": 2e-3},
+            [7.4762e-01, 2.9767e-01, 1.8583e-01],
+            [-3.7381e-01, -1.4883e-01, -9.2914e-02],
+        ),
+        "B": (
+            {"g_prime": 1e-4, "mass_mev": 10.0},
+            [1.3218e-03, 4.6370e-04, 2.8117e-04],
+            [-6.6089e-04, -2.3185e-04, -1.4058e-04],
+        ),
+    }
+    for params, up, down in cases.values():
+        c = template_card("zprime_lmu_ltau", params).coefficients(Q2)
+        for quark, row in (("u", up), ("d", down)):
+            np.testing.assert_allclose(c.values["V", quark][1, 1].real, row, rtol=5e-5)
+            np.testing.assert_allclose(c.values["V", quark][2, 2].real, -np.array(row), rtol=5e-5)
+            assert np.count_nonzero(c.values["V", quark][0, 0]) == 0
+    assert significant(KAPPA_LMU_LTAU * 1e-4, 7) == 1.444176e-06
+
+
+def test_example_04_numbers():
+    c = template_card("scalar_universal", {"g_nu": 1e-5, "g_q": 1e-5, "mass_mev": 10.0}).coefficients(Q2)
+    for quark in ("u", "d"):
+        np.testing.assert_allclose(c.values["S", quark][0, 0].real, [4.5309e-03, 1.5895e-03, 9.6382e-04], rtol=5e-5)
+    np.testing.assert_allclose(scalar_charge(c, 55, 78)[0, 0].real, [1.6980e-10, 5.9570e-11, 3.6121e-11], rtol=5e-5)
+
+
+def test_example_05_numbers():
+    c = template_card("contact_nsi", {"eps_u_ee": 0.1, "eps_u_em": 0.05}).coefficients(Q2)
+    charge = vector_charge(c, 55, 78)[:, :, 0]
+    assert round(charge[0, 0].real, 1) == 18.8
+    assert round(charge[0, 0].real + Q_SM_TREE, 2) == -18.13
+    assert round(abs(charge[0, 1]), 1) == round(abs(charge[1, 0]), 1) == 9.4
+
+
+def test_example_06_numbers(tmp_path):
+    running = example_plugins(DOCS / "examples" / "06_running_kinetic_mixing.md", tmp_path)[0]
+    constant = example_plugins(DOCS / "examples" / "03_zprime_lmu_ltau.md", tmp_path)[1]
+    c = running.coefficients(Q2, running.parameters)
+    np.testing.assert_allclose(c.values["V", "u"][1, 1].real, [1.3167e-03, 4.5844e-04, 2.7597e-04], rtol=5e-5)
+    np.testing.assert_allclose(c.values["V", "d"][1, 1].real, [-6.5833e-04, -2.2922e-04, -1.3798e-04], rtol=5e-5)
+    ratio = c.values["V", "u"][1, 1].real / constant.coefficients(Q2, constant.parameters).values["V", "u"][1, 1].real
+    np.testing.assert_array_equal(np.round(ratio, 5), [0.99613, 0.98866, 0.98150])

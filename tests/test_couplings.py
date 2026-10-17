@@ -3,8 +3,10 @@
 import numpy as np
 import pytest
 
-from nuagent.physics.couplings import GF, SIN2_THETA_W, SM_VECTOR, SQRT2, Coefficients, sm
-from nuagent.physics.modelcard import template_card
+from nuagent.physics.couplings import GF, M_N, M_P, SIN2_THETA_W, SM_VECTOR, SQRT2, Coefficients, sm
+from nuagent.physics.formfactor import helm_form_factor_squared
+from nuagent.physics.modelcard import ModelCard, template_card
+from nuagent.physics.xsec import Isotope, dsigma_dt
 
 Q2 = np.array([1238.0, 3714.0, 6190.0])
 
@@ -63,3 +65,37 @@ def test_sm_z_anchor():
     c = card.coefficients(np.array([0.0]))
     for quark in ("u", "d"):
         np.testing.assert_allclose(np.diagonal(c.values["V", quark][:, :, 0]), tree[quark], rtol=1e-6)
+
+
+def test_scalar_cross_section_with_complex_off_diagonal():
+    a, b, g_u, g_d, mass = 2e-5, -3e-5, 1e-5, 4e-5, 20.0
+    card = ModelCard.model_validate(
+        {
+            "mediators": [
+                {
+                    "structure": "S",
+                    "mass_mev": mass,
+                    "nu_couplings": {"em": [a, b]},
+                    "quark_couplings": {"u": g_u, "d": g_d},
+                }
+            ]
+        }
+    )
+    isotope = Isotope(55, 78, 123800.0, 5.5)
+    t = np.array([0.005, 0.015])
+    e_nu = np.array([30.0, 45.0])
+    q2 = isotope.q2(t)
+    # Legacy nucleon scalar charges: c_N = m_N sum_q g_q f_q^N / m_q.
+    c_p = M_P * (g_u * 0.0208 / 2.2 + g_d * 0.0411 / 4.7)
+    c_n = M_N * (g_u * 0.0189 / 2.2 + g_d * 0.0451 / 4.7)
+    charge = (a + 1j * b) * (55 * c_p + 78 * c_n) / (q2 + mass**2)
+    expected = (
+        isotope.mass_mev**2
+        * t
+        * np.abs(charge) ** 2
+        * helm_form_factor_squared(np.sqrt(q2), 5.5)
+        / (4 * np.pi * e_nu**2)
+    )
+    for flavor in ("e", "mu", "ebar", "mubar"):
+        np.testing.assert_allclose(dsigma_dt(e_nu, t, flavor, isotope, card.coefficients(q2)), expected, rtol=1e-12)
+    np.testing.assert_array_equal(dsigma_dt(e_nu, t, "tau", isotope, card.coefficients(q2)), 0)

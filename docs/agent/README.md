@@ -1,6 +1,6 @@
 # Agent context pack (draft)
 
-Files the agent harness copies into every task directory. They are also the human reference for the package's physics conventions. Status: drafted 2026-10-17 in the design session; milestone M2 implemented the `Coefficients` API, the model card and the cross section they describe, and `tests/test_modelcard.py` checks that every example card and plugin agree and that the quoted numbers match the code.
+Files the agent harness copies into every task directory. They are also the human reference for the package's physics conventions. Status: drafted 2026-10-17 in the design session; milestone M2 implemented the `Coefficients` API, the model card and the cross section they describe, and `tests/test_modelcard.py` checks that every example card and plugin agree and that the examples' coefficient tables and derived charges, couplings and ratios, and the numerical values in `conventions.md`, match the code (quadrature-accuracy remarks in example 06 are not tested).
 
 - `conventions.md`: normative conventions. Read first.
 - `plugin_api.md`: the plugin contract.

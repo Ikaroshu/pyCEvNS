@@ -15,18 +15,23 @@ from pyCEvNS.flux import NeutrinoFluxFactory
 
 from nuagent.physics.modelcard import template_card
 
-# (g_nu = g_q, m_phi in MeV), each giving a scalar rate of order the SM rate; legacy cu = cd = g_nu g_q.
-SCALAR_POINTS = [(3e-5, 5.0), (2.5e-5, 30.0), (1.3e-4, 300.0)]
+# (g_nu, g_u, g_d, m_phi in MeV), each giving a scalar rate of order the SM rate; legacy cu = g_nu g_u, cd = g_nu g_d.
+# The last point has g_u != g_d so that a mix-up of the u and d scalar charges is caught.
+SCALAR_POINTS = [
+    (3e-5, 3e-5, 3e-5, 5.0),
+    (2.5e-5, 2.5e-5, 2.5e-5, 30.0),
+    (1.3e-4, 1.3e-4, 1.3e-4, 300.0),
+    (3e-5, 1e-5, 5e-5, 30.0),
+]
 
 
-@pytest.mark.parametrize(("coupling", "mass_mev"), SCALAR_POINTS)
-def test_scalar_rates_match_legacy(coupling, mass_mev):
+@pytest.mark.parametrize(("g_nu", "g_u", "g_d", "mass_mev"), SCALAR_POINTS)
+def test_scalar_rates_match_legacy(g_nu, g_u, g_d, mass_mev):
     detector = Detector("csi", efficiency=eff_coherent)
     flux = NeutrinoFluxFactory().get("coherent")
     isotopes = detector_isotopes(detector, 4.7)
-    product = coupling * coupling
-    legacy = NeutrinoNucleusElasticScalar(product, product, mass_mev, form_factor_square=HelmFormFactor())
-    card = template_card("scalar_universal", {"g_nu": coupling, "g_q": coupling, "mass_mev": mass_mev})
+    legacy = NeutrinoNucleusElasticScalar(g_nu * g_u, g_nu * g_d, mass_mev, form_factor_square=HelmFormFactor())
+    card = template_card("scalar_universal", {"g_nu": g_nu, "g_u": g_u, "g_d": g_d, "mass_mev": mass_mev})
     recoil = np.linspace(detector.er_min, detector.er_max, 50)
     for flavor in ("e", "mu", "mubar"):
         expected = np.array(
