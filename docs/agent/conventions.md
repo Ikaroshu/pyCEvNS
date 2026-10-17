@@ -16,7 +16,7 @@ Natural units with energies in MeV. The framework provides these constants; do n
 | `M_P`, `M_N` | 938.27, 939.56 MeV | nucleon masses |
 | `M_MU`, `M_TAU` | 105.658369, 1776.99 MeV | charged lepton masses |
 
-The values in this table are the ones exported by `nuagent.physics.couplings`, at full precision; use the exported names in plugins rather than retyping numbers.
+The values in this table are the ones exported by `nuagent.physics.couplings`, at full precision; use the exported names in plugins rather than retyping numbers. The module also exports `Q_EM` (the quark electric charges `{"u": 2/3, "d": -1/3}`) and `KAPPA_LMU_LTAU` (κ of section 6).
 
 Momentum transfer: the framework passes you `q2`, a numpy array of the squared spacelike momentum transfer Q² = 2 M T ≥ 0 in MeV², where M is the nuclear mass and T the nuclear recoil energy. A propagator is always `1 / (q2 + mass**2)`.
 

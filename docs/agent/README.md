@@ -1,10 +1,10 @@
 # Agent context pack (draft)
 
-Files the agent harness copies into every task directory. They are also the human reference for the package's physics conventions. Status: drafted 2026-10-17 in the design session before the code exists; `plugin_api.md` is provisional until milestone M2 fixes the `Coefficients` API, and numbers in the examples were computed from the stated formulas with the constants in `conventions.md`.
+Files the agent harness copies into every task directory. They are also the human reference for the package's physics conventions. Status: drafted 2026-10-17 in the design session; milestone M2 implemented the `Coefficients` API, the model card and the cross section they describe, and `tests/test_modelcard.py` checks that every example card and plugin agree and that the quoted numbers match the code.
 
 - `conventions.md`: normative conventions. Read first.
 - `plugin_api.md`: the plugin contract.
-- `card_schema.json`: generated from the pydantic model in milestone M2; until then the example cards are the schema reference, and a field that is absent means zero.
+- `card_schema.json`: JSON schema of a model card, generated from the pydantic model `nuagent.physics.modelcard.ModelCard` (a test keeps it current). A field that is absent means zero.
 - Section 9 of `conventions.md` plays the role of the spec's `framework.md`.
 - `examples/`: worked description-to-plugin translations with derivations, expected coefficient values at reference momentum transfers, and the card where one exists.
   - `01_zprime_universal.md`: flavor-universal vector mediator (card-expressible)
