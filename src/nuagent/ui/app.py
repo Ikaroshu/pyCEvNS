@@ -110,6 +110,7 @@ def agent_panel() -> None:
     backend = st.selectbox("Backend", ("claude_code", "codex"), key="agent_backend")
     experiments = st.multiselect("Experiments", registry.names(), default=list(registry.names()), key="agent_experiments")
     if st.button("Run agent"):
+        st.session_state.pop("agent_result", None)
         root = Path(tempfile.mkdtemp(prefix="nuagent-ui-"))
         with st.spinner(f"Running {backend} in {root}; this takes minutes"):
             result = run_result(description, experiments, get_backend(backend), root / "task", root / "report.md")

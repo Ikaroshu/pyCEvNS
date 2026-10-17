@@ -101,7 +101,8 @@ The scan panel's fixed-parameter inputs start from the same presets.
 
 ## Tests
 
-- `uv run pytest tests/test_ui.py`: 9 passed.
+- `uv run pytest tests/test_ui.py`: 10 passed (9 at `590b779`; review pass 2
+  added the failed-run test below).
   - The launcher test checks the exact flag/value pairs and that the app file
     exists. `nuagent ui --help` runs through the installed executable.
   - The preset test checks that applying `zprime_lmu_ltau` writes
@@ -120,8 +121,10 @@ The scan panel's fixed-parameter inputs start from the same presets.
     time the test checks the success or error message and that the report
     file's text is rendered. Both still show after a rerun with an edited
     description.
+  - A valid fake run followed by a run whose backend fails clears the stored
+    result: after the next rerun no success message or earlier report shows.
   - The contour figure's legend labels and log axes are checked directly.
-- `uv run pytest`: 331 passed (322 before this milestone plus 9). The only
+- `uv run pytest`: 332 passed (322 before this milestone plus 10). The only
   warning is the frozen legacy package's `pkg_resources` deprecation warning.
 - `uv build --out-dir <scratch>`: the wheel lists `nuagent/ui/app.py`,
   `figures.py` and `launch.py`, and its metadata has

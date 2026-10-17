@@ -125,3 +125,20 @@ def test_contour_figure_labels_and_log_axes():
     axes = contour_figure(scan, [4.61, 2.71], "observed", (True, False)).axes[0]
     assert [text.get_text() for text in axes.get_legend().get_texts()] == ["Δ = 2.71 (observed)", "Δ = 4.61 (observed)"]
     assert (axes.get_xscale(), axes.get_yscale(), axes.get_xlabel(), axes.get_ylabel()) == ("log", "linear", "mass_mev", "g_prime")
+
+
+def test_agent_panel_clears_result_when_a_later_run_fails(monkeypatch):
+    modes = iter(["correct", "backend-failure"])
+    monkeypatch.setattr(nuagent.agent.backend, "get_backend", lambda name: FakeBackend(next(modes)))
+    app = page()
+    app.text_area(key="agent_description").input("a vector mediator")
+    button(app, "Run agent").click().run()
+    report = app.session_state["agent_result"][2]
+    assert len(app.success) == 1
+    button(app, "Run agent").click().run()
+    assert app.exception
+    app.text_area(key="agent_description").input("an edited description").run()
+    assert not app.exception
+    assert "agent_result" not in app.session_state
+    assert not app.success
+    assert report.strip() not in [markdown.value.strip() for markdown in app.markdown]
