@@ -46,3 +46,7 @@ The rubric is an English text check, with aliases listed in `cases.py`; it is no
 **Expressibility recognition**: `card.json` is present exactly when `card_expected` is true. This is independent of physics accuracy, including for notes-only outcomes. Presence alone does not establish valid or correct card contents. Card validation, plugin/card cross-checking, sanity checks and verification labels belong to the harness in #17.
 
 Issue #16 delivers these offline cases and the scorer. Issue #17 owns the backends, harness, `nuagent validate`, `nuagent agent-eval --backend NAME`, and live acceptance evidence. No live backend performance is established by the offline tests.
+
+## Live runner
+
+From the repository root, run `uv run nuagent agent-eval --backend claude_code --out-dir /private/tmp/nuagent-eval` (or `--backend codex`). The output directory must be new. Every case retains its task directory, report and `.score.json`; `summary.json` records all per-case results, both overall rates and separate card-expressible, plugin-only and notes-only rates. Only the case description enters a task. Unexpected backend or plugin failures stop the run with retained evidence.
