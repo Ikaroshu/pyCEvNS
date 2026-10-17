@@ -11,5 +11,6 @@ def streamlit_command(port: int) -> list[str]:
         sys.executable, "-m", "streamlit", "run", str(APP_PATH),
         "--server.address", "127.0.0.1",
         "--browser.gatherUsageStats", "false",
+        "--server.showEmailPrompt", "false",
         "--server.port", str(port),
     ]

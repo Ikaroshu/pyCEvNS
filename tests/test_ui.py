@@ -22,7 +22,10 @@ def test_streamlit_command_binds_loopback_without_usage_statistics():
     assert command[:5] == [sys.executable, "-m", "streamlit", "run", str(APP_PATH)]
     assert Path(command[4]).is_file()
     pairs = dict(zip(command[5::2], command[6::2]))
-    assert pairs == {"--server.address": "127.0.0.1", "--browser.gatherUsageStats": "false", "--server.port": "8600"}
+    assert pairs == {
+        "--server.address": "127.0.0.1", "--browser.gatherUsageStats": "false",
+        "--server.showEmailPrompt": "false", "--server.port": "8600",
+    }
 
 
 def test_ui_help():

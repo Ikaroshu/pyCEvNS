@@ -22,13 +22,29 @@ Streamlit process with SIGTERM let `nuagent ui` exit 0.
 On this machine Streamlit had never run before (no `~/.streamlit/`). With
 stdin not attached to a terminal, Streamlit's first-run onboarding prompt
 ("enter your email address") read end-of-file and Streamlit exited with
-status 255, so `nuagent ui` raised `CalledProcessError`. The manual check
-therefore ran `STREAMLIT_SERVER_HEADLESS=true uv run nuagent ui`. Headless
-mode skips that prompt and the automatic browser opening; it does not change
-the launcher's arguments, which were the ones shown above. In an interactive
-terminal the prompt waits for input once (pressing Enter skips it), then
-Streamlit opens the browser. This first-run prompt is Streamlit's own; it is
-separate from the usage statistics, which stay disabled.
+status 255, so `nuagent ui` raised `CalledProcessError`. The panel checks
+below therefore ran `STREAMLIT_SERVER_HEADLESS=true uv run nuagent ui`.
+
+The follow-up commit "Skip Streamlit's first-run email prompt in nuagent ui"
+(on top of the evidence commit `8c4f46f`) adds `--server.showEmailPrompt false`.
+In Streamlit 1.66.0, `check_credentials` in `streamlit/runtime/credentials.py`
+skips the prompt when `server.headless` is true or `server.showEmailPrompt`
+is false, so the page no longer needs headless mode and Streamlit keeps its
+automatic browser opening. The final launcher command line is:
+
+```text
+python -m streamlit run <installed nuagent/ui/app.py> --server.address 127.0.0.1 --browser.gatherUsageStats false --server.showEmailPrompt false --server.port <port>
+```
+
+Check at that commit, still without `~/.streamlit/` and without
+`STREAMLIT_SERVER_HEADLESS`: `uv run nuagent ui --port 8503 </dev/null` started,
+`ps` showed the command line above with port 8503, Streamlit logged
+`Uvicorn server started on 127.0.0.1:8503`, `curl http://127.0.0.1:8503`
+returned 200, and `lsof -iTCP:8503 -sTCP:LISTEN` showed one listener,
+`TCP 127.0.0.1:8503`. No prompt appeared and no `~/.streamlit/` was created.
+The server was then stopped with SIGTERM. Whether a browser tab opened was
+not observed. The panel checks and the installed-wheel check were not
+repeated after this flag; the flag only affects the first-run prompt.
 
 The wheel from `uv build` contains `nuagent/ui/app.py`, `figures.py` and
 `launch.py`. Installed into a fresh virtual environment outside the
@@ -108,6 +124,6 @@ screenshots were taken from the commit itself.
 - No live agent run from the page: it costs a paid backend call and minutes.
   The panel calls `run_result` with the selected backend, exactly as tested
   offline for `propose`; the live propose runs are left for after the merge.
-- The page was not opened by Streamlit's automatic browser launch, because
-  the server ran headless (see Launcher).
+- Streamlit's automatic browser opening was not observed: the panel checks
+  ran headless, and the non-headless 8503 check only verified the listener.
 - Fresh-clone checking is left for after the merge.
