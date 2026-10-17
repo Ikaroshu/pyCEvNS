@@ -2,7 +2,7 @@
 
 A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
 
-Status: milestone 5b of [ROADMAP.md](ROADMAP.md). Physics, prediction, likelihoods, scans, the context pack and coding-agent harness are implemented. The GUI remains milestone 6.
+Status: milestone 6 of [ROADMAP.md](ROADMAP.md). Physics, prediction, likelihoods, scans, the context pack, the coding-agent harness and a local Streamlit page are implemented.
 
 ## Setup
 
@@ -73,6 +73,34 @@ against SM Asimov data, the expected counts with nuisances at zero, for an
 expected sensitivity; `--data observed` uses the released counts. Under the
 asymptotic approximation Δ = 2.71 and 4.61 are the 90 percent confidence-level
 thresholds for one and two parameters, and Δ = 4 is the one-parameter 2σ limit.
+
+## Use the local page
+
+```bash
+uv run nuagent ui
+uv run nuagent ui --port 8600
+```
+
+`ui` serves a Streamlit page at http://127.0.0.1:8501 (or `--port`). It binds to
+127.0.0.1 only and runs with Streamlit's usage-statistics gathering disabled. The
+page has:
+
+- an experiment selector;
+- a model card editor (JSON) with template presets: choosing a template and its
+  parameters and applying it rewrites the card, which can then be edited freely;
+- the predicted spectrum for the card and for the SM, each plus the summed
+  backgrounds, against the observed counts with √N error bars;
+- Δ on the observed counts with the profiled `alpha` and `beta` of both
+  hypotheses, the same quantities `compare` prints;
+- a scan panel over two template parameters (linear or log spacing, other
+  parameters fixed) on Asimov or observed data, drawing Δ contours at editable
+  thresholds, by default 2.71 and 4.61, labeled expected or observed;
+- an agent panel that runs the `propose` harness with the chosen backend in a
+  fresh temporary directory and shows the report and whether it validated.
+
+Each computation runs only when its button is pressed. The default 8 × 8 scan
+grid takes a few seconds; the 25 × 65 grid above takes minutes. An agent run takes
+minutes and uses the backend's paid model.
 
 ## Translate an interaction with an installed coding agent
 

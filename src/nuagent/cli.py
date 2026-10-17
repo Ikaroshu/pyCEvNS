@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -13,7 +14,7 @@ from nuagent.physics.modelcard import TEMPLATES, ModelCard, template_card
 from nuagent.physics.plugin import load_coefficient_plugin, load_raw_plugin
 from nuagent.rates import predicted_counts
 from nuagent.stats import asimov
-from nuagent.stats.likelihood import Profile, profiled
+from nuagent.stats.likelihood import profile_record, profiled
 
 
 def parameter_point(assignments: list[str]) -> dict[str, float]:
@@ -66,14 +67,6 @@ def model_signal(args: argparse.Namespace, experiment: Experiment) -> tuple[np.n
     return predicted_counts(experiment, coefficients), parameters
 
 
-def profile_json(profile: Profile, experiment: Experiment) -> dict:
-    return {
-        "neg2_log_likelihood": profile.neg2_log_likelihood,
-        "alpha": profile.alpha,
-        "beta": {background.name: b for background, b in zip(experiment.backgrounds, profile.beta)},
-    }
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="nuagent",
@@ -108,7 +101,13 @@ def main() -> None:
             command.add_argument("--task-dir", type=Path, help="Fresh task directory; defaults to REPORT.task.")
         else:
             command.add_argument("--out-dir", type=Path, help="Fresh output directory; defaults to a new temporary directory.")
+    ui = commands.add_parser("ui", help="Serve the Streamlit page on 127.0.0.1 with usage statistics disabled.")
+    ui.add_argument("--port", type=int, default=8501)
     args = parser.parse_args()
+    if args.command == "ui":
+        from nuagent.ui.launch import streamlit_command
+        subprocess.run(streamlit_command(args.port), check=True)
+        return
     if args.command == "experiments":
         print(json.dumps({"experiments": registry.names()}))
         return
@@ -164,7 +163,7 @@ def main() -> None:
         print(json.dumps({
             "experiment": experiment.name, "data_release": experiment.data_release, "parameters": parameters,
             "delta": new_physics.neg2_log_likelihood - standard.neg2_log_likelihood,
-            "new_physics": profile_json(new_physics, experiment), "sm": profile_json(standard, experiment),
+            "new_physics": profile_record(new_physics, experiment), "sm": profile_record(standard, experiment),
             "totals": {"signal": float(signal.sum()), "observed": int(experiment.observed.sum())},
         }, allow_nan=False))
         return

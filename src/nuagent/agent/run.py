@@ -13,7 +13,7 @@ from nuagent.agent.validate import ValidatedModel, ValidationReport, validate_mo
 from nuagent.experiments import registry
 from nuagent.experiments.registry import Experiment
 from nuagent.rates import predicted_counts
-from nuagent.stats.likelihood import Profile, profiled
+from nuagent.stats.likelihood import profile_record, profiled
 
 
 class ValidationFailed(RuntimeError):
@@ -30,11 +30,6 @@ class RunResult:
     @property
     def valid(self) -> bool:
         return self.histories[-1]["valid"]
-
-
-def profile_record(profile: Profile, experiment: Experiment) -> dict:
-    return {"neg2_log_likelihood": profile.neg2_log_likelihood, "alpha": profile.alpha,
-            "beta": {b.name: value for b, value in zip(experiment.backgrounds, profile.beta)}}
 
 
 def evaluate(model: ValidatedModel, experiments: Sequence[Experiment]) -> list[dict]:
