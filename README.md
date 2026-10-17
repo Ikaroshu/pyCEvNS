@@ -1,43 +1,25 @@
-# pyCEvNS -- an open-source CEvNS calculator with MCMC sampling of new physics parameters and experimental systematics
+# nuagent
 
-This package provides convenient methods for calculting neutrino experiment events and fitting new physics parameter.
+A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
 
-## Basic usage
+Status: milestone 1 of [ROADMAP.md](ROADMAP.md). The repository layout, packaging, `nuagent` entry point and the legacy golden regression are in place; the physics, experiments, statistics and agent arrive in later milestones.
 
-import ingredient:
-```python
-from pyCEvNS.flux import *
-from pyCEvNS.oscillation import *
-from pyCEvNS.detectors import *
-from pyCEvNS.events import *
+## Setup
+
+Requires [uv](https://docs.astral.sh/uv/). Python 3.12 is installed by uv if needed.
+
+```bash
+uv sync
+uv run pytest
+uv run nuagent --help
 ```
 
-define your neutrino flux, detector, and neutrino interaction:
-```python
-det = Detector('csi', efficiency=eff_coherent)
-flux = NeutrinoFluxFactory().get('coherent')
-interaction = NeutrinoNucleusElasticVector(NSIparameters(), HelmFormFactor(5.5))
-exposure = 4466
-```
+## Layout
 
-calculate the events:
-```python
-print(interaction.events(det.er_min, det.er_max, 'e', flux, det, exposure) + 
-      interaction.events(det.er_min, det.er_max, 'ebar', flux, det, exposure)+
-     interaction.events(det.er_min, det.er_max, 'mu', flux, det, exposure)+
-     interaction.events(det.er_min, det.er_max, 'mubar', flux, det, exposure)+
-     interaction.events(det.er_min, det.er_max, 'tau', flux, det, exposure)+
-     interaction.events(det.er_min, det.er_max, 'taubar', flux, det, exposure))
-```
-```python
-138.46516348290166
-```
+- `src/nuagent/`: the new package.
+- `tests/`: tests, including regression comparisons against the legacy package.
+- `legacy/pyCEvNS/`: the original pyCEvNS calculator, frozen. The new package never imports it; tests put `legacy/` on `sys.path`. Its usage notes are in [legacy/README.md](legacy/README.md).
 
-### Oscllations
-The neutrino flux can go through a long distance and oscillate, this can be done via:
-```python
-fs = NeutrinoFluxFactory().get('solar')
-osc = OscillatorFactory().get('solar')
-fs = osc.transform(fs)
-```
-Now ``fs`` is the oscillated flux at the detector.
+## License
+
+MIT, see [LICENSE](LICENSE).
