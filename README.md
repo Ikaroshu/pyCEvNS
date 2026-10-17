@@ -2,7 +2,7 @@
 
 A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
 
-Status: milestone 3 of [ROADMAP.md](ROADMAP.md). The physics, COHERENT CsI 2017 experiment registry, flux folding and `predict` CLI are implemented. Statistics, the agent harness and the GUI arrive in later milestones.
+Status: milestone 4 of [ROADMAP.md](ROADMAP.md). The physics, COHERENT CsI 2017 experiment registry, flux folding, the likelihood with `compare` and `scan`, and the `predict` CLI are implemented. The agent harness and the GUI arrive in later milestones.
 
 ## Setup
 
@@ -48,6 +48,31 @@ recoil response without photoelectron smearing and the coherent spin-0 vector
 and scalar formulas. The separate legacy README recoil window (0.00425–0.026
 MeV) gives about 135.933 events. Tests preserve its original single-window result
 and compare production folding with a converged reference.
+
+## Compare with the Standard Model
+
+```bash
+uv run nuagent compare --experiment coherent_csi_2017 --card card.json
+uv run nuagent scan --experiment coherent_csi_2017 --template zprime_lmu_ltau \
+  --param mass_mev=1:10000:25:log --param g_prime=1e-4:1:65:log --data observed
+uv run nuagent scan --experiment coherent_csi_2017 --template zprime_lmu_ltau \
+  --param g_prime=1e-4:1e-2:30:log --set mass_mev=10
+```
+
+`compare` takes the same model options as `predict` and prints, as JSON,
+Δ = −2 ln L(new physics) − (−2 ln L(SM)) on the observed counts, with both
+profiled likelihoods and their nuisances: `alpha` scales the signal (28 percent
+prior) and `beta` each background (steady state 1/√703, prompt neutrons 25
+percent). Positive Δ means the data prefer the SM. The likelihood is binned
+Poisson with Gaussian priors on the normalizations.
+
+`scan` prints CSV: one column per `--param`, then `delta`. Each `--param` is
+`NAME=min:max:n`, linearly spaced, or geometrically spaced with a `:log` suffix;
+`--set` fixes the other template parameters. `--data asimov` (the default) scans
+against SM Asimov data, the expected counts with nuisances at zero, for an
+expected sensitivity; `--data observed` uses the released counts. Under the
+asymptotic approximation Δ = 2.71 and 4.61 are the 90 percent confidence-level
+thresholds for one and two parameters, and Δ = 4 is the one-parameter 2σ limit.
 
 ## Layout
 
