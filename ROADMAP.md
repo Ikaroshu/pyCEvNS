@@ -4,13 +4,13 @@ Tracked in the GitHub project [pyCEvNS: Agentic CEvNS prototype](https://github.
 
 ## Milestones
 
-1. [#12](https://github.com/Ikaroshu/pyCEvNS/issues/12) Repository repurposing and the legacy half of the golden regression.
-2. [#13](https://github.com/Ikaroshu/pyCEvNS/issues/13) Operator basis, model card, plugins and the master cross section, with legacy equivalence tests.
-3. [#14](https://github.com/Ikaroshu/pyCEvNS/issues/14) Experiment registry with COHERENT CsI 2017 and `predict`; completes the golden regression against the new package.
-4. [#15](https://github.com/Ikaroshu/pyCEvNS/issues/15) Likelihood, Δ versus the Standard Model, Asimov and observed-data scans (`compare`, `scan`).
-5. [#16](https://github.com/Ikaroshu/pyCEvNS/issues/16) Agent context pack and eval set.
-6. [#17](https://github.com/Ikaroshu/pyCEvNS/issues/17) Agent backends (`claude -p`, `codex exec`), harness and `propose`.
-7. [#18](https://github.com/Ikaroshu/pyCEvNS/issues/18) Streamlit page and packaging.
+- M1 [#12](https://github.com/Ikaroshu/pyCEvNS/issues/12) Repository repurposing and the legacy half of the golden regression.
+- M2 [#13](https://github.com/Ikaroshu/pyCEvNS/issues/13) Operator basis, model card, plugins and the master cross section, with legacy equivalence tests.
+- M3 [#14](https://github.com/Ikaroshu/pyCEvNS/issues/14) Experiment registry with COHERENT CsI 2017 and `predict`; completes the golden regression against the new package.
+- M4 [#15](https://github.com/Ikaroshu/pyCEvNS/issues/15) Likelihood, Δ versus the Standard Model, Asimov and observed-data scans (`compare`, `scan`).
+- M5a [#16](https://github.com/Ikaroshu/pyCEvNS/issues/16) Agent context pack and eval set.
+- M5b [#17](https://github.com/Ikaroshu/pyCEvNS/issues/17) Agent backends (`claude -p`, `codex exec`), harness and `propose`.
+- M6 [#18](https://github.com/Ikaroshu/pyCEvNS/issues/18) Streamlit page and packaging.
 
 ## Deferred
 
