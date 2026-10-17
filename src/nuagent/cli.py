@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -90,9 +91,58 @@ def main() -> None:
     scan.add_argument("--param", action="append", required=True, metavar="NAME=MIN:MAX:N[:log]")
     scan.add_argument("--set", action="append", default=[], metavar="NAME=VALUE")
     scan.add_argument("--data", choices=("asimov", "observed"), default="asimov")
+    validate = commands.add_parser("validate", help="Print model validation findings as JSON; no likelihood feedback.")
+    validate.add_argument("--experiments", default=",".join(registry.names()))
+    validation_model = validate.add_mutually_exclusive_group()
+    validation_model.add_argument("--plugin", type=Path)
+    validation_model.add_argument("--raw-plugin", type=Path)
+    validate.add_argument("--card", type=Path)
+    for name in ("propose", "agent-eval"):
+        command = commands.add_parser(name, help="Translate an interaction." if name == "propose" else "Run repository-only agent evaluations.")
+        command.add_argument("--backend", choices=("claude_code", "codex"), default="claude_code")
+        command.add_argument("--max-turns", type=int, default=16, help="Claude Code turn limit; Codex exec has no equivalent flag.")
+        command.add_argument("--experiments", default=",".join(registry.names()))
+        if name == "propose":
+            command.add_argument("--description", required=True)
+            command.add_argument("--out", type=Path, required=True)
+            command.add_argument("--task-dir", type=Path, help="Fresh task directory; defaults to REPORT.task.")
+        else:
+            command.add_argument("--out-dir", type=Path, help="Fresh output directory; defaults to a new temporary directory.")
     args = parser.parse_args()
     if args.command == "experiments":
         print(json.dumps({"experiments": registry.names()}))
+        return
+
+    if args.command == "validate":
+        from nuagent.agent.validate import validate_model
+        if not (args.plugin or args.raw_plugin or args.card) or (args.raw_plugin and args.card):
+            parser.error("validate requires --plugin [--card], --raw-plugin, or --card")
+        result = validate_model([registry.get(name) for name in args.experiments.split(",")],
+                                plugin=args.plugin or args.raw_plugin, card=args.card, raw=bool(args.raw_plugin))
+        output = result.report.as_dict()
+        if result.report.valid and args.raw_plugin:
+            from nuagent.agent.report import VERIFICATION
+            output.update(verification="raw-cross-section", meaning=VERIFICATION["raw-cross-section"])
+        print(json.dumps(output, allow_nan=False))
+        sys.exit(0 if result.report.valid else 1)
+    if args.command in ("propose", "agent-eval"):
+        from nuagent.agent.backend import get_backend
+        backend = get_backend(args.backend)
+        if args.command == "propose":
+            from nuagent.agent.run import run
+            run(args.description, args.experiments.split(","), backend,
+                (args.task_dir or args.out.with_suffix(".task")).resolve(), args.out, args.max_turns)
+            print(json.dumps({"report": str(args.out)}))
+        else:
+            root = Path.cwd()
+            if not (root / "evals" / "agent" / "cases.py").is_file():
+                parser.error("agent-eval is repository-only; run from the repository root")
+            sys.path.insert(0, str(root))
+            from evals.agent.run import run_evaluation
+            output_root = args.out_dir or Path(tempfile.mkdtemp(prefix="nuagent-eval-")) / args.backend
+            print(f"Agent evaluation outputs: {output_root.resolve()}", file=sys.stderr)
+            summary = run_evaluation(output_root.resolve(), backend, args.experiments.split(","), args.max_turns)
+            print(json.dumps(summary, indent=2))
         return
 
     experiment = registry.get(args.experiment)

@@ -2,11 +2,11 @@
 
 The agent translates the interaction description into **new-physics coefficients only**. The agent owns the Lorentz structure, the conversion of charges and couplings, the normalization and signs, the momentum dependence, and the derivation in `notes.md`. For a complete interaction within the V and S basis the primary output is `plugin.py`; `card.json` is an additional representation whenever the card schema can express the interaction. A plugin with momentum-dependent couplings may be valid even when no card can express it.
 
-From those coefficients, the framework adds the Standard Model once, forms nuclear charges for each isotope, evaluates the spin-0 vector and scalar cross sections with the Helm form factor, folds the experiment's flavor-dependent flux, and applies detector response, efficiency, exposure and binning. The experiment registry supplies the released data. Statistical comparison and the agent harness are separate delivery stages; the agent must not tune its translation against likelihood values.
+From those coefficients, the framework adds the Standard Model once, forms nuclear charges for each isotope, evaluates the spin-0 vector and scalar cross sections with the Helm form factor, folds the experiment's flavor-dependent flux, and applies detector response, efficiency, exposure and binning. The experiment registry supplies the released data. The harness validates the translation before statistical comparison; the agent must not tune its translation against likelihood values.
 
 ## Verification levels
 
-The harness report will begin with one of these labels and its meaning. These describe the checks required by issue #17; the context pack and offline scorer do not run those checks or issue these labels.
+The harness report begins with one of these labels and its meaning. The context pack and offline scorer do not run these validation checks or issue these labels.
 
 | Label | Required evidence | Limits |
 |---|---|---|

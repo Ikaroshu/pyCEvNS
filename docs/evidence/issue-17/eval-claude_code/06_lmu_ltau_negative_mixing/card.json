@@ -1,0 +1,23 @@
+{
+  "name": "zprime_lmu_ltau_negative_mixing",
+  "mediators": [
+    {
+      "structure": "V",
+      "mass_mev": 15.0,
+      "nu_couplings": {
+        "ee": 0,
+        "mm": 6e-05,
+        "tt": -6e-05,
+        "em": 0,
+        "et": 0,
+        "mt": 0
+      },
+      "quark_couplings": {
+        "u": 0.0,
+        "d": 0.0
+      },
+      "kinetic_mixing": -0.0005
+    }
+  ],
+  "contacts": []
+}

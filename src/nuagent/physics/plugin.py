@@ -35,7 +35,7 @@ def load_module(path: Path) -> ModuleType:
     """Execute the Python file at `path` as a fresh module."""
     spec = importlib.util.spec_from_file_location(f"nuagent_plugin_{path.stem}", path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(path.read_bytes(), str(path), "exec"), module.__dict__)
     return module
 
 

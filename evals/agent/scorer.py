@@ -52,14 +52,17 @@ def notes_clauses(notes: str) -> list[str]:
     return result
 
 
-def score_case(case: EvalCase, output_dir: Path) -> CaseScore:
+def score_case(case: EvalCase, output_dir: Path, *, validation_failures: tuple[str, ...] = ()) -> CaseScore:
     """Compare plugin defaults with every expected entry, or check a notes-only outcome.
 
     Missing outputs and coefficient mismatches are scores. Plugin execution and import errors propagate.
     Card contents belong to harness validation; this metric measures card presence only.
+    Exhausted harness validation fails physics without executing a known-invalid plugin.
     """
     plugin_path = output_dir / "plugin.py"
     expressibility_match = (output_dir / "card.json").is_file() == case.card_expected
+    if validation_failures:
+        return CaseScore(case.case_id, False, expressibility_match, validation_failures)
     failures = []
     expected = case.expected_coefficients
     if expected is None:

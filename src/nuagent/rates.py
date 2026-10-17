@@ -49,13 +49,17 @@ def differential_rate(
     return float(total * detector.efficiency(t) * exposure_kg_day * detector.targets_per_kg() * SECONDS_PER_DAY)
 
 
-def predicted_counts(
+def integrated_counts(
     experiment: Experiment,
     coefficients: CoefficientFunction = Coefficients.zeros,
     *,
     raw_cross_section: CrossSection | None = None,
 ) -> np.ndarray:
-    """Signal counts, with steps and monochromatic recoil endpoints resolved."""
+    """Integrate signal bins, resolving steps and monochromatic recoil endpoints.
+
+    Validation uses these values to report invalid external plugin outputs.
+    Normal physics callers use predicted_counts, which rejects invalid counts.
+    """
     edges = experiment.recoil_edges_mev()
     breaks = list(experiment.detector.efficiency_steps_mev)
     for isotope in experiment.detector.isotopes:
@@ -68,10 +72,20 @@ def predicted_counts(
             coefficients, raw_cross_section=raw_cross_section,
         )
 
-    counts = np.array([
+    return np.array([
         quad(integrand, lower, upper, points=[p for p in breaks if lower < p < upper], epsabs=1e-7, epsrel=1e-6)[0]
         for lower, upper in zip(edges[:-1], edges[1:])
     ])
+
+
+def predicted_counts(
+    experiment: Experiment,
+    coefficients: CoefficientFunction = Coefficients.zeros,
+    *,
+    raw_cross_section: CrossSection | None = None,
+) -> np.ndarray:
+    """Finite, non-negative signal counts per analysis bin."""
+    counts = integrated_counts(experiment, coefficients, raw_cross_section=raw_cross_section)
     invalid = np.flatnonzero(~np.isfinite(counts) | (counts < 0))
     if invalid.size:
         index = int(invalid[0])

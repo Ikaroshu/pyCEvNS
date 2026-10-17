@@ -39,7 +39,7 @@ A raw cross-section plugin (escape hatch) instead exposes `dsigma_dt(e_nu, t, fl
 uv run nuagent predict --experiment coherent_csi_2017 --plugin src/nuagent/context/example_plugin.py
 ```
 
-The harness and validation command are planned in issue #17. Once implemented, validation inside a task directory will use:
+Validation inside a task directory uses:
 
 ```bash
 nuagent validate --plugin plugin.py --card card.json

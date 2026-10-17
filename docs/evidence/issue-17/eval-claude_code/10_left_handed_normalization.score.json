@@ -1,0 +1,6 @@
+{
+  "case_id": "10_left_handed_normalization",
+  "physics_match": true,
+  "expressibility_match": true,
+  "physics_failures": []
+}
