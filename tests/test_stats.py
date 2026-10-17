@@ -82,6 +82,13 @@ def test_profile_reaches_minimum_for_huge_signal_on_observed_data(experiment):
     np.testing.assert_allclose(profile.beta, (0.0487, 0.0246), atol=1e-3)
 
 
+@pytest.mark.filterwarnings("error::RuntimeWarning")
+def test_zero_signal_keeps_its_prior_scale(experiment):
+    profile = likelihood.profiled(experiment, np.zeros(experiment.observed.size))
+    assert profile.alpha == 0
+    assert profile.neg2_log_likelihood == pytest.approx(35.66898608604649, rel=1e-6)
+
+
 def test_scan_grid_and_reference(experiment, standard):
     grid = {"g_prime": np.array([0.0, 1e-3]), "mass_mev": np.array([10.0, 100.0])}
     observed = asimov.scan(experiment, "zprime_lmu_ltau", grid, {}, data="observed")

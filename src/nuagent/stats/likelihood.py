@@ -40,7 +40,8 @@ def profiled(experiment: Experiment, signal: np.ndarray) -> Profile:
     components = np.vstack([signal, *(background.counts for background in experiment.backgrounds)])
     priors = np.array([experiment.signal_normalization_prior, *(b.normalization_prior for b in experiment.backgrounds)])
     totals = components.sum(axis=1)
-    scale = np.minimum(priors, experiment.observed.sum() / np.where(totals > 0, totals, np.inf))
+    data_scale = np.where(totals > 0, experiment.observed.sum() / np.where(totals > 0, totals, 1.0), np.inf)
+    scale = np.minimum(priors, data_scale)
 
     def gradient(x: np.ndarray) -> np.ndarray:
         return 2 * components @ (1 - experiment.observed / ((1 + x) @ components)) + 2 * x / priors**2
