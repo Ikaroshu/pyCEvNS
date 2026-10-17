@@ -141,6 +141,11 @@ def test_plugin_execution_errors_propagate(tmp_path):
         "Missing: mass, g_nu and g_q.",
         "What is the mediator mass? Please provide the neutrino coupling and quark coupling.",
         "The mass is not specified. The neutrino coupling g_ν is unknown. The quark coupling g_q is needed.",
+        "Please provide the mediator mass,\nthe neutrino coupling g_nu, and\nthe quark coupling g_q.",
+        "Missing information:\n- mediator mass\n- neutrino coupling g_nu\n- quark coupling g_q",
+        "**Missing information:**\n\n- Mediator mass.\n- Neutrino coupling g_nu.\n- Quark coupling g_q.",
+        "## Missing information\n\n1. Mediator mass.\n2. Neutrino coupling g_nu.\n3. Quark coupling g_q.",
+        "Please provide:\n- The mediator\n  mass.\n- The neutrino coupling\n  g_nu.\n- The quark coupling\n  g_q.",
     ),
 )
 def test_under_specified_accepts_missing_information(notes, tmp_path):
@@ -158,6 +163,10 @@ def test_under_specified_accepts_missing_information(notes, tmp_path):
         "Missing mass and g_q.",
         "Missing g_nu and g_q.",
         "The mass, g_nu and g_q are given. Other information is missing.",
+        "The mass is missing.\nThe neutrino coupling g_nu and quark coupling g_q are given.",
+        "The mass is missing\n\nThe neutrino coupling g_nu and quark coupling g_q are given",
+        "- The mass is missing.\n- The neutrino coupling g_nu and quark coupling g_q are given.",
+        "Known inputs:\n- mass\n- g_nu\n- g_q\n\nMissing information:\n- exposure",
     ),
 )
 def test_under_specified_rejects_incomplete_or_unrelated_notes(notes, tmp_path):
@@ -170,6 +179,7 @@ def test_under_specified_rejects_incomplete_or_unrelated_notes(notes, tmp_path):
     (
         "The magnetic moment is outside the V, S basis. Use the user-authored raw cross-section route.",
         "This is beyond the vector/scalar basis. A raw cross section written by the user is required.",
+        "The magnetic moment is outside the\nV, S basis. Use the user-authored raw\ncross-section route.",
     ),
 )
 def test_out_of_basis_accepts_limit_and_raw_route(notes, tmp_path):

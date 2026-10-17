@@ -26,6 +26,32 @@ class EvaluationScore:
     expressibility_recognition: float
 
 
+def notes_clauses(notes: str) -> list[str]:
+    """Join soft line breaks and give list items their heading or colon-ended introduction."""
+    list_marker = r"(?:[-+*]|\d+[.)])[ \t]+"
+    blocks = re.split(
+        rf"\n[ \t]*\n|^(?=[ \t]*(?:{list_marker}|\#{{1,6}}[ \t]+))",
+        notes.casefold().replace("ν", "nu"),
+        flags=re.MULTILINE,
+    )
+    result = []
+    introduction = ""
+    for block in blocks:
+        text = " ".join(block.split())
+        if not text:
+            continue
+        marker = re.match(list_marker, text)
+        content = text[marker.end():] if marker else text
+        clauses = [clause.strip() for clause in re.split(r"[.!?;]", content) if clause.strip()]
+        if marker:
+            result.extend(f"{introduction} {clause}" for clause in clauses)
+        else:
+            result.extend(clauses)
+            is_introduction = text.rstrip("*_").endswith(":") or re.match(r"\#{1,6}\s", text)
+            introduction = clauses[-1] if clauses and is_introduction else ""
+    return result
+
+
 def score_case(case: EvalCase, output_dir: Path) -> CaseScore:
     """Compare plugin defaults with every expected entry, or check a notes-only outcome.
 
@@ -43,7 +69,7 @@ def score_case(case: EvalCase, output_dir: Path) -> CaseScore:
         if not notes_path.is_file():
             failures.append("missing notes.md")
         else:
-            sentences = re.split(r"[.!?;\n]", notes_path.read_text().casefold().replace("ν", "nu"))
+            sentences = notes_clauses(notes_path.read_text())
             for requirement in case.notes_requirements:
                 if not any(all(re.search(pattern, sentence) for pattern in requirement.patterns) for sentence in sentences):
                     failures.append(requirement.label)

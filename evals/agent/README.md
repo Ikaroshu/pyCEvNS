@@ -38,10 +38,10 @@ print(summary.physics_accuracy, summary.expressibility_recognition)
 
 For notes-only outcomes, physics passes only if `plugin.py` is absent and `notes.md` meets the case's rubric:
 
-- Under-specified: identify the missing mass, neutrino coupling and quark coupling. Each item must share a sentence or clause with a missing-information statement or request, such as “Missing mass, g_nu and g_q” or “What is the mass? Please provide the neutrino coupling and quark coupling.” Merely mentioning the inputs does not pass.
+- Under-specified: identify the missing mass, neutrino coupling and quark coupling. Each item must share a sentence or clause with a missing-information statement or request, such as “Missing mass, g_nu and g_q” or “What is the mass? Please provide the neutrino coupling and quark coupling.” A Markdown list may put the request in its heading or a colon-ended introduction, such as “Missing information:” followed by bullets naming the three inputs. Merely mentioning the inputs does not pass.
 - Out of basis: explicitly identify physics outside the V/S (or vector/scalar) basis and name the user-authored raw cross-section route. A generic refusal or a reference to “raw” alone does not pass.
 
-The rubric is an English text check, with aliases listed in `cases.py`; it is not semantic review of the derivation. Sentences/clauses are separated at periods, question marks, exclamation marks, semicolons and newlines. Equivalent wording outside the listed aliases may require human review or a rubric update.
+The rubric is an English text check, with aliases listed in `cases.py`; it is not semantic review of the derivation. Soft line breaks are joined within paragraphs and list items. Each list item inherits its preceding Markdown heading or colon-ended introduction. Periods, question marks, exclamation marks, semicolons, paragraph breaks and separate list items retain their clause boundaries, so a missing-information statement in unrelated prose does not qualify a known input. Equivalent wording outside the listed aliases may require human review or a rubric update.
 
 **Expressibility recognition**: `card.json` is present exactly when `card_expected` is true. This is independent of physics accuracy, including for notes-only outcomes. Presence alone does not establish valid or correct card contents. Card validation, plugin/card cross-checking, sanity checks and verification labels belong to the harness in #17.
 
