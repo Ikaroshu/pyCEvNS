@@ -3,6 +3,7 @@
 import json
 import shutil
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from nuagent.agent.backend import Backend, BackendFailure, BackendResult
@@ -19,6 +20,16 @@ class ValidationFailed(RuntimeError):
     def __init__(self, histories: list[dict]):
         self.histories = histories
         super().__init__("agent outputs invalid after two attempts\n" + json.dumps(histories, indent=2))
+
+
+@dataclass(frozen=True)
+class RunResult:
+    report: str
+    histories: list[dict]
+
+    @property
+    def valid(self) -> bool:
+        return self.histories[-1]["valid"]
 
 
 def profile_record(profile: Profile, experiment: Experiment) -> dict:
@@ -40,9 +51,9 @@ def evaluate(model: ValidatedModel, experiments: Sequence[Experiment]) -> list[d
     return records
 
 
-def run(description: str, experiments: Sequence[str], backend: Backend, task_dir: Path, out: Path,
-        max_turns: int = 16) -> str:
-    """Write and return a report; leave task inputs, every attempt and raw CLI output."""
+def run_result(description: str, experiments: Sequence[str], backend: Backend, task_dir: Path, out: Path,
+               max_turns: int = 16) -> RunResult:
+    """Return validation as an outcome; unexpected execution failures propagate."""
     selected = [registry.get(name) for name in experiments]
     provenance = source_provenance() | {"data_releases": {e.name: e.data_release for e in selected},
                                         "max_turns": max_turns}
@@ -78,13 +89,24 @@ def run(description: str, experiments: Sequence[str], backend: Backend, task_dir
         if validation.valid:
             break
         if attempt == 1:
+            for name in ("plugin.py", "card.json", "notes.md"):
+                path = task_dir / name
+                if path.exists():
+                    path.unlink()
             with (task_dir / "TASK.md").open("a") as prompt:
-                prompt.write("\n## Validation correction (one attempt)\n\nRepair only the translation using these validation findings. No likelihood feedback is supplied.\n\n```json\n" + json.dumps(validation.as_dict(), indent=2) + "\n```\n")
-    if not validation.valid:
-        raise ValidationFailed(histories)
-    level = ("cross-validated" if model.card else "plugin-only") if plugin.is_file() else None
+                prompt.write("\n## Validation correction (one attempt)\n\nRepair only the translation using these validation findings. No likelihood feedback is supplied. The previous outputs are preserved in history/attempt-1/. The three output files have been cleared; write the complete corrected outcome, omitting plugin.py or card.json when the output contract requires it.\n\n```json\n" + json.dumps(validation.as_dict(), indent=2) + "\n```\n")
+    level = ("cross-validated" if model.card else "plugin-only") if validation.valid and plugin.is_file() else None
     evaluations = evaluate(model, selected) if level else []
     report = render_report(description, task_dir, backend.name, results, histories, provenance, evaluations, level)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report)
-    return report
+    return RunResult(report, histories)
+
+
+def run(description: str, experiments: Sequence[str], backend: Backend, task_dir: Path, out: Path,
+        max_turns: int = 16) -> str:
+    """Write a report and raise with both reports after exhausted correction."""
+    result = run_result(description, experiments, backend, task_dir, out, max_turns)
+    if not result.valid:
+        raise ValidationFailed(result.histories)
+    return result.report

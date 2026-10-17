@@ -105,7 +105,10 @@ coefficients must agree at every entry to relative 1e-6 (no absolute floor) on
 plugin receives `raw-cross-section`, explicitly skipping the SM-limit check.
 Plugin import/execution errors and backend failures propagate directly.
 
-The harness allows one correction with validation findings only. It evaluates
+The harness allows one correction with validation findings only. Before that
+correction it preserves the first attempt and clears the three output files,
+so the agent can change to a plugin-only or notes-only outcome using the same
+restricted tools. It evaluates
 likelihoods after validation succeeds, so the agent never sees likelihood
 feedback. The report begins with `cross-validated` or `plugin-only` and its
 limitations, or a notes-only outcome. It retains derivations, both validation
@@ -126,6 +129,8 @@ specified by the [plugin API](docs/agent/plugin_api.md).
 reports, scores and a summary with separate physics and expressibility rates.
 Omitting `--out-dir` selects a fresh system temporary directory; the command
 prints the chosen location and includes `output_root` in its JSON summary.
+Exhausted validation produces a failed case with both check histories and the
+batch continues; unexpected backend, import and execution failures propagate.
 Only descriptions enter tasks; expected answers remain in `evals/agent/`.
 Installed packages support `propose` and `validate` without this eval directory.
 

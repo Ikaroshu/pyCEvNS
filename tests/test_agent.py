@@ -89,8 +89,109 @@ def test_sm_limit_failure_stops_with_both_reports(tmp_path):
         run("description", ["coherent_csi_2017"], backend, tmp_path / "task", tmp_path / "report.md")
     assert len(failure.value.histories) == 2
     assert all(any("SM-limit" in finding for finding in history["findings"]) for history in failure.value.histories)
-    assert not (tmp_path / "report.md").exists()
+    assert (tmp_path / "report.md").read_text().startswith("Outcome: **validation-failed**")
     assert (tmp_path / "task/history/attempt-2/validation.json").is_file()
+
+
+@pytest.mark.parametrize("outcome", ["plugin-only", "notes-only"])
+def test_correction_can_omit_outputs_under_claude_policy(tmp_path, outcome):
+    class RestrictedBackend:
+        name = "restricted-fake"
+        calls = 0
+
+        def run(self, task_dir, max_turns):
+            self.calls += 1
+            assert not allowed_tool("Bash", {"command": "rm card.json"}, task_dir)
+            def write(name, text):
+                path = task_dir / name
+                assert allowed_tool("Write", {"file_path": str(path)}, task_dir)
+                path.write_text(text)
+            if self.calls == 1:
+                card = json.loads(json.dumps(EQUIVALENT_CARD))
+                card["mediators"][0]["quark_couplings"]["u"] *= 2
+                write("plugin.py", COEFFICIENT_PLUGIN)
+                write("card.json", json.dumps(card))
+                write("notes.md", "Initial derivation with an inconsistent card.")
+            else:
+                assert not any((task_dir / name).exists() for name in ("plugin.py", "card.json", "notes.md"))
+                assert "plugin/card mismatch" in (task_dir / "TASK.md").read_text()
+                if outcome == "plugin-only":
+                    write("plugin.py", COEFFICIENT_PLUGIN)
+                    write("notes.md", "Corrected derivation; no card can express the momentum dependence.")
+                else:
+                    write("notes.md", "Missing mass and couplings; please specify them.")
+            return BackendResult("done", 0, "{}")
+    task = tmp_path / "task"
+    backend = RestrictedBackend()
+    report = run("description", ["coherent_csi_2017"], backend, task, tmp_path / "report.md")
+    assert backend.calls == 2
+    assert not (task / "card.json").exists()
+    assert (task / "plugin.py").exists() == (outcome == "plugin-only")
+    first = task / "history/attempt-1"
+    assert (first / "plugin.py").read_text() == COEFFICIENT_PLUGIN
+    assert (first / "card.json").is_file()
+    assert (first / "notes.md").read_text() == "Initial derivation with an inconsistent card."
+    assert report.startswith("Verification: **plugin-only**" if outcome == "plugin-only" else "Outcome: **notes-only**")
+    if outcome == "notes-only":
+        assert "predicted_total" not in report
+
+
+@pytest.mark.parametrize("invalid_output", ["card-only", "missing-coefficients"])
+def test_evaluation_continues_after_exhausted_validation(tmp_path, invalid_output):
+    from evals.agent.run import run_evaluation
+    class ExhaustedFirstBackend(FakeBackend):
+        def run(self, task_dir, max_turns):
+            if task_dir.name == "01_universal_vector":
+                self.prompts.append((task_dir / "TASK.md").read_text())
+                (task_dir / "notes.md").write_text("An invalid translation.")
+                if invalid_output == "card-only":
+                    (task_dir / "card.json").write_text("{}")
+                else:
+                    (task_dir / "plugin.py").write_text("PARAMETERS = {}\nCOUPLINGS = ()\n")
+                return BackendResult("done", 0, "{}")
+            return super().run(task_dir, max_turns)
+    backend = ExhaustedFirstBackend("notes")
+    root = tmp_path / "eval"
+    summary = run_evaluation(root, backend, ["coherent_csi_2017"])
+    assert len(summary["cases"]) == 15
+    assert len(backend.prompts) == 16
+    assert summary["physics_accuracy"] == pytest.approx(1 / 15)
+    assert summary["expressibility_recognition"] == pytest.approx((5 if invalid_output == "card-only" else 4) / 15)
+    first = summary["cases"][0]
+    assert not first["physics_match"]
+    assert not first["validation_valid"]
+    assert first["expressibility_match"] == (invalid_output == "card-only")
+    assert any("attempt 1" in finding for finding in first["physics_failures"])
+    assert any("attempt 2" in finding for finding in first["physics_failures"])
+    for attempt in (1, 2):
+        assert (root / f"01_universal_vector/history/attempt-{attempt}/validation.json").is_file()
+    failed_report = (root / "01_universal_vector.md").read_text()
+    assert failed_report.startswith("Outcome: **validation-failed**")
+    assert "predicted_total" not in failed_report
+    assert (root / "15_magnetic_moment.score.json").is_file()
+    assert json.loads((root / "summary.json").read_text()) == json.loads(json.dumps(summary))
+
+
+@pytest.mark.parametrize("failure", ["backend", "import", "execution"])
+def test_evaluation_propagates_unexpected_failures(tmp_path, failure):
+    from evals.agent.run import run_evaluation
+    class FailingBackend(FakeBackend):
+        def run(self, task_dir, max_turns):
+            result = super().run(task_dir, max_turns)
+            if failure == "backend":
+                return BackendResult("failed", 2, "unexpected backend failure")
+            source = ('raise RuntimeError("unexpected import failure")' if failure == "import" else
+                      'PARAMETERS = {}\nCOUPLINGS = ()\ndef coefficients(q2, params):\n    raise RuntimeError("unexpected execution failure")\n')
+            (task_dir / "plugin.py").write_text(source)
+            return result
+    backend = FailingBackend("notes")
+    root = tmp_path / "eval"
+    with pytest.raises(RuntimeError, match=f"unexpected {failure} failure"):
+        run_evaluation(root, backend, ["coherent_csi_2017"])
+    assert len(backend.prompts) == 1
+    assert not (root / "02_alpha_conversion").exists()
+    assert not (root / "summary.json").exists()
+    assert (root / "01_universal_vector/history/attempt-1/backend.json").is_file()
 
 
 def test_backend_failure_retained_and_not_retried(tmp_path):

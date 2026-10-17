@@ -8,16 +8,20 @@ from pathlib import Path
 from evals.agent.cases import CASES
 from evals.agent.scorer import score_case
 from nuagent.agent.backend import Backend
-from nuagent.agent.run import run
+from nuagent.agent.run import run_result
 
 
 def run_evaluation(output_root: Path, backend: Backend, experiments: Sequence[str], max_turns: int = 16) -> dict:
     output_root.mkdir(parents=True)
     scores = []
     for case in CASES:
-        run(case.description, experiments, backend, output_root / case.case_id,
-            output_root / f"{case.case_id}.md", max_turns)
-        score = asdict(score_case(case, output_root / case.case_id))
+        result = run_result(case.description, experiments, backend, output_root / case.case_id,
+                            output_root / f"{case.case_id}.md", max_turns)
+        failures = tuple(f"validation attempt {attempt}: {finding}"
+                         for attempt, history in enumerate(result.histories, 1)
+                         for finding in history["findings"]) if not result.valid else ()
+        score = asdict(score_case(case, output_root / case.case_id, validation_failures=failures))
+        score["validation_valid"] = result.valid
         scores.append(score)
         (output_root / f"{case.case_id}.score.json").write_text(json.dumps(score, indent=2))
     summary = {"backend": backend.name, "output_root": str(output_root), "cases": scores,

@@ -31,8 +31,12 @@ def source_provenance() -> dict:
 
 def render_report(description: str, task_dir: Path, backend_name: str, results: list[BackendResult],
                   histories: list[dict], provenance: dict, evaluations: list[dict], level: str | None) -> str:
-    first = (f"Verification: **{level}**\n\n{VERIFICATION[level]}" if level else
-             "Outcome: **notes-only**\n\nNo physics verification label or predictions: the agent reports missing information or physics outside the supported basis.")
+    if histories and not histories[-1]["valid"]:
+        first = "Outcome: **validation-failed**\n\nCorrection was exhausted. No physics verification label or predictions; both validation reports and backend records follow."
+    elif level:
+        first = f"Verification: **{level}**\n\n{VERIFICATION[level]}"
+    else:
+        first = "Outcome: **notes-only**\n\nNo physics verification label or predictions: the agent reports missing information or physics outside the supported basis."
     parts = [first, "## Description\n\n" + description,
              "## Provenance\n\n```json\n" + json.dumps(provenance | {"backend": backend_name}, indent=2) + "\n```"]
     for name in ("plugin.py", "card.json", "notes.md"):
