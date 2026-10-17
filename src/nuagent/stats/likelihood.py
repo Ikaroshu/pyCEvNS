@@ -32,27 +32,30 @@ def neg2_log_likelihood(experiment: Experiment, signal: np.ndarray, alpha: float
 def profiled(experiment: Experiment, signal: np.ndarray) -> Profile:
     """Minimize −2 ln L over alpha and beta from zero, with every normalization factor kept positive.
 
-    For signals far above the data the signal normalization runs almost to its bound, where the
-    problem is ill-conditioned: finite-difference gradients or the default 20 line-search steps
-    end in an ABNORMAL line search at points of the observed L_mu - L_tau scan.
+    L-BFGS-B works on rescaled nuisances z_j = x_j / scale_j, scale_j = min(prior_j, observed total /
+    component total). A signal far above the data otherwise leaves the problem so badly scaled that
+    the optimizer stops at a non-minimum (for example with every background removed) and reports
+    success. A component with zero total keeps its prior as the scale.
     """
     components = np.vstack([signal, *(background.counts for background in experiment.backgrounds)])
     priors = np.array([experiment.signal_normalization_prior, *(b.normalization_prior for b in experiment.backgrounds)])
+    totals = components.sum(axis=1)
+    scale = np.minimum(priors, experiment.observed.sum() / np.where(totals > 0, totals, np.inf))
 
     def gradient(x: np.ndarray) -> np.ndarray:
         return 2 * components @ (1 - experiment.observed / ((1 + x) @ components)) + 2 * x / priors**2
 
     result = minimize(
-        lambda x: neg2_log_likelihood(experiment, signal, x[0], x[1:]),
+        lambda z: neg2_log_likelihood(experiment, signal, z[0] * scale[0], z[1:] * scale[1:]),
         np.zeros(len(priors)),
-        jac=gradient,
+        jac=lambda z: gradient(z * scale) * scale,
         method="L-BFGS-B",
-        options={"maxls": 100},
-        bounds=[(-1 + 1e-9, None)] * len(priors),
+        bounds=[((-1 + 1e-9) / factor, None) for factor in scale],
     )
     if not result.success:
         raise RuntimeError(f"likelihood profile did not converge: {result.message}")
-    return Profile(float(result.fun), float(result.x[0]), tuple(float(b) for b in result.x[1:]))
+    x = result.x * scale
+    return Profile(float(result.fun), float(x[0]), tuple(float(b) for b in x[1:]))
 
 
 def delta(experiment: Experiment, signal: np.ndarray) -> float:

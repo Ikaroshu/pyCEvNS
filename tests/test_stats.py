@@ -74,6 +74,14 @@ def test_profile_converges_where_signal_dwarfs_data(experiment):
     assert -1 < profile.alpha < -0.999
 
 
+def test_profile_reaches_minimum_for_huge_signal_on_observed_data(experiment):
+    point = {"g_prime": 0.11547819846894582, "mass_mev": 1.0}
+    signal = predicted_counts(experiment, template_card("zprime_lmu_ltau", point).coefficients)
+    profile = likelihood.profiled(experiment, signal)
+    assert profile.neg2_log_likelihood == pytest.approx(39.64695, abs=1e-4)
+    np.testing.assert_allclose(profile.beta, (0.0487, 0.0246), atol=1e-3)
+
+
 def test_scan_grid_and_reference(experiment, standard):
     grid = {"g_prime": np.array([0.0, 1e-3]), "mass_mev": np.array([10.0, 100.0])}
     observed = asimov.scan(experiment, "zprime_lmu_ltau", grid, {}, data="observed")
