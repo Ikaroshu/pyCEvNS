@@ -2,7 +2,7 @@
 
 A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
 
-Status: milestone 1 of [ROADMAP.md](ROADMAP.md). The repository layout, packaging, `nuagent` entry point and the legacy golden regression are in place; the physics, experiments, statistics and agent arrive in later milestones.
+Status: milestone 2 of [ROADMAP.md](ROADMAP.md). The operator basis, model card, plugin loaders and the master cross section (`nuagent.physics`) are in place and tested against the legacy package; the experiments, statistics and agent arrive in later milestones.
 
 ## Setup
 
