@@ -1,0 +1,6 @@
+{
+  "case_id": "04_lmu_ltau_explicit",
+  "physics_match": true,
+  "expressibility_match": true,
+  "physics_failures": []
+}

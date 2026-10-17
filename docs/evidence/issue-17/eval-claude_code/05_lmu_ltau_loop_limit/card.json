@@ -1,0 +1,23 @@
+{
+  "name": "zprime_lmu_ltau_loop_limit",
+  "mediators": [
+    {
+      "structure": "V",
+      "mass_mev": 15.0,
+      "nu_couplings": {
+        "ee": 0.0,
+        "mm": 6e-5,
+        "tt": -6e-5,
+        "em": 0,
+        "et": 0,
+        "mt": 0
+      },
+      "quark_couplings": {
+        "u": 0.0,
+        "d": 0.0
+      },
+      "kinetic_mixing": 8.66505822e-7
+    }
+  ],
+  "contacts": []
+}

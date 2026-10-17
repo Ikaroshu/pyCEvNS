@@ -1,0 +1,22 @@
+{
+  "name": "scalar_down_only",
+  "mediators": [
+    {
+      "structure": "S",
+      "mass_mev": 20.0,
+      "nu_couplings": {
+        "ee": 2e-05,
+        "mm": 2e-05,
+        "tt": 2e-05,
+        "em": 0,
+        "et": 0,
+        "mt": 0
+      },
+      "quark_couplings": {
+        "u": 0.0,
+        "d": 2e-05
+      }
+    }
+  ],
+  "contacts": []
+}
