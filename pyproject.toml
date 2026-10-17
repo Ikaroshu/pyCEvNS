@@ -1,0 +1,39 @@
+[project]
+name = "nuagent"
+version = "0.1.0"
+description = "Agentic CEvNS research prototype: new interactions to event spectra and sensitivity versus the Standard Model"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "pydantic",
+    "scipy",
+    "streamlit",
+]
+
+[project.scripts]
+nuagent = "nuagent.cli:main"
+
+[dependency-groups]
+# pandas and setuptools<82 (for pkg_resources) only let the legacy package import in regression tests.
+test = [
+    "pandas",
+    "pytest",
+    "setuptools<82",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+default-groups = ["test"]
+
+[tool.uv.build-backend]
+namespace = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["legacy"]
