@@ -51,10 +51,10 @@ and compare production folding with a converged reference.
 
 ## Layout
 
-- `src/nuagent/`: the new package.
+- `src/nuagent/`: the new package, including the installed agent context resources in `context/`.
 - `tests/`: tests, including regression comparisons against the legacy package.
-- `docs/agent/`: the agent context pack (conventions, plugin API, worked examples). Its `conventions.md` is normative for code as well as for agents.
-- `evals/agent/`: agent eval cases, kept outside the context pack.
+- `docs/agent/`: generated human mirror of `src/nuagent/context/` (conventions, plugin API, framework responsibilities, worked examples). Its `conventions.md` is normative for code as well as for agents.
+- `evals/agent/`: executable agent eval cases and the offline scorer, kept outside the context pack. See its [interface and metric definitions](evals/agent/README.md); backend execution and live evaluation arrive with the harness.
 - `AGENTS.md`: branching, layout, verification and tracking conventions for this repository.
 - `legacy/pyCEvNS/`: the original pyCEvNS calculator, frozen. The new package never imports it; tests put `legacy/` on `sys.path`. Its usage notes are in [legacy/README.md](legacy/README.md).
 

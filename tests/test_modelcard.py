@@ -27,7 +27,7 @@ from nuagent.physics.modelcard import TEMPLATES, ModelCard, template_card, u1_ca
 from nuagent.physics.plugin import load_coefficient_plugin
 from nuagent.physics.xsec import FLAVOR_ROW, Isotope, dsigma_dt
 
-DOCS = Path(__file__).parent.parent / "docs" / "agent"
+CONTEXT = Path(__file__).parent.parent / "src" / "nuagent" / "context"
 Q2 = np.array([1238.0, 3714.0, 6190.0])
 CS133 = Isotope(55, 78, 123800.0, 5.5)
 
@@ -158,8 +158,8 @@ def test_template_sm_limit(name):
 
 def test_card_schema_file_is_current():
     """Regenerate with: uv run python -c "import json; from nuagent.physics.modelcard import ModelCard;
-    print(json.dumps(ModelCard.model_json_schema(), indent=2, ensure_ascii=False))" > docs/agent/card_schema.json"""
-    committed = json.loads((DOCS / "card_schema.json").read_text())
+    print(json.dumps(ModelCard.model_json_schema(), indent=2, ensure_ascii=False))" > src/nuagent/context/card_schema.json"""
+    committed = json.loads((CONTEXT / "card_schema.json").read_text())
     assert committed == ModelCard.model_json_schema()
 
 
@@ -187,7 +187,7 @@ def example_plugins(path: Path, tmp_path: Path) -> list:
     ],
 )
 def test_example_cards_and_plugins_agree(stem, tmp_path):
-    path = DOCS / "examples" / f"{stem}.md"
+    path = CONTEXT / "examples" / f"{stem}.md"
     cards = [ModelCard.model_validate_json(block) for block in example_blocks(path, "json")]
     plugins = example_plugins(path, tmp_path)
     assert len(cards) == len(plugins) > 0
@@ -199,8 +199,8 @@ def test_example_cards_and_plugins_agree(stem, tmp_path):
 
 
 def test_example_06_reduces_to_example_03b(tmp_path):
-    running = example_plugins(DOCS / "examples" / "06_running_kinetic_mixing.md", tmp_path)[0]
-    constant = example_plugins(DOCS / "examples" / "03_zprime_lmu_ltau.md", tmp_path)[1]
+    running = example_plugins(CONTEXT / "examples" / "06_running_kinetic_mixing.md", tmp_path)[0]
+    constant = example_plugins(CONTEXT / "examples" / "03_zprime_lmu_ltau.md", tmp_path)[1]
     tiny = np.array([1e-6])
     np.testing.assert_allclose(
         running.coefficients(tiny, running.parameters).values["V", "u"],
@@ -300,8 +300,8 @@ def test_example_05_numbers():
 
 
 def test_example_06_numbers(tmp_path):
-    running = example_plugins(DOCS / "examples" / "06_running_kinetic_mixing.md", tmp_path)[0]
-    constant = example_plugins(DOCS / "examples" / "03_zprime_lmu_ltau.md", tmp_path)[1]
+    running = example_plugins(CONTEXT / "examples" / "06_running_kinetic_mixing.md", tmp_path)[0]
+    constant = example_plugins(CONTEXT / "examples" / "03_zprime_lmu_ltau.md", tmp_path)[1]
     c = running.coefficients(Q2, running.parameters)
     np.testing.assert_allclose(c.values["V", "u"][1, 1].real, [1.3167e-03, 4.5844e-04, 2.7597e-04], rtol=5e-5)
     np.testing.assert_allclose(c.values["V", "d"][1, 1].real, [-6.5833e-04, -2.2922e-04, -1.3798e-04], rtol=5e-5)
