@@ -18,6 +18,9 @@ uv run nuagent --help
 
 - `src/nuagent/`: the new package.
 - `tests/`: tests, including regression comparisons against the legacy package.
+- `docs/agent/`: the agent context pack (conventions, plugin API, worked examples). Its `conventions.md` is normative for code as well as for agents.
+- `evals/agent/`: agent eval cases, kept outside the context pack.
+- `AGENTS.md`: branching, layout, verification and tracking conventions for this repository.
 - `legacy/pyCEvNS/`: the original pyCEvNS calculator, frozen. The new package never imports it; tests put `legacy/` on `sys.path`. Its usage notes are in [legacy/README.md](legacy/README.md).
 
 ## License
