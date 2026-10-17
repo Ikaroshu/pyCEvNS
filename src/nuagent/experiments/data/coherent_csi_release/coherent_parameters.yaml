@@ -1,0 +1,76 @@
+# Source: DOI 10.5281/zenodo.1228631; release file: coherent_parameters.yaml; conversion date: 2026-10-17.
+beamExposure:
+  name: Beam exposure
+  value: 7.47594
+  units: GW*hr
+  uncertainty: negligible
+  comment: |
+    This is the effective SNS beam exposure for the Chicago analysis of the first result from the COHERENT Collaboration.
+    This represents the effective exposure for the data released here, and is reflective of the result from the 2017 Science publication.
+
+distanceToTarget:
+  name: Distance to target
+  value: 19.3
+  units: m
+  uncertainty: negligible
+  comment: |
+    This value was determined from a LIDAR scan of the neutrino alley target area carried out by the survey and alignment team of the SNS.
+
+csiQF:
+  name: CsI-Na quenching factor
+  value: 0.0878
+  units: none
+  uncertainty: 0.0166
+  comment: |
+    This value for the QF was determined based on a fit to all available data points, including those from COHERENT measurements and others from literature.
+    A weighted average between 5 and 30 keVnr determined the mean value, while the uncertainty was defined by the unweighted standard deviation of these points.
+    To convert nuclear-recoil energy X into electron-equivalent energy, multiply X by the quenching factor.
+
+csiLightYield:
+  name: Light yield for CsI-Na
+  value: 13.348
+  units: PE/keVee
+  uncertainty: 0.019
+  comment: |
+    Light yield for CsI-Na detector measured at 59.54 keV 241Am line.
+    This is the average of several measurements made along the length of the detector.
+    
+neutrinosPerProton:
+  name: Neutrinos produced per SNS proton
+  value: 0.08
+  uncertainty: 0.008
+  units: nu/flavor/proton
+  comment: |
+    This is the number of decay-at-rest neutrinos produced per incident SNS beam proton per neutrino flavor.
+    The DAR neutrinos are emitted isotropically.
+
+promptNeutronNormalization:
+  name: Normalization constant of prompt neutron PDF
+  value: 1
+  uncertainty: 0.25
+  units: none
+  comment: |
+    The PDF included is normalized so that bin values represent the number of counts expected per GW-hr of SNS beam exposure.
+    After scaling for exposure, the overall uncertainty of the normalization on the prompt PDF is 25 percent.
+
+acceptanceEfficiency:
+  name: Acceptance efficiency parameters
+  parameters:
+    - name: a
+      value: 0.6655
+      error_hi: 0.0212
+      error_lo: 0.0384
+    - name: k
+      value: 0.4942
+      error_hi: 0.0335
+      error_lo: 0.0131
+    - name: x_0
+      value: 10.8507
+      error_hi: 0.1838
+      error_lo: 0.3995
+  comment: |
+    Analysis efficiency is described by f(x) = a/(1.0 + exp(-k*(x - x_0))) * H(x-5)
+    Where H(x) denotes a modified Heaviside step function and the parameter values are included here, along with asymmetric, 1-sigma errors.
+    H(x) has a value of 0 for x < 5; a value of 1/2 for 5 <= x < 6; and a value of 1 for x >= 6.
+    This efficiency must be applied to any calculated CEvNS recoil curves, as well as the prompt-neutron distribution, before the distributions are compared with data.
+    It is applied to distributions binned with 1-PE bin widths, and the effective efficiency value for each bin is taken as the value of this function at the bin center (e.g., evaluated at 0.5 for the 1-PE bin, evaluated at 1.5 for the 2-PE bin, etc).

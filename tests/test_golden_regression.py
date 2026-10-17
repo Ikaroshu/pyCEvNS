@@ -2,8 +2,10 @@
 
 COHERENT CsI detector with the legacy efficiency curve, COHERENT flux, 4466 kg day,
 Helm form factor with radius 5.5 fm, Standard Model couplings, six flavors summed.
-The new-package half of spec Verification test 1 lands with milestone 3 (issue #14).
+Production folding is compared with the converged legacy reference.
 """
+
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -54,3 +56,11 @@ def test_legacy_converged_total(legacy_readme_total):
     )
     converged = sum(total(a, b) for a, b in zip(edges[:-1], edges[1:]))
     assert converged == pytest.approx(LEGACY_CONVERGED_TOTAL, rel=1e-9)
+
+
+def test_production_readme_total():
+    from nuagent.experiments.registry import get
+    from nuagent.rates import predicted_counts
+
+    experiment = replace(get("coherent_csi_2017"), bin_edges=np.array([4.25e-3, 26e-3]), bin_unit="MeV")
+    assert predicted_counts(experiment).sum() == pytest.approx(LEGACY_CONVERGED_TOTAL, rel=1e-4)
