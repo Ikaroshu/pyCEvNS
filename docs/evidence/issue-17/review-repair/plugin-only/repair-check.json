@@ -1,0 +1,13 @@
+{
+  "case_id": "12_running_mixing",
+  "first_attempt": "seeded invalid card, not model-generated",
+  "live_backend_attempts": 1,
+  "fresh_outputs_before_live": true,
+  "score": {
+    "case_id": "12_running_mixing",
+    "physics_match": true,
+    "expressibility_match": true,
+    "physics_failures": []
+  },
+  "report": "/private/tmp/nuagent-issue17-repair-plugin-only/report.md"
+}

@@ -1,5 +1,9 @@
 # M5b implementation and live acceptance
 
+The two findings from code review pass 1, their repairs and targeted verification
+are documented in [review-repair/README.md](review-repair/README.md). The original
+live evidence below remains unchanged and attributed to its original source.
+
 All acceptance runs below completed on 2026-10-17 without human edits to agent
 outputs. The live source commit was
 `934e7113687b7d2927d34462b77925c3fef56c73`, tree

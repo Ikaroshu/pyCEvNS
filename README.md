@@ -115,6 +115,8 @@ limitations, or a notes-only outcome. It retains derivations, both validation
 histories, source/package provenance, experiment data releases and unmodified
 backend CLI records including model/cost fields when supplied. Every attempt's
 outputs and backend record remain in `REPORT.task/history/` on failure too.
+After two invalid attempts, `propose` leaves a `validation-failed` report with
+both histories and raises; the report has no physics verification or predictions.
 
 Claude Code runs with only task-file reads, writes to the three named output
 files and exact `nuagent validate` commands, enforced by a PreToolUse hook and

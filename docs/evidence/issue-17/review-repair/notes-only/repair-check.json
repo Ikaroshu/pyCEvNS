@@ -1,0 +1,13 @@
+{
+  "case_id": "15_magnetic_moment",
+  "first_attempt": "seeded invalid card, not model-generated",
+  "live_backend_attempts": 1,
+  "fresh_outputs_before_live": true,
+  "score": {
+    "case_id": "15_magnetic_moment",
+    "physics_match": true,
+    "expressibility_match": true,
+    "physics_failures": []
+  },
+  "report": "/private/tmp/nuagent-issue17-repair-notes-only/report.md"
+}
