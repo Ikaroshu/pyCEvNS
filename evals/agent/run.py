@@ -20,7 +20,7 @@ def run_evaluation(output_root: Path, backend: Backend, experiments: Sequence[st
         score = asdict(score_case(case, output_root / case.case_id))
         scores.append(score)
         (output_root / f"{case.case_id}.score.json").write_text(json.dumps(score, indent=2))
-    summary = {"backend": backend.name, "cases": scores,
+    summary = {"backend": backend.name, "output_root": str(output_root), "cases": scores,
                "physics_accuracy": sum(s["physics_match"] for s in scores) / len(scores),
                "expressibility_recognition": sum(s["expressibility_match"] for s in scores) / len(scores)}
     for label, selected in (

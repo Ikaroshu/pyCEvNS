@@ -124,6 +124,8 @@ specified by the [plugin API](docs/agent/plugin_api.md).
 
 `agent-eval` runs from the repository root and writes per-case task directories,
 reports, scores and a summary with separate physics and expressibility rates.
+Omitting `--out-dir` selects a fresh system temporary directory; the command
+prints the chosen location and includes `output_root` in its JSON summary.
 Only descriptions enter tasks; expected answers remain in `evals/agent/`.
 Installed packages support `propose` and `validate` without this eval directory.
 

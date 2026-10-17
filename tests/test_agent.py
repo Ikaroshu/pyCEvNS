@@ -260,7 +260,23 @@ def test_repository_evaluation_keeps_answers_outside_tasks(tmp_path):
 
 
 def test_agent_eval_cli_is_repository_only(tmp_path):
-    result = subprocess.run([str(Path(sys.executable).with_name("nuagent")), "agent-eval", "--out-dir", "outputs"],
+    result = subprocess.run([str(Path(sys.executable).with_name("nuagent")), "agent-eval"],
                             cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 2
     assert "repository-only" in result.stderr
+
+
+def test_agent_eval_cli_default_output(tmp_path, monkeypatch):
+    import os
+    executable = tmp_path / "claude"
+    executable.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nimport json\n"
+                          "Path('notes.md').write_text('Missing mass, neutrino coupling and quark coupling; please specify them.')\n"
+                          "print(json.dumps({'result':'notes only'}))\n")
+    executable.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    output = cli("agent-eval", "--backend", "claude_code")
+    root = Path(output["output_root"])
+    assert root.is_relative_to(tmp_path)
+    assert len(output["cases"]) == 15
+    assert json.loads((root / "summary.json").read_text()) == output

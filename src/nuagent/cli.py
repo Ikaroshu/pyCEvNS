@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -106,7 +107,7 @@ def main() -> None:
             command.add_argument("--out", type=Path, required=True)
             command.add_argument("--task-dir", type=Path, help="Fresh task directory; defaults to REPORT.task.")
         else:
-            command.add_argument("--out-dir", type=Path, required=True, help="Fresh output directory retaining every case and report.")
+            command.add_argument("--out-dir", type=Path, help="Fresh output directory; defaults to a new temporary directory.")
     args = parser.parse_args()
     if args.command == "experiments":
         print(json.dumps({"experiments": registry.names()}))
@@ -138,7 +139,9 @@ def main() -> None:
                 parser.error("agent-eval is repository-only; run from the repository root")
             sys.path.insert(0, str(root))
             from evals.agent.run import run_evaluation
-            summary = run_evaluation(args.out_dir.resolve(), backend, args.experiments.split(","), args.max_turns)
+            output_root = args.out_dir or Path(tempfile.mkdtemp(prefix="nuagent-eval-")) / args.backend
+            print(f"Agent evaluation outputs: {output_root.resolve()}", file=sys.stderr)
+            summary = run_evaluation(output_root.resolve(), backend, args.experiments.split(","), args.max_turns)
             print(json.dumps(summary, indent=2))
         return
 
