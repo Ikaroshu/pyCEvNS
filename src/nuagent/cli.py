@@ -1,7 +1,7 @@
 import argparse
 import csv
 import json
-import subprocess
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -106,8 +106,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "ui":
         from nuagent.ui.launch import streamlit_command
-        subprocess.run(streamlit_command(args.port), check=True)
-        return
+        os.execv(sys.executable, streamlit_command(args.port))
     if args.command == "experiments":
         print(json.dumps({"experiments": registry.names()}))
         return

@@ -754,7 +754,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "pydantic" },
     { name = "scipy" },
-    { name = "streamlit" },
+    { name = "streamlit", specifier = ">=1.66" },
 ]
 
 [package.metadata.requires-dev]

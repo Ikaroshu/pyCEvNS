@@ -19,7 +19,7 @@ from nuagent.ui.figures import DATA_LABELS, contour_figure, spectrum_figure
 PRESETS = {
     "zprime_universal": {"mass_mev": 30.0, "g_nu": 1e-4, "g_q": 1e-4},
     "zprime_u1": {"mass_mev": 10.0, "g_prime": 1e-4, "q_nu_e": -1.0, "q_nu_mu": -1.0, "q_nu_tau": -1.0, "q_u": 1 / 3, "q_d": 1 / 3},
-    "zprime_lmu_ltau": {"mass_mev": 10.0, "g_prime": 1e-4, "kinetic_mixing": 1e-3},
+    "zprime_lmu_ltau": {"mass_mev": 10.0, "g_prime": 1e-4},
     "scalar_universal": {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5},
     "contact_nsi": {"eps_u_ee": 0.1, "eps_d_ee": 0.1},
 }
@@ -98,6 +98,9 @@ def scan_panel(experiment: Experiment) -> None:
             f"Contours of Δ at {', '.join(f'{t:g}' for t in sorted(thresholds))} on {data} data "
             f"({DATA_LABELS[data]}); Δ range {result.delta.min():.4g} to {result.delta.max():.4g}."
         )
+        (x_name, x), (y_name, y) = result.axes.items()
+        with st.expander("Δ grid"):
+            st.dataframe({x_name: x, **{f"{y_name}={value:g}": column for value, column in zip(y, result.delta.T)}})
 
 
 @st.fragment
@@ -108,14 +111,18 @@ def agent_panel() -> None:
     experiments = st.multiselect("Experiments", registry.names(), default=list(registry.names()), key="agent_experiments")
     if st.button("Run agent"):
         root = Path(tempfile.mkdtemp(prefix="nuagent-ui-"))
-        st.write(f"Task directory: `{root / 'task'}`; report: `{root / 'report.md'}`")
-        with st.spinner(f"Running {backend}; this takes minutes"):
+        with st.spinner(f"Running {backend} in {root}; this takes minutes"):
             result = run_result(description, experiments, get_backend(backend), root / "task", root / "report.md")
-        if result.valid:
+        # Kept in session state so a rerun queued by a widget edit during the run does not clear it.
+        st.session_state.agent_result = (root, result.valid, result.report)
+    if "agent_result" in st.session_state:
+        root, valid, report = st.session_state.agent_result
+        st.write(f"Task directory: `{root / 'task'}`; report: `{root / 'report.md'}`")
+        if valid:
             st.success("Outputs passed validation.")
         else:
             st.error("Outputs failed validation after the one correction attempt; the report has no predictions.")
-        st.markdown(result.report)
+        st.markdown(report)
 
 
 st.set_page_config(page_title="nuagent", layout="wide")
