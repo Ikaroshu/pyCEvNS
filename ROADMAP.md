@@ -15,7 +15,7 @@ Tracked in the GitHub project [pyCEvNS: Agentic CEvNS prototype](https://github.
 ## Deferred
 
 - [#6](https://github.com/Ikaroshu/pyCEvNS/issues/6) CENNS-10 argon experiment.
-- [#7](https://github.com/Ikaroshu/pyCEvNS/issues/7) Tensor, axial and pseudoscalar structures.
+- [#7](https://github.com/Ikaroshu/pyCEvNS/issues/7) Tensor, axial and pseudoscalar structures; the difficulties are recorded in [docs/deferred_structures.md](docs/deferred_structures.md).
 - [#8](https://github.com/Ikaroshu/pyCEvNS/issues/8) Timing information in the likelihood.
 - [#9](https://github.com/Ikaroshu/pyCEvNS/issues/9) Anti-coincidence counts as a second Poisson measurement.
 - [#10](https://github.com/Ikaroshu/pyCEvNS/issues/10) API-based agent backend.
