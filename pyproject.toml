@@ -36,4 +36,4 @@ namespace = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["legacy"]
+pythonpath = ["legacy", "."]

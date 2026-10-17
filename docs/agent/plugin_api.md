@@ -9,7 +9,7 @@ from nuagent.physics.couplings import Coefficients, GF, SQRT2, E_CHARGE
 PARAMETERS = {"g_nu": 1e-4, "g_q": 1e-4, "mass_mev": 30.0}   # defaults; every key is a parameter
 COUPLINGS = ("g_nu", "g_q")                                   # the subset that are couplings
 
-def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
+def coefficients(q2: np.ndarray, params: dict[str, float]) -> Coefficients:
     c = Coefficients.zeros(q2)                                 # all structures, quarks, flavors at zero
     value = params["g_nu"] * params["g_q"] / (SQRT2 * GF * (q2 + params["mass_mev"] ** 2))
     for quark in ("u", "d"):
@@ -33,10 +33,16 @@ Contract:
 
 A raw cross-section plugin (escape hatch) instead exposes `dsigma_dt(e_nu, t, flavor, isotope, params) -> np.ndarray` returning the complete differential cross section including the Standard Model in MeV⁻³, plus the same `PARAMETERS` and `COUPLINGS`. `t` is a scalar or a 1D array of recoil energies in MeV and `e_nu` broadcasts against it; the result has the broadcast shape. `flavor` is one of `e, mu, tau, ebar, mubar, taubar`; `isotope` is a `nuagent.physics.xsec.Isotope` with attributes `z`, `n`, `mass_mev` and `helm_radius_fm` (the experiment's Helm radius), and `isotope.q2(t)` gives Q² = 2 M T. It is written by users, not by the agent: it must include the framework's SM cross section with the experiment's form factor, which it obtains as `nuagent.physics.xsec.dsigma_dt(e_nu, t, flavor, isotope, nuagent.physics.couplings.sm(isotope.q2(t)))`. It is used only for physics outside the basis (magnetic moments, inelastic channels), it skips the SM-limit check, and its report is labeled `raw-cross-section`. If a description needs physics outside the V and S basis, write `notes.md` naming the raw route and produce no plugin.
 
-Validation you can run yourself inside the task directory:
+`example_plugin.py` is a standalone runnable coefficient plugin. For example, from the repository root:
+
+```bash
+uv run nuagent predict --experiment coherent_csi_2017 --plugin src/nuagent/context/example_plugin.py
+```
+
+The harness and validation command are planned in issue #17. Once implemented, validation inside a task directory will use:
 
 ```bash
 nuagent validate --plugin plugin.py --card card.json
 ```
 
-With both files present the command also cross-checks that the plugin and the card agree on every coefficient at a grid of Q² values. Fix every reported failure before finishing.
+With both files present the command will also cross-check that the plugin and the card agree on every coefficient at a grid of Q² values. See `framework.md` for what this evidence can establish and what it cannot.

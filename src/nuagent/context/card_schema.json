@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "Contact": {
+      "additionalProperties": false,
+      "description": "Constant vector coefficients epsilon^{fV}_{alpha beta} added to C^{fV}.",
+      "properties": {
+        "fermion": {
+          "description": "Quark the contact term couples to.",
+          "enum": [
+            "u",
+            "d"
+          ],
+          "title": "Fermion",
+          "type": "string"
+        },
+        "epsilon": {
+          "$ref": "#/$defs/FlavorMatrix",
+          "description": "Hermitian matrix of epsilon^{fV}_{alpha beta}."
+        }
+      },
+      "required": [
+        "fermion",
+        "epsilon"
+      ],
+      "title": "Contact",
+      "type": "object"
+    },
+    "FlavorMatrix": {
+      "additionalProperties": false,
+      "description": "Hermitian 3x3 flavor matrix given by its six independent entries; an absent entry is zero.",
+      "properties": {
+        "ee": {
+          "default": 0.0,
+          "description": "Diagonal (e, e) entry, real.",
+          "title": "Ee",
+          "type": "number"
+        },
+        "mm": {
+          "default": 0.0,
+          "description": "Diagonal (mu, mu) entry, real.",
+          "title": "Mm",
+          "type": "number"
+        },
+        "tt": {
+          "default": 0.0,
+          "description": "Diagonal (tau, tau) entry, real.",
+          "title": "Tt",
+          "type": "number"
+        },
+        "em": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": 0.0,
+          "description": "(e, mu) entry. Off-diagonal entry: a real number, or [re, im] for a complex value. The conjugate partner is filled by the framework.",
+          "title": "Em"
+        },
+        "et": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": 0.0,
+          "description": "(e, tau) entry. Off-diagonal entry: a real number, or [re, im] for a complex value. The conjugate partner is filled by the framework.",
+          "title": "Et"
+        },
+        "mt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": 0.0,
+          "description": "(mu, tau) entry. Off-diagonal entry: a real number, or [re, im] for a complex value. The conjugate partner is filled by the framework.",
+          "title": "Mt"
+        }
+      },
+      "title": "FlavorMatrix",
+      "type": "object"
+    },
+    "Mediator": {
+      "additionalProperties": false,
+      "description": "One new boson exchanged between the neutrino and the quarks.",
+      "properties": {
+        "structure": {
+          "description": "Lorentz structure: V (vector) or S (scalar).",
+          "enum": [
+            "V",
+            "S"
+          ],
+          "title": "Structure",
+          "type": "string"
+        },
+        "mass_mev": {
+          "description": "Mediator mass in MeV, positive.",
+          "exclusiveMinimum": 0,
+          "title": "Mass Mev",
+          "type": "number"
+        },
+        "nu_couplings": {
+          "$ref": "#/$defs/FlavorMatrix",
+          "description": "Neutrino couplings g_nu^{alpha beta} (left-handed current for V, nu-bar nu for S)."
+        },
+        "quark_couplings": {
+          "$ref": "#/$defs/QuarkCouplings",
+          "description": "Quark couplings g_u, g_d."
+        },
+        "kinetic_mixing": {
+          "default": 0.0,
+          "description": "Vector only: kinetic mixing epsilon with the photon, adding epsilon e Q_q^em to each quark coupling.",
+          "title": "Kinetic Mixing",
+          "type": "number"
+        }
+      },
+      "required": [
+        "structure",
+        "mass_mev"
+      ],
+      "title": "Mediator",
+      "type": "object"
+    },
+    "QuarkCouplings": {
+      "additionalProperties": false,
+      "description": "Vector (g_q, the average of the chiral couplings) or scalar quark couplings of a mediator.",
+      "properties": {
+        "u": {
+          "default": 0.0,
+          "description": "Coupling to the up quark.",
+          "title": "U",
+          "type": "number"
+        },
+        "d": {
+          "default": 0.0,
+          "description": "Coupling to the down quark.",
+          "title": "D",
+          "type": "number"
+        }
+      },
+      "title": "QuarkCouplings",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "New-physics contribution to the CEvNS operator basis; the Standard Model is added by the framework.",
+  "properties": {
+    "name": {
+      "default": "",
+      "description": "Free-form label for the model.",
+      "title": "Name",
+      "type": "string"
+    },
+    "mediators": {
+      "description": "Vector and scalar mediators.",
+      "items": {
+        "$ref": "#/$defs/Mediator"
+      },
+      "title": "Mediators",
+      "type": "array"
+    },
+    "contacts": {
+      "description": "Contact vector interactions.",
+      "items": {
+        "$ref": "#/$defs/Contact"
+      },
+      "title": "Contacts",
+      "type": "array"
+    }
+  },
+  "title": "ModelCard",
+  "type": "object"
+}

@@ -7,7 +7,7 @@ import sys
 
 import numpy as np
 import pytest
-from test_modelcard import DOCS, example_blocks
+from test_modelcard import CONTEXT, example_blocks
 from test_plugins import RAW_SM_PLUGIN
 
 from nuagent.experiments.registry import get
@@ -44,7 +44,7 @@ def test_predict_templates_and_data():
 
 
 def test_predict_card_and_coefficient_plugin(tmp_path):
-    example = DOCS / "examples" / "01_zprime_universal.md"
+    example = CONTEXT / "examples" / "01_zprime_universal.md"
     card_text = example_blocks(example, "json")[0]
     card = tmp_path / "card.json"
     card.write_text(card_text)

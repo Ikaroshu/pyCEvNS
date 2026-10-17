@@ -1,18 +1,22 @@
-# Agent context pack (draft)
+# Agent context pack
 
-Files the agent harness copies into every task directory. They are also the human reference for the package's physics conventions. Status: drafted 2026-10-17 in the design session; milestone M2 implemented the `Coefficients` API, the model card and the cross section they describe, and `tests/test_modelcard.py` checks that every example card and plugin agree and that the examples' coefficient tables and derived charges, couplings and ratios, and the numerical values in `conventions.md`, match the code (quadrature-accuracy remarks in example 06 are not tested).
+Read `conventions.md` first, then `plugin_api.md` and `framework.md`. This pack supplies the conventions and worked translations for an agent producing new-physics coefficients. It is available in installed distributions through `importlib.resources.files("nuagent.context")`.
 
-- `conventions.md`: normative conventions. Read first.
-- `plugin_api.md`: the plugin contract.
-- `card_schema.json`: JSON schema of a model card, generated from the pydantic model `nuagent.physics.modelcard.ModelCard` (a test keeps it current). A field that is absent means zero.
-- Section 9 of `conventions.md` plays the role of the spec's `framework.md`.
-- `examples/`: worked description-to-plugin translations with derivations, expected coefficient values at reference momentum transfers, and the card where one exists.
-  - `01_zprime_universal.md`: flavor-universal vector mediator (card-expressible)
-  - `02_zprime_b_minus_l.md`: B−L gauge boson from charges (card-expressible)
-  - `03_zprime_lmu_ltau.md`: L_μ−L_τ with kinetic mixing, given and loop-induced (card-expressible)
-  - `04_light_scalar.md`: scalar mediator (card-expressible)
-  - `05_contact_nsi_offdiagonal.md`: contact ε with a flavor-changing entry (card-expressible)
-  - `06_running_kinetic_mixing.md`: Q²-dependent loop mixing (plugin-only; reduces to example 03 B at Q² → 0)
-- Eval cases live outside this pack, under `evals/agent/`, so they are never copied into a task directory.
+- `conventions.md`: normative matching, units, flavor and sign conventions.
+- `plugin_api.md`: the coefficient plugin contract and user-authored raw cross-section route.
+- `example_plugin.py`: a standalone, runnable universal-vector plugin. Load it with `nuagent.physics.plugin.load_coefficient_plugin`, or pass it to `nuagent predict --plugin`.
+- `card_schema.json`: generated from `nuagent.physics.modelcard.ModelCard`, including field descriptions. Absent coupling entries mean zero.
+- `framework.md`: responsibilities and the meaning and limits of the three verification levels.
+- `examples/`: worked translations with plugins, derivations, reference numbers and cards where expressible:
+  - `01_zprime_universal.md`: universal vector mediator.
+  - `02_zprime_b_minus_l.md`: B−L from charges.
+  - `03_zprime_lmu_ltau.md`: L_μ−L_τ with given and loop-induced mixing.
+  - `04_light_scalar.md`: scalar mediator.
+  - `05_contact_nsi_offdiagonal.md`: flavor-changing contact NSI.
+  - `06_running_kinetic_mixing.md`: momentum-dependent mixing, which requires a plugin.
 
-Output contract for a task (repeated in every `TASK.md`): write `plugin.py` always; write `card.json` whenever the interaction is expressible as a card and say in `notes.md` why not otherwise; write `notes.md` with the derivation from the description to the numbers, the convention conversions you made, and any assumption. Run `nuagent validate --plugin plugin.py [--card card.json]` and fix what it reports. If the description is under-specified, write only `notes.md` naming what is missing. If the physics is outside the V and S basis (magnetic moments, inelastic channels, oscillation effects), write only `notes.md` saying so and naming the user-authored raw cross-section route.
+For a complete description within the V and S basis, write `plugin.py`, `notes.md` with the derivation and convention conversions, and `card.json` exactly when a card can express the interaction. Explain the absence of a card in `notes.md`. If information is missing, write only `notes.md` naming the missing inputs. For physics outside the basis, write only `notes.md` explaining the limitation and naming the user-authored raw cross-section route.
+
+The context pack and offline evaluation scorer are implemented. Backend execution, `nuagent validate`, the translation harness, verification reports and live evaluation are tracked in issue #17. The verification labels described here are the harness contract; copying this pack or using a plugin does not itself assign a verification level.
+
+`src/nuagent/context/` is the canonical source. `docs/agent/` is its generated human-readable mirror; edit the source and refresh the mirror with `cp -R src/nuagent/context/. docs/agent/`. Tests compare both representations and check the generated schema and worked examples. Evaluation cases and answers live separately under `evals/agent/` and must never enter the copied context pack.
