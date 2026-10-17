@@ -1,0 +1,14 @@
+# design specs stay uncommitted; their committed record is the mirror issue
+.plans/
+# implementation worktrees
+.worktrees/
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+# macOS
+.DS_Store
