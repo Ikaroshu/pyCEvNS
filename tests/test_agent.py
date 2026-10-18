@@ -57,6 +57,8 @@ class FakeBackend:
         prompt = (task_dir / "TASK.md").read_text()
         self.prompts.append(prompt)
         mode = self.answered if "## Answers (round" in prompt else self.mode
+        if "no-notes" in (mode, self.mode):
+            return BackendResult("done", 0, "{}")
         (task_dir / "notes.md").write_text(NOTES)
         if mode == "notes":
             (task_dir / "notes.md").write_text("Missing mass, neutrino coupling g_nu and quark coupling g_q; please specify them.")
@@ -652,3 +654,15 @@ def test_report_order_with_notes_inline_and_provenance_last(tmp_path):
     record = result.evaluations[0]
     assert "Background scale β, steady state (new physics / SM)" in table and "Signal scale α (new physics / SM)" in table
     assert f"{record['delta']:.6g}" in table and f"{record['sm_predicted_total']:.6g}" in table
+
+
+def test_round_without_notes_ends_the_conversation(tmp_path):
+    task, out = tmp_path / "task", tmp_path / "report.md"
+    backend = FakeBackend("questions", answered="no-notes")
+    run_result("a light vector boson", ["coherent_csi_2017"], backend, task, out)
+    with pytest.raises(RuntimeError, match="no nonempty notes.md"):
+        continue_run(task, {"mass_mev": 30.0}, backend, out)
+    rounds = read_conversation(task)["rounds"]
+    assert rounds[1] == {"round": 2, "state": "backend-failure"}
+    with pytest.raises(ValueError, match="'backend-failure'"):
+        continue_run(task, {"mass_mev": 30.0}, backend, out)

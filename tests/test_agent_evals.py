@@ -238,6 +238,8 @@ def question_entries(*pairs: tuple[str, str]) -> list[dict]:
     (("g_u", "Does it couple to up quarks?"), ("neutrino_flavors", "Does it couple to all three neutrino flavors equally?")),
     (("form", "Does the boson also couple to protons and neutrons?"),),
     (("lorentz", "Is it a vector or a scalar coupling to matter?"),),
+    (("quark_ratio", "Are the u and d couplings equal in value, or do they follow B-L charges?"),),
+    (("flavors", "Does it couple to all three neutrino flavors with the same strength, and to quarks?"),),
 ))
 def test_under_specified_accepts_form_questions(pairs, tmp_path):
     (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))
@@ -250,6 +252,10 @@ def test_under_specified_accepts_form_questions(pairs, tmp_path):
     ((("quark_couplings", "Which quarks does it couple to?"), ("mass_mev", "Mediator mass in MeV?")), ("asks for a mass",)),
     ((("quark_couplings", "Which quarks does it couple to?"), ("g_nu", "What is the value of g_nu?")), ("asks for a numeric value",)),
     ((("g_q", "How large is the quark coupling?"),), ("asks for a numeric value",)),
+    ((("couplings", "What coupling values should be used for the neutrinos and the quarks?"),), ("asks for a numeric value",)),
+    ((("g_q", "What is the coupling strength to quarks?"),), ("asks for a numeric value",)),
+    ((("quark_couplings", "Which numbers should the quark couplings take?"),), ("asks for a numeric value",)),
+    ((("g_q", "What is g_q?"),), ("asks only for a parameter",)),
 ))
 def test_under_specified_rejects_missing_form_or_value_questions(pairs, failures, tmp_path):
     (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))

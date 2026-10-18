@@ -25,11 +25,12 @@ LEVEL_MEANINGS = {
 
 
 def verification_caption(level: str, at_agent_point: bool) -> str:
-    """The level in the report's words, explained, plus a note when the plugin alone evaluated other values."""
-    caption = f"Verification: {level} ({LEVEL_MEANINGS[level]})."
-    if not at_agent_point:
-        caption += " Evaluated by the plugin alone at these values; the model-card cross-check holds at the agent's values."
-    return caption
+    """The agent's level in the report's words; at other values also the level of the point shown, plugin-only."""
+    if at_agent_point:
+        return f"Verification: {level} ({LEVEL_MEANINGS[level]})."
+    card = "; the model-card cross-check holds at the agent's values only" if level == "cross-validated" else ""
+    return (f"Verification at the agent's values: {level} ({LEVEL_MEANINGS[level]}). "
+            f"At these values: plugin-only (only the plugin was checked here{card}).")
 
 
 def show_spectra(signals: dict[str, np.ndarray]) -> None:
@@ -66,9 +67,9 @@ def question_form(task_dir: Path, round_number: int, questions: list[dict]) -> d
 def show_notes(task_dir: Path) -> None:
     """The notes under a fixed heading, without the agent's own first level-1 title."""
     lines = (task_dir / "notes.md").read_text().splitlines()
-    titles = [index for index, line in enumerate(lines) if line.startswith("# ")]
-    if titles:
-        del lines[titles[0]]
+    first = next((index for index, line in enumerate(lines) if line.strip()), None)
+    if first is not None and lines[first].startswith("# "):
+        del lines[first]
     st.subheader("Note")
     st.markdown("\n".join(lines))
 

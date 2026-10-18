@@ -113,6 +113,8 @@ def run_round(task_dir: Path, conversation: dict, experiments: Sequence[Experime
             raise BackendFailure(result)
         notes = task_dir / "notes.md"
         if not notes.is_file() or not notes.read_text().strip():
+            conversation["rounds"][-1]["state"] = "backend-failure"
+            write_conversation(task_dir, conversation)
             raise RuntimeError(f"backend produced no nonempty notes.md\n{result.raw_output}\n{result.stderr}")
         for name in OUTPUT_FILES:
             if (task_dir / name).is_file():

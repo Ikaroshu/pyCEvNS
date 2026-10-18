@@ -80,6 +80,7 @@ LIKELIHOOD_CAPTION = (
 
 def likelihood_table(evaluations: list[dict]) -> str:
     """One Markdown row per experiment: counts, Δ and both models' profiled nuisances."""
+    # Columns follow the first experiment's background components; one registered experiment has them all today.
     backgrounds = list(evaluations[0]["sm"]["beta"])
     header = ["Experiment", "Observed", "SM signal", "New-physics signal", "Δ", "Signal scale α (new physics / SM)",
               *(f"Background scale β, {name.replace('_', ' ')} (new physics / SM)" for name in backgrounds)]

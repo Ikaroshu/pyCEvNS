@@ -124,9 +124,11 @@ plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
 perturbativity and counts) and redraws both in place. The caption names the
 verification level as the report does, for example "Verification:
 cross-validated (the plugin and the model card agree at the agent's
-values).", and at other values adds "Evaluated by the plugin alone at these
-values; the model-card cross-check holds at the agent's values.", because
-the card's numbers were written for the agent's point only. A point that fails the checks lists the
+values).". At other values it names both levels: "Verification at the
+agent's values: cross-validated (...). At these values: plugin-only (only
+the plugin was checked here; the model-card cross-check holds at the agent's
+values only).", because the card's numbers were written for the agent's
+point only. For a plugin-only result the card clause is left out. A point that fails the checks lists the
 findings and keeps the agent's point. Re-evaluation does not call the agent
 and leaves the task directory and report unchanged. On the command line the
 same evaluation is `predict` or `compare` with
@@ -158,7 +160,7 @@ uv run nuagent agent-eval --backend claude --out-dir /private/tmp/nuagent-eval
 record of the description, experiments, backend, `--max-turns` and rounds.
 Complete in-basis descriptions produce `plugin.py`, `notes.md` and `card.json`
 whenever expressible, with missing numeric values assumed from the defaults
-table and listed in `notes.md`. An open form of the interaction produces
+table and declared in the plugin's `PARAMETERS`. An open form of the interaction produces
 `questions.json` and `notes.md`; out-of-basis physics produces notes only. Neither has predictions
 or a physics verification label. Agents never write raw cross-section plugins.
 
@@ -196,7 +198,8 @@ does not match the shape in the [plugin API](docs/agent/plugin_api.md), is a
 validation finding. It evaluates
 likelihoods after validation succeeds, so the agent never sees likelihood
 feedback. The report begins with `cross-validated` or `plugin-only` and its
-limitations, or a notes-only outcome. It retains derivations, both validation
+limitations, or with the outcome `questions`, `unresolved`, `notes-only` or
+`validation-failed`. It retains derivations, both validation
 histories, source/package provenance, experiment data releases and unmodified
 backend CLI records including model/cost fields when supplied. Every attempt's
 outputs and backend record remain in `REPORT.task/history/round-N/attempt-M/`

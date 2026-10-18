@@ -221,7 +221,8 @@ def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(mo
     _, records = evaluate_point(task, plugin.parameters | {"mass_mev": 50.0})
     table = block.markdown[0].value
     assert table != agent_table and f"{records[0]['delta']:.6g}" in table
-    assert block.caption[0].value == CROSS_VALIDATED + " Evaluated by the plugin alone at these values; the model-card cross-check holds at the agent's values."
+    assert block.caption[0].value == ("Verification at the agent's values: cross-validated (the plugin and the model card agree at the agent's values). "
+                                      "At these values: plugin-only (only the plugin was checked here; the model-card cross-check holds at the agent's values only).")
     assert not (app.info or app.warning or app.json)
     assert snapshot(task, task.parent / "report.md") == before
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
@@ -270,3 +271,41 @@ def test_unresolved_conversation_says_the_round_limit_was_reached(monkeypatch):
     assert [message.name for message in app.chat_message] == ["user", "assistant", "user", "assistant", "user", "assistant"]
     assert any("The limit of 3 rounds was reached" in markdown.value for markdown in app.chat_message[-1].markdown)
     assert not [widget for widget in app.button if widget.label == "Submit answers"]
+
+
+def test_plugin_only_evaluation_at_new_values_names_no_card(monkeypatch):
+    app = run_agent(page(monkeypatch, "plugin-only"))
+    task = app.session_state["agent_task"]
+    plugin_only = "Verification: plugin-only (no model card to cross-check; the plugin's own checks pass at the agent's values)."
+    assert result_section(app).caption[0].value == plugin_only
+    assert not any(expander.label.startswith("Model card") for expander in app.expander)
+    app.number_input(key=f"parameter:{task}:mass_mev").set_value(50.0)
+    app = submit(app, "Evaluate")
+    caption = result_section(app).caption[0].value
+    assert caption == ("Verification at the agent's values: plugin-only (no model card to cross-check; the plugin's own checks pass "
+                       "at the agent's values). At these values: plugin-only (only the plugin was checked here).")
+    assert "cross-check holds" not in caption
+
+
+def test_failed_continuation_leaves_task_without_result(monkeypatch):
+    app = run_agent(page(monkeypatch, "questions", "no-notes"))
+    task = app.session_state["agent_task"]
+    app = submit(app, "Submit answers")
+    assert app.exception
+    assert app.session_state["agent_task"] == task and "agent_result" not in app.session_state
+    assert read_conversation(task)["rounds"][-1]["state"] == "backend-failure"
+    app.text_area(key="agent_description").input("an edited description").run()
+    assert not app.exception
+    assert not app.chat_message and not app.get("image")
+
+
+def test_notes_title_is_dropped_only_when_it_opens_the_notes(monkeypatch):
+    app = run_agent(page(monkeypatch, "correct"))
+    task = app.session_state["agent_task"]
+    (task / "notes.md").write_text("Intro line.\n\n# Not a title\n\nBody.")
+    app = submit(app, "Evaluate")
+    notes = result_section(app).markdown[1].value
+    assert "# Not a title" in notes and notes.startswith("Intro line.")
+    (task / "notes.md").write_text("\n\n# Title\n\nBody.")
+    app = submit(app, "Evaluate")
+    assert result_section(app).markdown[1].value.strip() == "Body."
