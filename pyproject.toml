@@ -10,7 +10,7 @@ dependencies = [
     "numpy",
     "pydantic",
     "scipy",
-    "streamlit",
+    "streamlit>=1.66",
 ]
 
 [project.scripts]

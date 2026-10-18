@@ -303,13 +303,13 @@ def test_claude_tool_policy(tmp_path):
     assert not allowed_tool("Write", {"file_path": str(tmp_path / "plugin.py")}, tmp_path)
 
 
-@pytest.mark.parametrize("name", ["claude_code", "codex"])
+@pytest.mark.parametrize("name", ["claude", "codex"])
 def test_subprocess_backend_configuration(tmp_path, monkeypatch, name):
     (tmp_path / "TASK.md").write_text("task prompt")
     calls = []
     def fake_run(command, **kwargs):
         calls.append((command, kwargs))
-        raw = '{"result":"done","model":"configured"}' if name == "claude_code" else '{"type":"item.completed","item":{"type":"agent_message","text":"done"}}\n'
+        raw = '{"result":"done","model":"configured"}' if name == "claude" else '{"type":"item.completed","item":{"type":"agent_message","text":"done"}}\n'
         return subprocess.CompletedProcess(command, 0, raw, "")
     monkeypatch.setattr(subprocess, "run", fake_run)
     result = SubprocessBackend(name).run(tmp_path, 9)
@@ -317,7 +317,7 @@ def test_subprocess_backend_configuration(tmp_path, monkeypatch, name):
     assert result.final_text == "done"
     assert kwargs["cwd"] == tmp_path
     assert kwargs["input"] == "task prompt"
-    if name == "claude_code":
+    if name == "claude":
         assert command[command.index("--max-turns") + 1] == "9"
         assert "--restricted" in command
         assert "PreToolUse" in command[command.index("--settings") + 1]
@@ -339,7 +339,7 @@ def test_propose_cli_through_fake_executable(tmp_path, monkeypatch):
     executable.chmod(0o755)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
     report = tmp_path / "report.md"
-    assert cli("propose", "--description", "description", "--backend", "claude_code", "--out", str(report)) == {"report": str(report)}
+    assert cli("propose", "--description", "description", "--backend", "claude", "--out", str(report)) == {"report": str(report)}
     assert report.read_text().startswith("Verification: **cross-validated**")
 
 
@@ -376,7 +376,7 @@ def test_agent_eval_cli_default_output(tmp_path, monkeypatch):
     executable.chmod(0o755)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
     monkeypatch.setenv("TMPDIR", str(tmp_path))
-    output = cli("agent-eval", "--backend", "claude_code")
+    output = cli("agent-eval", "--backend", "claude")
     root = Path(output["output_root"])
     assert root.is_relative_to(tmp_path)
     assert len(output["cases"]) == 15

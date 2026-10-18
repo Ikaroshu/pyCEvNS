@@ -59,6 +59,15 @@ def profiled(experiment: Experiment, signal: np.ndarray) -> Profile:
     return Profile(float(result.fun), float(x[0]), tuple(float(b) for b in x[1:]))
 
 
+def profile_record(profile: Profile, experiment: Experiment) -> dict:
+    """The profile as JSON-ready values, with the background normalizations keyed by background name."""
+    return {
+        "neg2_log_likelihood": profile.neg2_log_likelihood,
+        "alpha": profile.alpha,
+        "beta": {background.name: b for background, b in zip(experiment.backgrounds, profile.beta)},
+    }
+
+
 def delta(experiment: Experiment, signal: np.ndarray) -> float:
     """Δ = profiled(new physics) − profiled(SM) on the experiment's observed counts; positive Δ favors the SM."""
     return profiled(experiment, signal).neg2_log_likelihood - profiled(experiment, predicted_counts(experiment)).neg2_log_likelihood
