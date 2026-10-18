@@ -84,9 +84,29 @@ digit for digit to the page. The same values appear in the M5b live runs in
 `plugin.py`, `card.json` and `notes.md`. The context pack, prompt and history
 remain in the task directory above.
 
+## Edits during a run
+
+After code review, the inputs and the "Run agent" button were moved into one
+`st.form`. With Streamlit's default fast reruns, a widget edit during a run
+used to stop the running script before it stored the result, so the report
+never appeared. Inside a form, edits send no rerun until the next submit.
+The commit after `4e648f1` also refuses an empty experiment selection
+("Choose at least one experiment.") before calling the backend.
+
+To check the form without a live run, the page was served on 127.0.0.1:8605
+with a fake `claude` executable first on `PATH`. The fake sleeps 12 s, then
+writes a notes-only `notes.md`. In the browser the description
+"a new light vector boson that couples to neutrinos" was submitted, and while
+the spinner ran, the backend selector was changed to `codex`. When the fake
+finished, the page showed the task directory
+(`.../nuagent-ui-vqtudltj/task`), "Outputs passed validation." and the
+notes-only report, whose provenance records `"backend": "claude"` (the
+backend submitted with the form). The report records `source_dirty: true`
+because this ran on the uncommitted repair.
+
 ## Tests and packaging
 
-- `uv run pytest tests/test_ui.py`: 5 passed.
+- `uv run pytest tests/test_ui.py`: 7 passed.
   - The launcher test checks the exact flag/value pairs and that the app file
     exists. `nuagent ui --help` runs through the installed executable.
   - The agent-panel tests use the fake backend from `tests/test_agent.py`.
@@ -98,7 +118,11 @@ remain in the task directory above.
   - Both results still show after a rerun with an edited description.
   - A valid run followed by a run whose backend fails leaves no success
     message, report or figure after the next rerun.
-- `uv run pytest`: 327 passed (322 before this milestone plus 5). The only
+  - The description, backend and experiment inputs and the only button,
+    "Run agent", belong to the form `agent`.
+  - With the experiment selection cleared, submitting shows "Choose at least
+    one experiment." and never calls the backend.
+- `uv run pytest`: 329 passed (322 before this milestone plus 7). The only
   warning is the frozen legacy package's `pkg_resources` deprecation warning.
 - `uv build --out-dir <scratch>`: the wheel's `nuagent/ui/` contains exactly
   `app.py`, `figures.py` and `launch.py`, and its metadata requires

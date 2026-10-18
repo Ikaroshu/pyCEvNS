@@ -13,15 +13,19 @@ from nuagent.ui.figures import spectrum_figure
 
 st.set_page_config(page_title="nuagent")
 st.title("nuagent")
-description = st.text_area("Interaction description", key="agent_description")
-backend = st.selectbox("Backend", ("claude", "codex"), key="agent_backend")
-experiments = st.multiselect("Experiments", registry.names(), default=list(registry.names()), key="agent_experiments")
-if st.button("Run agent"):
+# A form sends no rerun until submit: a rerun during a run would stop the script before it stores the result.
+with st.form("agent"):
+    description = st.text_area("Interaction description", key="agent_description")
+    backend = st.selectbox("Backend", ("claude", "codex"), key="agent_backend")
+    experiments = st.multiselect("Experiments", registry.names(), default=list(registry.names()), key="agent_experiments")
+    submitted = st.form_submit_button("Run agent")
+if submitted and not experiments:
+    st.error("Choose at least one experiment.")
+elif submitted:
     st.session_state.pop("agent_result", None)
     root = Path(tempfile.mkdtemp(prefix="nuagent-ui-"))
     with st.spinner(f"Running {backend} in {root}; this takes minutes"):
         result = run_result(description, experiments, get_backend(backend), root / "task", root / "report.md")
-    # Kept in session state so a rerun queued by a widget edit during the run does not clear it.
     st.session_state.agent_result = (root, result.valid, result.report, result.signals)
 if "agent_result" in st.session_state:
     root, valid, report, signals = st.session_state.agent_result

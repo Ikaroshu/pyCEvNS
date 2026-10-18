@@ -43,7 +43,7 @@ def page(monkeypatch, *modes: str) -> AppTest:
 
 
 def run_agent(app: AppTest) -> AppTest:
-    return next(widget for widget in app.button if widget.label == "Run agent").click().run()
+    return next(widget for widget in app.form_submit_button if widget.label == "Run agent").click().run()
 
 
 def markdown_texts(app: AppTest) -> list[str]:
@@ -80,3 +80,24 @@ def test_agent_panel_clears_result_when_a_later_run_fails(monkeypatch):
     assert "agent_result" not in app.session_state
     assert not app.success and not app.get("image")
     assert report.strip() not in markdown_texts(app)
+
+
+def test_agent_inputs_and_run_button_are_in_one_form(monkeypatch):
+    app = page(monkeypatch)
+    form = app.get("form")[0]
+    assert [widget.label for widget in form.button] == ["Run agent"]
+    assert [widget.key for widget in (*form.text_area, *form.selectbox, *form.multiselect)] == [
+        "agent_description", "agent_backend", "agent_experiments",
+    ]
+    assert [(widget.label, widget.form_id) for widget in app.button] == [("Run agent", "agent")]
+
+
+def test_agent_run_needs_an_experiment(monkeypatch):
+    calls = []
+    monkeypatch.setattr(nuagent.agent.backend, "get_backend", lambda name: calls.append(name))
+    app = AppTest.from_file(APP_PATH, default_timeout=60).run()
+    app.multiselect(key="agent_experiments").set_value([])
+    app = run_agent(app)
+    assert not app.exception
+    assert [error.value for error in app.error] == ["Choose at least one experiment."]
+    assert calls == [] and "agent_result" not in app.session_state
