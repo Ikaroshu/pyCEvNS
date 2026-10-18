@@ -28,6 +28,7 @@ pyCEvNS is being repurposed from a CEvNS event calculator into `nuagent`, an age
 
 - `uv run pytest` passes before a merge. Tests need no network.
 - The golden regression in `tests/test_golden_regression.py` is the first thing to check when any rate changes.
+- Verification evidence for an issue (live-run outputs, screenshots, check logs) is posted as a comment on the issue, with any files kept outside the repository (`.plans/evidence/` is ignored). Do not commit evidence directories.
 
 ## Git
 
