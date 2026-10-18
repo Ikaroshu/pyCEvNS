@@ -86,31 +86,44 @@ uv run nuagent ui --port 8600
 prompt disabled. Describe an interaction, pick a backend (`claude` or
 `codex`, installed as described below) and the experiments, and press
 "Run agent". The page runs the `propose` harness in a fresh temporary
-directory, shows its path, whether the outputs passed validation, and the
-report. For a validated model it also plots, per experiment, the predicted
-spectrum of the model and of the SM, each plus the summed backgrounds,
-against the observed counts with √N error bars. A run takes minutes and
-uses the backend's paid model.
+directory and shows the exchange as a chat: your description, the agent's
+questions with an answer form inside, your answers, and the result. A run
+takes minutes and uses the backend's paid model.
 
-If the description leaves the mass, a coupling or the Lorentz structure open,
-the agent asks instead of guessing. The page then shows the conversation so
-far and a form with one input per question, pre-filled with the agent's
-suggested value where it gave one (numbers in a general `%g` format, so 1e-4
-stays 1e-4), the unit and where the suggestion comes from, plus a free-text
-box. "Submit answers" runs the next round in the same task with the backend
-and experiments of the first round. After three rounds that still end in
-questions the page says the round limit was reached.
+The agent asks only about the form of the interaction (which particles
+couple, vector or scalar, the flavor structure, or a physics-changing sign
+or convention), never for a number. Missing masses, couplings and mixings
+take the benchmark defaults of `conventions.md` section 12 (10 MeV, vector
+couplings 1e-4, scalar couplings 1e-5, contact ε 0.1, kinetic mixing 0
+unless the model fixes it), listed in the notes under "Assumed values". The
+answer form is pre-filled with the agent's suggestion where it gave one
+(numbers in a general `%g` format), with the reason beside it, plus a
+free-text box. "Submit answers" runs the next round in the same task with
+the backend and experiments of the first round; after three rounds that
+still end in questions the page says the round limit was reached.
 
-Below a validated model's spectrum, a parameter form lists the plugin's
-`PARAMETERS` with the agent's values. "Evaluate" checks the plugin at the
-entered point (the SM limit with `COUPLINGS` zeroed, perturbativity and
-counts), redraws the spectrum, and shows Δ and the profiled nuisances there.
-Any point other than the agent's is labeled plugin-only, because the card
-cross-check holds only where the card's numbers were written. A point that
-fails the checks shows the findings and no spectrum for that point.
-Re-evaluation does not call the agent and leaves the task directory and
-report unchanged. On the command line the same evaluation is
-`predict` or `compare` with `--plugin TASK/plugin.py --set NAME=VALUE`.
+For a validated model the result is one block, in this order:
+
+1. "Re-evaluate the interaction": one input per plugin parameter, pre-filled
+   with the agent's values, and an Evaluate button.
+2. The predicted spectrum per experiment, of the model and of the SM, each
+   plus the summed backgrounds, against the observed counts with √N errors.
+3. A table per experiment of observed counts, SM and new-physics signal, Δ,
+   and the profiled signal scale α and background scales β of both models,
+   with a caption saying what α and β mean and the verification level.
+4. The agent's notes, rendered as Markdown with LaTeX math.
+5. Collapsed expanders with the provenance, `plugin.py` and `card.json`.
+
+The figure and table show the agent's point first. Evaluate checks the
+plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
+perturbativity and counts) and redraws both in place; the caption then adds
+"plugin-only at this point", because the card cross-check holds only where
+the card's numbers were written. A point that fails the checks lists the
+findings and keeps the agent's point. Re-evaluation does not call the agent
+and leaves the task directory and report unchanged. On the command line the
+same evaluation is `predict` or `compare` with
+`--plugin TASK/plugin.py --set NAME=VALUE`. The page shows no validation
+history or backend records; the report file has them.
 
 ## Translate an interaction with an installed coding agent
 
@@ -128,7 +141,7 @@ uv run nuagent propose --backend claude --experiments coherent_csi_2017 \
 uv run nuagent propose --backend codex --description "A new light vector boson that couples to neutrinos." \
   --out questions.md --task-dir light-vector.task
 uv run nuagent propose --task-dir light-vector.task --out report.md \
-  --answer free_text="mass 30 MeV, coupling 1e-4 to all three left-handed neutrino flavors and to u and d quarks"
+  --answer free_text="a universal vector coupling to u and d quarks and all three neutrino flavors"
 uv run nuagent agent-eval --backend claude --out-dir /private/tmp/nuagent-eval
 ```
 
@@ -136,8 +149,9 @@ uv run nuagent agent-eval --backend claude --out-dir /private/tmp/nuagent-eval
 `TASK.md`, the installed context pack and `conversation.json`, the harness's
 record of the description, experiments, backend, `--max-turns` and rounds.
 Complete in-basis descriptions produce `plugin.py`, `notes.md` and `card.json`
-whenever expressible. Missing information produces `questions.json` and
-`notes.md`; out-of-basis physics produces notes only. Neither has predictions
+whenever expressible, with missing numeric values assumed from the defaults
+table and listed in `notes.md`. An open form of the interaction produces
+`questions.json` and `notes.md`; out-of-basis physics produces notes only. Neither has predictions
 or a physics verification label. Agents never write raw cross-section plugins.
 
 A questions outcome prints the report path, `"state": "questions"`, the round
@@ -151,8 +165,11 @@ there. A conversation has at most three rounds; a third round that still asks
 ends `unresolved`, printed like a questions outcome. Only a task whose last
 round ended in questions can be continued. The report's first line names the
 verification level, or the outcome (`questions`, `unresolved`, `notes-only`,
-`validation-failed`); its `Conversation` section lists every round's
-questions and answers, and its provenance records the number of rounds.
+`validation-failed`). Then follow the description and the conversation
+(every round's questions and answers), the predictions and likelihood table,
+the notes inline as Markdown, `plugin.py`, `card.json`, the validation
+history, the backend records, and the provenance, which records the number
+of rounds, last.
 
 Validation prints JSON findings and exits 1 for invalid output. Schema,
 perturbativity, coefficient shape/Hermiticity/finiteness, finite non-negative
