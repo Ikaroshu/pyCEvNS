@@ -1,5 +1,7 @@
 """Findings at the external model boundary; plugin execution errors propagate."""
 
+import json
+import re
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -15,6 +17,9 @@ from nuagent.rates import integrated_counts, predicted_counts
 
 PERTURBATIVE_LIMIT = np.sqrt(4 * np.pi)
 CARD_SCHEMA = SchemaValidator(core_schema.json_schema(ModelCard.__pydantic_core_schema__))
+JSON_TEXT = SchemaValidator(core_schema.json_schema())
+QUESTION_FIELDS = ("id", "question", "unit", "suggested", "reason")
+QUESTION_ID = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
 
 
 @dataclass
@@ -70,7 +75,9 @@ def count_findings(counts: np.ndarray, experiment: Experiment) -> list[str]:
             for i in np.flatnonzero(~np.isfinite(counts) | (counts < 0))]
 
 
-def check_plugin(path: Path, experiments: Sequence[Experiment], *, raw: bool = False) -> ValidatedModel:
+def check_plugin(path: Path, experiments: Sequence[Experiment], *, raw: bool = False,
+                 parameters: dict[str, float] | None = None) -> ValidatedModel:
+    """Check the plugin at its PARAMETERS defaults, or at `parameters` overriding them."""
     report = ValidationReport()
     module = load_module(path)
     function = "dsigma_dt" if raw else "coefficients"
@@ -82,7 +89,7 @@ def check_plugin(path: Path, experiments: Sequence[Experiment], *, raw: bool = F
     if not callable(getattr(module, function)) or not isinstance(module.PARAMETERS, dict) or not isinstance(module.COUPLINGS, tuple):
         report.findings.append("plugin requires a callable, PARAMETERS dict and COUPLINGS tuple")
         return ValidatedModel(report)
-    parameters = module.PARAMETERS
+    parameters = module.PARAMETERS | (parameters or {})
     couplings = module.COUPLINGS
     if any(not isinstance(name, str) or name not in parameters for name in couplings):
         report.findings.append("COUPLINGS must name entries in PARAMETERS")
@@ -179,3 +186,52 @@ def validate_model(experiments: Sequence[Experiment], *, plugin: Path | None = N
             result.report.findings.extend(comparison.findings)
             result.report.checks.extend(comparison.checks)
     return result
+
+
+def question_findings(index: int, entry: object) -> list[str]:
+    label = f"questions.json question {index}"
+    if not isinstance(entry, dict) or set(entry) != set(QUESTION_FIELDS):
+        return [f"{label}: must be an object with exactly the fields {', '.join(QUESTION_FIELDS)}"]
+    findings = []
+    if not isinstance(entry["id"], str) or not QUESTION_ID.fullmatch(entry["id"]):
+        findings.append(f"{label}: id must be a short snake_case identifier")
+    elif entry["id"] == "free_text":
+        findings.append(f"{label}: id free_text is reserved for the user's free-text answer")
+    if not isinstance(entry["question"], str) or not entry["question"].strip():
+        findings.append(f"{label}: question must be a nonempty sentence")
+    if entry["unit"] is not None and not isinstance(entry["unit"], str):
+        findings.append(f"{label}: unit must be a string or null")
+    suggested = entry["suggested"]
+    if isinstance(suggested, bool) or not (suggested is None or isinstance(suggested, str)
+                                           or isinstance(suggested, (int, float)) and np.isfinite(suggested)):
+        findings.append(f"{label}: suggested must be a finite number (not a boolean), a string or null")
+    if entry["reason"] is None and suggested is not None:
+        findings.append(f"{label}: reason may be null only when suggested is null")
+    elif entry["reason"] is not None and not isinstance(entry["reason"], str):
+        findings.append(f"{label}: reason must be a sentence or null")
+    return findings
+
+
+def check_questions(path: Path) -> tuple[ValidationReport, list[dict]]:
+    """Check questions.json at the agent-output boundary; return the questions when valid."""
+    report = ValidationReport()
+    text = path.read_text()
+    if not JSON_TEXT.isinstance_python(text):
+        report.findings.append("questions.json is not valid JSON")
+        return report, []
+    data = json.loads(text)
+    if not isinstance(data, dict) or set(data) != {"questions"} or not isinstance(data["questions"], list) or not data["questions"]:
+        report.findings.append('questions.json must be {"questions": [...]} with at least one question')
+        return report, []
+    questions = data["questions"]
+    for index, entry in enumerate(questions, 1):
+        report.findings.extend(question_findings(index, entry))
+    if report.valid:
+        ids = [entry["id"] for entry in questions]
+        duplicates = sorted({name for name in ids if ids.count(name) > 1})
+        if duplicates:
+            report.findings.append(f"questions.json ids must be unique; repeated: {', '.join(duplicates)}")
+    if not report.valid:
+        return report, []
+    report.checks.append(f"questions.json shape valid ({len(questions)} questions)")
+    return report, questions

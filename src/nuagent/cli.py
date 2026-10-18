@@ -67,6 +67,34 @@ def model_signal(args: argparse.Namespace, experiment: Experiment) -> tuple[np.n
     return predicted_counts(experiment, coefficients), parameters
 
 
+def propose(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Run round 1 from --description, or continue the task in --task-dir with --answer on its recorded backend."""
+    from nuagent.agent.backend import get_backend
+    from nuagent.agent.run import ValidationFailed, continue_run, read_conversation, run_result
+    if (args.description is None) == (args.answer is None):
+        parser.error("propose requires exactly one of --description and --answer")
+    if args.answer is None:
+        result = run_result(args.description, (args.experiments or ",".join(registry.names())).split(","),
+                            get_backend(args.backend or "claude"), (args.task_dir or args.out.with_suffix(".task")).resolve(),
+                            args.out, 16 if args.max_turns is None else args.max_turns)
+    else:
+        if args.task_dir is None:
+            parser.error("--answer requires --task-dir naming the task to continue")
+        given = [option for option, value in (("--backend", args.backend), ("--experiments", args.experiments),
+                                              ("--max-turns", args.max_turns)) if value is not None]
+        if given:
+            parser.error(f"--answer continues a recorded task; {', '.join(given)} cannot be given (the recorded values apply)")
+        task_dir = args.task_dir.resolve()
+        answers = dict(answer.split("=", 1) for answer in args.answer)
+        result = continue_run(task_dir, answers, get_backend(read_conversation(task_dir)["backend"]), args.out)
+    if result.state == "invalid":
+        raise ValidationFailed(result.histories)
+    output = {"report": str(args.out)}
+    if result.state in ("questions", "unresolved"):
+        output |= {"state": result.state, "round": result.round, "questions": result.questions}
+    print(json.dumps(output))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="nuagent",
@@ -91,14 +119,19 @@ def main() -> None:
     validation_model.add_argument("--raw-plugin", type=Path)
     validate.add_argument("--card", type=Path)
     for name in ("propose", "agent-eval"):
-        command = commands.add_parser(name, help="Translate an interaction." if name == "propose" else "Run repository-only agent evaluations.")
-        command.add_argument("--backend", choices=("claude", "codex"), default="claude")
-        command.add_argument("--max-turns", type=int, default=16, help="Claude Code turn limit; Codex exec has no equivalent flag.")
-        command.add_argument("--experiments", default=",".join(registry.names()))
+        command = commands.add_parser(name, help="Translate an interaction: run one agent round, or continue a task with --answer." if name == "propose" else "Run repository-only agent evaluations.")
+        # propose leaves these unset so that a continuation can reject them; the recorded values apply there.
+        defaults = {"backend": "claude", "max_turns": 16, "experiments": ",".join(registry.names())}
+        defaults = dict.fromkeys(defaults) if name == "propose" else defaults
+        command.add_argument("--backend", choices=("claude", "codex"), default=defaults["backend"], help="Default claude.")
+        command.add_argument("--max-turns", type=int, default=defaults["max_turns"], help="Claude Code turn limit (default 16); Codex exec has no equivalent flag.")
+        command.add_argument("--experiments", default=defaults["experiments"], help="Comma-separated experiment names; default all registered.")
         if name == "propose":
-            command.add_argument("--description", required=True)
+            command.add_argument("--description")
+            command.add_argument("--answer", action="append", metavar="ID=VALUE",
+                                 help="Answer a question of the task in --task-dir and run its next round; repeat per question; free_text=... carries free text.")
             command.add_argument("--out", type=Path, required=True)
-            command.add_argument("--task-dir", type=Path, help="Fresh task directory; defaults to REPORT.task.")
+            command.add_argument("--task-dir", type=Path, help="Fresh task directory (defaults to REPORT.task), or with --answer the task to continue.")
         else:
             command.add_argument("--out-dir", type=Path, help="Fresh output directory; defaults to a new temporary directory.")
     ui = commands.add_parser("ui", help="Serve the Streamlit page on 127.0.0.1 with usage statistics disabled.")
@@ -123,24 +156,21 @@ def main() -> None:
             output.update(verification="raw-cross-section", meaning=VERIFICATION["raw-cross-section"])
         print(json.dumps(output, allow_nan=False))
         sys.exit(0 if result.report.valid else 1)
-    if args.command in ("propose", "agent-eval"):
+    if args.command == "propose":
+        propose(parser, args)
+        return
+    if args.command == "agent-eval":
         from nuagent.agent.backend import get_backend
         backend = get_backend(args.backend)
-        if args.command == "propose":
-            from nuagent.agent.run import run
-            run(args.description, args.experiments.split(","), backend,
-                (args.task_dir or args.out.with_suffix(".task")).resolve(), args.out, args.max_turns)
-            print(json.dumps({"report": str(args.out)}))
-        else:
-            root = Path.cwd()
-            if not (root / "evals" / "agent" / "cases.py").is_file():
-                parser.error("agent-eval is repository-only; run from the repository root")
-            sys.path.insert(0, str(root))
-            from evals.agent.run import run_evaluation
-            output_root = args.out_dir or Path(tempfile.mkdtemp(prefix="nuagent-eval-")) / args.backend
-            print(f"Agent evaluation outputs: {output_root.resolve()}", file=sys.stderr)
-            summary = run_evaluation(output_root.resolve(), backend, args.experiments.split(","), args.max_turns)
-            print(json.dumps(summary, indent=2))
+        root = Path.cwd()
+        if not (root / "evals" / "agent" / "cases.py").is_file():
+            parser.error("agent-eval is repository-only; run from the repository root")
+        sys.path.insert(0, str(root))
+        from evals.agent.run import run_evaluation
+        output_root = args.out_dir or Path(tempfile.mkdtemp(prefix="nuagent-eval-")) / args.backend
+        print(f"Agent evaluation outputs: {output_root.resolve()}", file=sys.stderr)
+        summary = run_evaluation(output_root.resolve(), backend, args.experiments.split(","), args.max_turns)
+        print(json.dumps(summary, indent=2))
         return
 
     experiment = registry.get(args.experiment)

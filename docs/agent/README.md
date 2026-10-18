@@ -14,8 +14,9 @@ Read `conventions.md` first, then `plugin_api.md` and `framework.md`. This pack 
   - `04_light_scalar.md`: scalar mediator.
   - `05_contact_nsi_offdiagonal.md`: flavor-changing contact NSI.
   - `06_running_kinetic_mixing.md`: momentum-dependent mixing, which requires a plugin.
+  - `07_under_specified_scalar.md`: an under-specified description and its `questions.json`.
 
-For a complete description within the V and S basis, write `plugin.py`, `notes.md` with the derivation and convention conversions, and `card.json` exactly when a card can express the interaction. Explain the absence of a card in `notes.md`. If information is missing, write only `notes.md` naming the missing inputs. For physics outside the basis, write only `notes.md` explaining the limitation and naming the user-authored raw cross-section route.
+For a complete description within the V and S basis, write `plugin.py`, `notes.md` with the derivation and convention conversions, and `card.json` exactly when a card can express the interaction. Explain the absence of a card in `notes.md`. If information is missing, write `questions.json` asking for the missing inputs and `notes.md` naming them, and no plugin or card. For physics outside the basis, write only `notes.md` explaining the limitation and naming the user-authored raw cross-section route.
 
 The context pack and offline evaluation scorer are implemented. Backend execution, `nuagent validate`, the translation harness, verification reports and live evaluation are tracked in issue #17. The verification labels described here are the harness contract; copying this pack or using a plugin does not itself assign a verification level.
 

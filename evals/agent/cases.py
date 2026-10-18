@@ -24,6 +24,8 @@ class EvalCase:
     card_expected: bool
     expected_coefficients: Coefficients | None
     notes_requirements: tuple[NotesRequirement, ...] = ()
+    question_requirements: tuple[NotesRequirement, ...] = ()
+    answers: dict[str, str] | None = None
 
 
 def mediator_coefficients(
@@ -78,7 +80,7 @@ def dipole_coefficients() -> Coefficients:
     )
 
 
-MISSING_INFORMATION = r"\b(?:missing|unspecified|not\s+(?:given|specified)|unknown|need(?:ed)?|require[ds]?|provide|specify|what|which)\b"
+UNDER_SPECIFIED = "A new light vector boson that couples to neutrinos."
 
 CASES = (
     EvalCase(
@@ -164,12 +166,12 @@ CASES = (
     ),
     EvalCase(
         "14_under_specified",
-        "A new light vector boson that couples to neutrinos.",
+        UNDER_SPECIFIED,
         False, None,
-        (
-            NotesRequirement("missing mediator mass", (r"\bmass\b", MISSING_INFORMATION)),
-            NotesRequirement("missing neutrino coupling", (r"\b(?:g_nu|neutrino couplings?)\b", MISSING_INFORMATION)),
-            NotesRequirement("missing quark coupling", (r"\b(?:g_q|quark couplings?)\b", MISSING_INFORMATION)),
+        question_requirements=(
+            NotesRequirement("asks for the mediator mass", (r"\bmass\b",)),
+            NotesRequirement("asks for the neutrino coupling", (r"\b(?:g_nu|neutrino)",)),
+            NotesRequirement("asks for the quark coupling", (r"\bg_[qudpn](?![a-z])|\bquark",)),
         ),
     ),
     EvalCase(
@@ -186,5 +188,12 @@ CASES = (
                 (r"\braw[- ]cross[- ]section\b", r"\b(?:user[- ](?:authored|written)|written by (?:the )?user)\b"),
             ),
         ),
+    ),
+    EvalCase(
+        "16_answered_light_vector",
+        UNDER_SPECIFIED,
+        True, universal_coefficients(30.0, 1e-4, 1e-4, 1e-4),
+        answers={"free_text": "mass 30 MeV, coupling 1e-4 to all three left-handed neutrino flavors and the same "
+                              "coupling 1e-4 to both u and d quarks, nothing else"},
     ),
 )

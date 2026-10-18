@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from nuagent.agent.validate import check_questions
 from nuagent.physics.modelcard import ModelCard, template_card
 from nuagent.physics.plugin import load_coefficient_plugin
 
@@ -14,6 +15,7 @@ CONTEXT_FILES = {
     "README.md", "conventions.md", "card_schema.json", "plugin_api.md", "framework.md", "example_plugin.py",
     "examples/01_zprime_universal.md", "examples/02_zprime_b_minus_l.md", "examples/03_zprime_lmu_ltau.md",
     "examples/04_light_scalar.md", "examples/05_contact_nsi_offdiagonal.md", "examples/06_running_kinetic_mixing.md",
+    "examples/07_under_specified_scalar.md",
 }
 
 
@@ -51,3 +53,16 @@ def test_standalone_example_plugin():
     for key, value in expected.values.items():
         np.testing.assert_allclose(produced.values[key], value, rtol=1e-14, atol=0)
     assert all(np.count_nonzero(value) == 0 for value in plugin.coefficients(q2, {"g_prime": 0, "mass_mev": 30}).values.values())
+
+
+def test_under_specified_example_questions_are_valid(tmp_path):
+    from evals.agent.cases import CASES
+    text = files("nuagent.context").joinpath("examples/07_under_specified_scalar.md").read_text()
+    description = text.split('Description given to the agent: "')[1].split('"')[0]
+    assert description not in {case.description for case in CASES}
+    path = tmp_path / "questions.json"
+    path.write_text(text.split("```json\n")[1].split("```")[0])
+    report, questions = check_questions(path)
+    assert report.valid
+    assert [question["id"] for question in questions] == ["mass_mev", "g_nu", "g_d"]
+    assert questions[2]["suggested"] is questions[2]["reason"] is None

@@ -1,5 +1,6 @@
-"""Spec test 12: offline scorer, executable seeds and notes-only outcomes."""
+"""Spec test 12: offline scorer, executable seeds, questions and notes-only outcomes."""
 
+import json
 from importlib.resources import files
 from itertools import product
 from pathlib import Path
@@ -7,11 +8,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from evals.agent.cases import CASES, Q2_MEV2
+from evals.agent.cases import CASES, Q2_MEV2, EvalCase, NotesRequirement
 from evals.agent.scorer import score_case, score_outputs
 from nuagent.physics.couplings import Coefficients, QUARKS, STRUCTURES
 from nuagent.physics.modelcard import template_card, u1_card
 from nuagent.physics.plugin import load_coefficient_plugin
+
+
+NUMERIC_CASES = tuple(case for case in CASES if case.expected_coefficients is not None)
+MISSING_INFORMATION = r"\b(?:missing|unspecified|not\s+(?:given|specified)|unknown|need(?:ed)?|require[ds]?|provide|specify|what|which)\b"
+# The notes rubric that case 14 used before it expected questions.json; it exercises notes_clauses, which case 15 relies on.
+NOTES_RUBRIC = EvalCase("notes_rubric", "unused", False, None, (
+    NotesRequirement("missing mediator mass", (r"\bmass\b", MISSING_INFORMATION)),
+    NotesRequirement("missing neutrino coupling", (r"\b(?:g_nu|neutrino couplings?)\b", MISSING_INFORMATION)),
+    NotesRequirement("missing quark coupling", (r"\b(?:g_q|quark couplings?)\b", MISSING_INFORMATION)),
+))
 
 
 def write_coefficients(output_dir: Path, c: Coefficients) -> None:
@@ -56,7 +67,7 @@ def test_correct_plugin_and_factor_two_coupling(tmp_path):
     assert result.physics_failures == ("coefficient mismatch: V u", "coefficient mismatch: V d")
 
 
-@pytest.mark.parametrize("case", CASES[:13], ids=lambda case: case.case_id)
+@pytest.mark.parametrize("case", NUMERIC_CASES, ids=lambda case: case.case_id)
 def test_every_numeric_case_accepts_exact_full_precision(case, tmp_path):
     write_coefficients(tmp_path, case.expected_coefficients)
     if case.card_expected:
@@ -124,7 +135,7 @@ def test_relative_tolerance_and_zero_absolute_tolerance(tmp_path):
     assert not score_case(CASES[7], tmp_path / "outside").physics_match
 
 
-@pytest.mark.parametrize("case", CASES[:13], ids=lambda case: case.case_id)
+@pytest.mark.parametrize("case", NUMERIC_CASES, ids=lambda case: case.case_id)
 def test_missing_required_plugin_fails(case, tmp_path):
     assert not score_case(case, tmp_path).physics_match
 
@@ -148,9 +159,9 @@ def test_plugin_execution_errors_propagate(tmp_path):
         "Please provide:\n- The mediator\n  mass.\n- The neutrino coupling\n  g_nu.\n- The quark coupling\n  g_q.",
     ),
 )
-def test_under_specified_accepts_missing_information(notes, tmp_path):
+def test_notes_rubric_accepts_missing_information(notes, tmp_path):
     (tmp_path / "notes.md").write_text(notes)
-    result = score_case(CASES[13], tmp_path)
+    result = score_case(NOTES_RUBRIC, tmp_path)
     assert result.physics_match and result.expressibility_match
 
 
@@ -169,9 +180,9 @@ def test_under_specified_accepts_missing_information(notes, tmp_path):
         "Known inputs:\n- mass\n- g_nu\n- g_q\n\nMissing information:\n- exposure",
     ),
 )
-def test_under_specified_rejects_incomplete_or_unrelated_notes(notes, tmp_path):
+def test_notes_rubric_rejects_incomplete_or_unrelated_notes(notes, tmp_path):
     (tmp_path / "notes.md").write_text(notes)
-    assert not score_case(CASES[13], tmp_path).physics_match
+    assert not score_case(NOTES_RUBRIC, tmp_path).physics_match
 
 
 @pytest.mark.parametrize(
@@ -202,18 +213,70 @@ def test_out_of_basis_rejects_missing_explanation_or_route(notes, tmp_path):
     assert not score_case(CASES[14], tmp_path).physics_match
 
 
-@pytest.mark.parametrize("case", CASES[13:], ids=lambda case: case.case_id)
-def test_notes_only_requires_notes_and_absence_of_plugin(case, tmp_path):
+def test_notes_only_requires_notes_and_absence_of_plugin_and_questions(tmp_path):
+    case = CASES[14]
     assert not score_case(case, tmp_path).physics_match
-    (tmp_path / "notes.md").write_text(
-        "Missing mass, g_nu and g_q. Outside the V, S basis. Use the user-authored raw cross-section route."
-    )
+    (tmp_path / "notes.md").write_text("Outside the V, S basis. Use the user-authored raw cross-section route.")
     assert score_case(case, tmp_path).physics_match
     (tmp_path / "card.json").write_text("{}")
     assert score_case(case, tmp_path).physics_match
     assert not score_case(case, tmp_path).expressibility_match
+    (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(("mass_mev", "Mediator mass?"))}))
+    assert score_case(case, tmp_path).physics_failures == ("expected no questions.json",)
+    (tmp_path / "questions.json").unlink()
     (tmp_path / "plugin.py").write_text("# Guessing a plugin is not a valid notes-only outcome.\n")
     assert not score_case(case, tmp_path).physics_match
+
+
+def question_entries(*pairs: tuple[str, str]) -> list[dict]:
+    return [{"id": name, "question": question, "unit": None, "suggested": None, "reason": None} for name, question in pairs]
+
+
+@pytest.mark.parametrize("pairs", (
+    (("mass_mev", "Mediator mass in MeV?"), ("g_nu", "What is the neutrino coupling?"), ("coupling_quarks", "What is the coupling to quarks?")),
+    (("mass", "What is the mass of the boson?"), ("g_nu", "Coupling to each neutrino flavor?"),
+     ("g_u", "Vector coupling to up quarks?"), ("g_d", "Vector coupling to down quarks?")),
+    (("m_med", "Mediator mass in MeV?"), ("coupling_1", "What is g_ν?"), ("coupling_2", "g_u: vector coupling to up quarks")),
+    (("mass_mev", "MASS of the mediator?"), ("y", "Coupling to Neutrinos?"), ("g_p", "Coupling to protons?"), ("g_n", "Coupling to neutrons?")),
+))
+def test_under_specified_accepts_questions_naming_mass_and_couplings(pairs, tmp_path):
+    (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))
+    result = score_case(CASES[13], tmp_path)
+    assert result.physics_match and result.expressibility_match
+
+
+@pytest.mark.parametrize("pairs,missing", (
+    ((("mass_mev", "Mediator mass?"), ("g_nu", "What is g_nu?")), "asks for the quark coupling"),
+    ((("mass_mev", "Mediator mass?"), ("g_q", "Quark coupling?")), "asks for the neutrino coupling"),
+    ((("g_nu", "Neutrino coupling?"), ("g_q", "Quark coupling?")), "asks for the mediator mass"),
+))
+def test_under_specified_rejects_questions_missing_an_item(pairs, missing, tmp_path):
+    (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))
+    assert score_case(CASES[13], tmp_path).physics_failures == (missing,)
+
+
+def test_under_specified_rejects_plugin_and_notes_only_outputs(tmp_path):
+    case = CASES[13]
+    (tmp_path / "notes.md").write_text("Missing mass, neutrino coupling g_nu and quark coupling g_q; please specify them.")
+    assert score_case(case, tmp_path).physics_failures == ("missing questions.json",)
+    pairs = (("mass_mev", "Mediator mass?"), ("g_nu", "Neutrino coupling?"), ("g_q", "Quark coupling?"))
+    (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))
+    assert score_case(case, tmp_path).physics_match
+    (tmp_path / "plugin.py").write_text("# A guessed plugin.\n")
+    assert score_case(case, tmp_path).physics_failures == ("expected no plugin.py",)
+
+
+def test_answered_case_expects_the_universal_point(tmp_path):
+    case = CASES[15]
+    assert case.description == CASES[13].description and case.answers.keys() == {"free_text"}
+    source = files("nuagent.context").joinpath("example_plugin.py").read_text()
+    exact, doubled = tmp_path / "exact", tmp_path / "doubled"
+    for directory, text in ((exact, source), (doubled, source.replace('"g_prime": 1e-4', f'"g_prime": {np.sqrt(2) * 1e-4!r}'))):
+        directory.mkdir()
+        (directory / "plugin.py").write_text(text)
+        (directory / "card.json").write_text("{}")
+    assert score_case(case, exact).physics_match and score_case(case, exact).expressibility_match
+    assert score_case(case, doubled).physics_failures == ("coefficient mismatch: V u", "coefficient mismatch: V d")
 
 
 def test_aggregate_reports_both_rates(tmp_path):
@@ -231,11 +294,11 @@ def test_aggregate_reports_both_rates(tmp_path):
 
 
 def test_cases_cover_reference_grid_and_all_coefficients():
-    assert len(CASES) == len({case.case_id for case in CASES}) == 15
-    assert sum(case.card_expected for case in CASES) == 11
+    assert len(CASES) == len({case.case_id for case in CASES}) == 16
+    assert sum(case.card_expected for case in CASES) == 12
     assert sum(case.expected_coefficients is not None and not case.card_expected for case in CASES) == 2
     np.testing.assert_array_equal(Q2_MEV2, [1238.0, 3714.0, 6190.0])
-    for case in CASES[:13]:
+    for case in NUMERIC_CASES:
         c = case.expected_coefficients
         np.testing.assert_array_equal(c.q2, Q2_MEV2)
         assert set(c.values) == set(product(STRUCTURES, QUARKS))
@@ -259,8 +322,9 @@ def test_card_expressible_answers_match_physics_templates():
         template_card("zprime_universal", {"mass_mev": 30, "g_nu": 8e-5, "g_q": 8e-5}),
         template_card("zprime_universal", {"mass_mev": 30, "g_nu": 1e-4, "g_q": 1e-4}),
         template_card("zprime_universal", {"mass_mev": 20, "g_nu": 1e-4, "g_u": -1e-4, "g_d": 2e-4}),
+        template_card("zprime_universal", {"mass_mev": 30, "g_nu": 1e-4, "g_q": 1e-4}),
     )
-    for case, card in zip(CASES[:11], cards, strict=True):
+    for case, card in zip(CASES[:11] + CASES[15:], cards, strict=True):
         for key, expected in case.expected_coefficients.values.items():
             np.testing.assert_allclose(card.coefficients(Q2_MEV2).values[key], expected, rtol=1e-14, atol=0)
 
