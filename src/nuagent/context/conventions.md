@@ -156,7 +156,7 @@ When the form is fixed but a numeric value is missing, do not ask: take the benc
 | contact NSI ε | 0.1 |
 | kinetic mixing ε | 0, unless the model fixes it (for L_μ−L_τ the loop value κ g′ of section 6) |
 
-List every assumed value in `notes.md` under a heading `## Assumed values`, one line per value with its reason, for example "- mass_mev = 10 MeV: the description gives no mass; light-mediator benchmark (conventions section 12)."
+The assumed values live in `PARAMETERS`, which the page shows as the parameter form; do not list them again in `notes.md`.
 
 ## 13. Writing notes.md
 

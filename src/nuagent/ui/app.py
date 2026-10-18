@@ -42,6 +42,16 @@ def question_form(task_dir: Path, round_number: int, questions: list[dict]) -> d
     return {name: value for name, value in answers.items() if value != ""} if submitted else None
 
 
+def show_notes(task_dir: Path) -> None:
+    """The notes under a fixed heading, without the agent's own first level-1 title."""
+    lines = (task_dir / "notes.md").read_text().splitlines()
+    titles = [index for index, line in enumerate(lines) if line.startswith("# ")]
+    if titles:
+        del lines[titles[0]]
+    st.subheader("Note")
+    st.markdown("\n".join(lines))
+
+
 def provenance_markdown(provenance: dict) -> str:
     def text(value: object) -> str:
         return ", ".join(f"{key} = {item}" for key, item in value.items()) if isinstance(value, dict) else str(value)
@@ -53,7 +63,7 @@ def result_block(task_dir: Path, result: RunResult) -> None:
     plugin = load_coefficient_plugin(task_dir / "plugin.py")
     agent_point = {name: float(value) for name, value in plugin.parameters.items()}
     with st.form("parameters"):
-        st.subheader("Re-evaluate the interaction")
+        st.subheader("Evaluate the interaction")
         point = {name: st.number_input(name, value=value, format="%g", key=f"parameter:{task_dir}:{name}")
                  for name, value in agent_point.items()}
         evaluated = st.form_submit_button("Evaluate")
@@ -69,7 +79,7 @@ def result_block(task_dir: Path, result: RunResult) -> None:
     st.markdown(likelihood_table(records))
     st.caption(f"Verification at the agent's point: {result.level}." + ("" if at_agent_point else " Plugin-only at this point."))
     st.caption(LIKELIHOOD_CAPTION)
-    st.markdown((task_dir / "notes.md").read_text())
+    show_notes(task_dir)
     with st.expander("Provenance"):
         st.markdown(provenance_markdown(result.provenance))
     with st.expander("plugin.py"):
@@ -133,4 +143,4 @@ if "agent_result" in st.session_state:
                 st.markdown("The outputs failed validation after the one correction attempt, so there are no "
                             f"predictions. The validation findings are in the full report, `{report_path}`.")
             else:
-                st.markdown((task_dir / "notes.md").read_text())
+                show_notes(task_dir)

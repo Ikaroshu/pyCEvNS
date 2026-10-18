@@ -50,7 +50,7 @@ When a description within the V and S basis leaves the form of the interaction o
 - `reason` is one sentence saying where the suggestion comes from, or null when `suggested` is null.
 - `questions.json` beside `plugin.py` or `card.json`, or a file that does not match this shape, is a validation finding. Example 07 shows a complete questions outcome.
 
-`notes.md` is Markdown with LaTeX math in `$...$` and `$$...$$`; assumed values are listed under `## Assumed values` (`conventions.md` sections 12 and 13).
+`notes.md` is Markdown with LaTeX math in `$...$` and `$$...$$` (`conventions.md` section 13); assumed values appear only in `PARAMETERS` (section 12).
 
 `example_plugin.py` is a standalone runnable coefficient plugin. For example, from the repository root:
 

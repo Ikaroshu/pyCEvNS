@@ -95,7 +95,7 @@ couple, vector or scalar, the flavor structure, or a physics-changing sign
 or convention), never for a number. Missing masses, couplings and mixings
 take the benchmark defaults of `conventions.md` section 12 (10 MeV, vector
 couplings 1e-4, scalar couplings 1e-5, contact ε 0.1, kinetic mixing 0
-unless the model fixes it), listed in the notes under "Assumed values". The
+unless the model fixes it), declared in the plugin's `PARAMETERS`. The
 answer form is pre-filled with the agent's suggestion where it gave one
 (numbers in a general `%g` format), with the reason beside it, plus a
 free-text box. "Submit answers" runs the next round in the same task with
@@ -104,14 +104,15 @@ still end in questions the page says the round limit was reached.
 
 For a validated model the result is one block, in this order:
 
-1. "Re-evaluate the interaction": one input per plugin parameter, pre-filled
+1. "Evaluate the interaction": one input per plugin parameter, pre-filled
    with the agent's values, and an Evaluate button.
 2. The predicted spectrum per experiment, of the model and of the SM, each
    plus the summed backgrounds, against the observed counts with √N errors.
 3. A table per experiment of observed counts, SM and new-physics signal, Δ,
    and the profiled signal scale α and background scales β of both models,
    with a caption saying what α and β mean and the verification level.
-4. The agent's notes, rendered as Markdown with LaTeX math.
+4. The agent's notes under the heading "Note" (without their own title),
+   rendered as Markdown with LaTeX math.
 5. Collapsed expanders with the provenance, `plugin.py` and `card.json`.
 
 The figure and table show the agent's point first. Evaluate checks the

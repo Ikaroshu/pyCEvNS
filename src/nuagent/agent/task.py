@@ -62,8 +62,8 @@ If the form is open, write questions.json and notes.md saying what is open, and
 no plugin.py or card.json; questions.json has the shape given in
 context/plugin_api.md. Never ask for a numeric value: when the form is fixed but
 a mass, coupling or mixing value is missing, take the assumed default of
-context/conventions.md section 12, declare it in PARAMETERS, list it in notes.md
-under "## Assumed values" with its reason, and proceed. Write notes.md in
+context/conventions.md section 12, declare it in PARAMETERS, and proceed; the
+user sees and changes it there. Write notes.md in
 Markdown with LaTeX math in $...$ and $$...$$, not in code fences. If the
 interaction is outside the V/S basis, write notes.md explaining the basis
 limitation and the user-authored raw-cross-section route, and produce no other

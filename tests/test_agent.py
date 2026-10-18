@@ -32,11 +32,13 @@ QUESTIONS = [
 ]
 
 
-NOTES = """Derivation: mediator matching, $C = g_\\nu g_q / (\\sqrt{2} G_F (Q^2 + m^2))$.
+NOTES = """# A fake mediator
 
-## Assumed values
+Derivation: mediator matching, $C = g_\\nu g_q / (\\sqrt{2} G_F (Q^2 + m^2))$.
 
-- mass_mev = 30 MeV: benchmark.
+## Matching
+
+Vector exchange.
 """
 
 
@@ -640,7 +642,7 @@ def test_report_order_with_notes_inline_and_provenance_last(tmp_path):
     report = result.report
     headings = [line for line in report.splitlines() if line.startswith("## ")]
     assert headings == ["## Description", "## Conversation", "## Experiment predictions and likelihood comparison", "## Notes",
-                        "## Assumed values", "## plugin.py", "## card.json", "## Validation and derivation history",
+                        "## Matching", "## plugin.py", "## card.json", "## Validation and derivation history",
                         "## Backend CLI records", "## Provenance"]
     assert report.startswith("Verification: **cross-validated**")
     notes = report.split("## Notes\n\n")[1].split("\n## plugin.py")[0]

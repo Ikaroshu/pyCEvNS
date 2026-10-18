@@ -74,4 +74,4 @@ def test_under_specified_example_questions_are_valid(tmp_path):
     produced = plugin.coefficients(np.array([1238.0]), plugin.parameters)
     np.testing.assert_allclose(produced.values["S", "u"][0, 0], expected.values["S", "u"][0, 0], rtol=1e-14)
     assert np.count_nonzero(produced.values["S", "u"][1:]) == 0
-    assert "## Assumed values" in text and "$" in text.split("## notes.md for round 2")[1]
+    assert "Assumed values" not in text and "$" in text.split("## notes.md for round 2")[1]

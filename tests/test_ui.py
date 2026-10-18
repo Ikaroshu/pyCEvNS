@@ -105,9 +105,9 @@ def test_result_is_a_chat_with_the_result_block(monkeypatch, mode, valid):
 def test_result_block_order_table_and_notes(monkeypatch):
     app = run_agent(page(monkeypatch, "correct"))
     block = app.chat_message[1]
-    assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Markdown",
+    assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown",
                                      "Expander:Provenance", "Expander:plugin.py", "Expander:card.json"]
-    assert block.subheader[0].value == "Re-evaluate the interaction"
+    assert [subheader.value for subheader in block.subheader] == ["Evaluate the interaction", "Note"]
     table, notes = block.markdown[0].value, block.markdown[1].value
     record = app.session_state["agent_result"].evaluations[0]
     for column in ("Observed", "SM signal", "New-physics signal", "Δ", "Signal scale α (new physics / SM)",
@@ -116,7 +116,8 @@ def test_result_block_order_table_and_notes(monkeypatch):
     assert f"{record['delta']:.6g}" in table and f"{record['new_physics']['alpha']:.4g} / {record['sm']['alpha']:.4g}" in table
     assert block.caption[0].value == "Verification at the agent's point: cross-validated."
     assert "α scales the signal prediction" in block.caption[1].value and "each β scales one background" in block.caption[1].value
-    assert notes.strip() == NOTES.strip() and "$C = g_\\nu" in notes and "```" not in notes
+    assert "A fake mediator" not in page_text(app)
+    assert notes.strip() == NOTES.split("\n", 2)[2].strip() and "## Matching" in notes and "$C = g_\\nu" in notes and "```" not in notes
     assert all(not expander.proto.expanded for expander in app.expander)
 
 

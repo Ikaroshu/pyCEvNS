@@ -60,8 +60,4 @@ The card has one `S` mediator at 10 MeV with ν coupling `ee` = 1e-5 and quark c
 
 Structure S with the $ee$ neutrino entry and equal $u$ and $d$ couplings, from the description and the answer. Matching (conventions section 4): $C^{qS}_{ee} = g_\nu g_q / (\sqrt{2} G_F (Q^2 + m^2))$. A Dirac $\bar\nu\nu$ coupling is assumed and stated. The scalar term does not interfere with the SM.
 
-## Assumed values
-
-- mass_mev = 10 MeV: the description gives no mass; light-mediator benchmark (conventions section 12).
-- g_nu = 1e-5: no neutrino coupling value is given; scalar benchmark (conventions section 12).
-- g_q = 1e-5: no quark coupling value is given; scalar benchmark (conventions section 12).
+The assumed mass and couplings appear only in `PARAMETERS`, not in the notes.
