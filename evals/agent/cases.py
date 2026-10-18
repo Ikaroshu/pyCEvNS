@@ -175,8 +175,8 @@ CASES = (
         forbidden_questions=(
             NotesRequirement("asks for a mass", (r"\bmass",)),
             NotesRequirement("asks for a numeric value", (
-                r"(?<!in )\bvalues?\b|\bnumbers?\b|\bnumerical\b|\bnumeric\b|\bmagnitude\b|\bhow (?:large|big|strong)\b"
-                r"|(?<!same )(?<!equal )\bstrength\b",)),
+                r"(?<!in )(?<!relative )\bvalues?\b|(?<!baryon )(?<!lepton )\bnumbers?\b|\bnumerical\b|\bnumeric\b"
+                r"|\bmagnitude\b|\bhow (?:large|big|strong)\b|(?<!same )(?<!equal )(?<!relative )\bstrength\b",)),
             NotesRequirement("asks only for a parameter", (r"\bwhat (?:is|are) (?:the )?[a-z]+_[a-z0-9_]*\s*\??$",)),
         ),
     ),

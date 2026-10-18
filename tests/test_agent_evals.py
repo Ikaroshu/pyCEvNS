@@ -240,6 +240,10 @@ def question_entries(*pairs: tuple[str, str]) -> list[dict]:
     (("lorentz", "Is it a vector or a scalar coupling to matter?"),),
     (("quark_ratio", "Are the u and d couplings equal in value, or do they follow B-L charges?"),),
     (("flavors", "Does it couple to all three neutrino flavors with the same strength, and to quarks?"),),
+    (("charges", "Does the boson couple to baryon number, to B-L, or to electric charge?"),),
+    (("gauge_group", "Is it a gauged lepton number such as L_mu - L_tau, or does it couple to quarks too?"),),
+    (("quark_ratio", "What is the relative strength of the u and d quark couplings?"),),
+    (("quark_ratio", "What are the relative values of the u and d quark couplings?"),),
 ))
 def test_under_specified_accepts_form_questions(pairs, tmp_path):
     (tmp_path / "questions.json").write_text(json.dumps({"questions": question_entries(*pairs)}))
