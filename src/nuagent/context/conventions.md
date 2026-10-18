@@ -142,4 +142,22 @@ Every dimensionless coupling you write must satisfy |g| ≤ √(4π) ≈ 3.54. M
 
 ## 11. When to stop and ask
 
-If the description does not fix the Lorentz structure, the mass, or the couplings well enough to write numbers, do not guess. Write `questions.json` with one question per missing input (shape in `plugin_api.md`) and `notes.md` saying exactly what is missing, and produce no plugin or card. Ask for quark couplings per quark (g_u and g_d, section 3) unless the description fixes their relation. Suggest a value only when a conventional benchmark exists, for example a light-mediator mass of 10 MeV or a coupling of 1e-4, say in `reason` where it comes from, and never present a suggestion as part of the description. An under-specified description is a valid outcome. The user's answers arrive in `TASK.md` under `## Answers (round N)` and are then part of the description; ask again only if they still leave the interaction undetermined. Example 07 shows such a translation. Physics outside the V and S basis is not a question: it is notes-only (`framework.md`).
+Ask only about the **form** of the interaction: which particles couple (which quarks, which neutrino flavors), the Lorentz structure (vector or scalar), the flavor structure, or a sign or convention that changes the physics. Never ask for a numeric value. If the form is open, write `questions.json` (shape in `plugin_api.md`) and `notes.md` saying what is open, and produce no plugin or card. A question's `suggested` is then usually a short string naming the suggested form, for example "universal vector coupling to u and d quarks, all three flavors", with `reason` saying where it comes from; never present a suggestion as part of the description. The user's answers arrive in `TASK.md` under `## Answers (round N)` and are then part of the description; ask again only if they still leave the form undetermined. Example 07 shows such a translation. Physics outside the V and S basis is not a question: it is notes-only (`framework.md`).
+
+## 12. Assumed values
+
+When the form is fixed but a numeric value is missing, do not ask: take the benchmark default below, declare it in `PARAMETERS` like any other value, and proceed. The user changes it afterwards by re-evaluating the plugin at other parameter values.
+
+| missing value | assumed default |
+|---|---|
+| light-mediator mass | 10 MeV |
+| vector gauge coupling: each of g_ν and g_q, or g′ of a U(1)′ | 1e-4 |
+| scalar couplings: each of g_ν and g_q | 1e-5 |
+| contact NSI ε | 0.1 |
+| kinetic mixing ε | 0, unless the model fixes it (for L_μ−L_τ the loop value κ g′ of section 6) |
+
+List every assumed value in `notes.md` under a heading `## Assumed values`, one line per value with its reason, for example "- mass_mev = 10 MeV: the description gives no mass; light-mediator benchmark (conventions section 12)."
+
+## 13. Writing notes.md
+
+Write `notes.md` in Markdown. Write math in LaTeX between `$...$` for inline formulas and `$$...$$` for displayed ones, for example $C^{uV}_{\mu\mu} = g_\nu g_u / (\sqrt{2} G_F (Q^2 + m^2))$, so that the page and the report render it. Do not put the notes or their formulas in code fences.

@@ -1,4 +1,4 @@
-"""Streamlit page: describe an interaction, answer the agent's questions, read the report, see the spectrum and re-evaluate the plugin."""
+"""Streamlit page: describe an interaction, converse with the agent, then re-evaluate the interaction it wrote."""
 
 import tempfile
 from pathlib import Path
@@ -7,8 +7,8 @@ import numpy as np
 import streamlit as st
 
 from nuagent.agent.backend import get_backend
-from nuagent.agent.report import VERIFICATION, conversation_markdown
-from nuagent.agent.run import MAX_ROUNDS, continue_run, evaluate_point, read_conversation, run_result
+from nuagent.agent.report import LIKELIHOOD_CAPTION, answers_markdown, likelihood_table, questions_markdown
+from nuagent.agent.run import MAX_ROUNDS, RunResult, continue_run, evaluate_point, read_conversation, run_result
 from nuagent.experiments import registry
 from nuagent.physics.plugin import load_coefficient_plugin
 from nuagent.rates import predicted_counts
@@ -36,10 +36,47 @@ def question_form(task_dir: Path, round_number: int, questions: list[dict]) -> d
             else:
                 answers[question["id"]] = st.text_input(label, value=suggested or "", key=key)
             if question["reason"]:
-                st.caption(f"Suggested value: {question['reason']}")
+                st.caption(f"Suggested: {question['reason']}")
         answers["free_text"] = st.text_area("Anything else (free text)", key=f"{prefix}:free_text")
         submitted = st.form_submit_button("Submit answers")
     return {name: value for name, value in answers.items() if value != ""} if submitted else None
+
+
+def provenance_markdown(provenance: dict) -> str:
+    def text(value: object) -> str:
+        return ", ".join(f"{key} = {item}" for key, item in value.items()) if isinstance(value, dict) else str(value)
+    return "\n".join(f"- {key.replace('_', ' ')}: {text(value)}" for key, value in provenance.items())
+
+
+def result_block(task_dir: Path, result: RunResult) -> None:
+    """Re-evaluation form, spectrum, likelihood table, notes, then the outputs collapsed; the agent's point first."""
+    plugin = load_coefficient_plugin(task_dir / "plugin.py")
+    agent_point = {name: float(value) for name, value in plugin.parameters.items()}
+    with st.form("parameters"):
+        st.subheader("Re-evaluate the interaction")
+        point = {name: st.number_input(name, value=value, format="%g", key=f"parameter:{task_dir}:{name}")
+                 for name, value in agent_point.items()}
+        evaluated = st.form_submit_button("Evaluate")
+    signals, records, at_agent_point = result.signals, result.evaluations, True
+    if evaluated:
+        model, point_records = evaluate_point(task_dir, point)
+        if model.report.valid:
+            signals, records, at_agent_point = model.signals, point_records, point == agent_point
+        else:
+            st.markdown("This point fails the plugin checks, so the figure and table stay at the agent's point:\n\n"
+                        + "\n".join(f"- {finding}" for finding in model.report.findings))
+    show_spectra(signals)
+    st.markdown(likelihood_table(records))
+    st.caption(f"Verification at the agent's point: {result.level}." + ("" if at_agent_point else " Plugin-only at this point."))
+    st.caption(LIKELIHOOD_CAPTION)
+    st.markdown((task_dir / "notes.md").read_text())
+    with st.expander("Provenance"):
+        st.markdown(provenance_markdown(result.provenance))
+    with st.expander("plugin.py"):
+        st.code((task_dir / "plugin.py").read_text(), language="python")
+    if (task_dir / "card.json").is_file():
+        with st.expander("card.json"):
+            st.code((task_dir / "card.json").read_text(), language="json")
 
 
 st.set_page_config(page_title="nuagent")
@@ -65,53 +102,35 @@ if "agent_result" in st.session_state:
     result = st.session_state.agent_result
     report_path = task_dir.parent / "report.md"
     conversation = read_conversation(task_dir)
-    st.write(f"Task directory: `{task_dir}`; report: `{report_path}`")
-    if result.state == "questions":
-        st.info(f"Round {result.round} of {MAX_ROUNDS}: the agent asks for information the description does not fix. "
-                f"Submitting the answers runs the next round on {conversation['backend']}.")
-        st.markdown(conversation_markdown(conversation))
-        answers = question_form(task_dir, result.round, result.questions)
-        with st.expander("Report"):
-            st.markdown(result.report)
-        if answers is not None:
-            st.session_state.pop("agent_result")
-            with st.spinner(f"Running round {result.round + 1} on {conversation['backend']} in {task_dir}; this takes minutes"):
-                st.session_state.agent_result = continue_run(task_dir, answers, get_backend(conversation["backend"]), report_path)
-            st.rerun()
-    elif result.state == "unresolved":
-        st.warning(f"The round limit of {MAX_ROUNDS} was reached; the last questions remain open.")
-        st.markdown(result.report)
-    elif result.state == "invalid":
-        st.error("Outputs failed validation after the one correction attempt; the report has no predictions.")
-        st.markdown(result.report)
-    else:
-        st.success("Outputs passed validation.")
-        st.markdown(result.report)
-    if result.state == "valid":
-        spectra = st.container()
-        plugin = load_coefficient_plugin(task_dir / "plugin.py")
-        st.subheader("Re-evaluate the plugin")
-        with st.form("parameters"):
-            point = {name: st.number_input(name, value=float(value), format="%g", key=f"parameter:{task_dir}:{name}")
-                     for name, value in plugin.parameters.items()}
-            evaluated = st.form_submit_button("Evaluate")
-        if evaluated:
-            model, records = evaluate_point(task_dir, point)
-            if model.report.valid:
-                st.info(f"Plugin-only at this point: {VERIFICATION['plugin-only']} The agent's verification level "
-                        "holds only at its own point, where the card's numbers were written.")
-                for record in records:
-                    st.markdown(f"**{record['experiment']}**: Δ = {record['delta']:.6g}, predicted total "
-                                f"{record['predicted_total']:.6g} events, observed {record['observed_total']:g}")
-                    st.json({"new_physics": record["new_physics"], "sm": record["sm"]})
-                with spectra:
-                    st.caption("Spectrum at the evaluated point (plugin-only).")
-                    show_spectra(model.signals)
+    st.caption(f"Task directory: `{task_dir}`; full report: `{report_path}`")
+    with st.chat_message("user"):
+        st.markdown(conversation["description"])
+    units = {}
+    for entry in conversation["rounds"]:
+        if entry.get("questions"):
+            units = {question["id"]: question["unit"] for question in entry["questions"]}
+            with st.chat_message("assistant"):
+                if entry is conversation["rounds"][-1] and result.state == "questions":
+                    st.markdown("The description leaves the form of the interaction open. Please answer:")
+                    answers = question_form(task_dir, result.round, result.questions)
+                    if answers is not None:
+                        st.session_state.pop("agent_result")
+                        with st.spinner(f"Running {conversation['backend']} on the answers; this takes minutes"):
+                            st.session_state.agent_result = continue_run(task_dir, answers, get_backend(conversation["backend"]), report_path)
+                        st.rerun()
+                else:
+                    st.markdown("The description leaves the form of the interaction open:\n\n" + questions_markdown(entry["questions"]))
+                    if result.state == "unresolved" and entry is conversation["rounds"][-1]:
+                        st.markdown(f"The limit of {MAX_ROUNDS} rounds was reached; these questions remain open.")
+        if "answers" in entry:
+            with st.chat_message("user"):
+                st.markdown(answers_markdown(entry["answers"], units))
+    if result.state in ("valid", "invalid", "notes-only"):
+        with st.chat_message("assistant"):
+            if result.state == "valid":
+                result_block(task_dir, result)
+            elif result.state == "invalid":
+                st.markdown("The outputs failed validation after the one correction attempt, so there are no "
+                            f"predictions. The validation findings are in the full report, `{report_path}`.")
             else:
-                for finding in model.report.findings:
-                    st.error(finding)
-                with spectra:
-                    show_spectra(result.signals)
-        else:
-            with spectra:
-                show_spectra(result.signals)
+                st.markdown((task_dir / "notes.md").read_text())

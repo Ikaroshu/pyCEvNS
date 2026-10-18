@@ -68,4 +68,4 @@ def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
 
 ## notes.md
 
-Scalar structure; Dirac ν̄ν assumed and stated; quark-level couplings given so nucleon charges left to the framework; no interference with the SM.
+Scalar structure; a Dirac $\bar\nu \nu$ coupling is assumed and stated. Matching (conventions section 4): $C^{qS}_{\alpha\alpha} = y^2 / (\sqrt{2} G_F (Q^2 + m^2))$. The quark-level couplings are given, so the nucleon charges are left to the framework. There is no interference with the SM.

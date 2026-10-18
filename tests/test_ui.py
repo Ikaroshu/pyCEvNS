@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
-from test_agent import QUESTIONS, FakeBackend, snapshot
+from test_agent import NOTES, QUESTIONS, FakeBackend, snapshot
 from test_plugins import EQUIVALENT_CARD
 
 import nuagent.agent.backend
@@ -56,38 +56,78 @@ def markdown_texts(app: AppTest) -> list[str]:
     return [markdown.value.strip() for markdown in app.markdown]
 
 
+def page_text(app: AppTest) -> str:
+    """Every text-bearing element on the page, for checks that some text is absent."""
+    elements = (*app.markdown, *app.caption, *app.code, *app.subheader, *app.info, *app.warning, *app.error, *app.success, *app.json)
+    return "\n".join(str(element.value) for element in elements)
+
+
+def block_sequence(block) -> list[str]:
+    """Element types in a block's order, with forms and expanders as one entry each."""
+    sequence = []
+    for child in block.children.values():
+        kind = type(child).__name__
+        if kind == "Block":
+            kind = "Form"
+        sequence.append(kind if kind != "Expander" else f"Expander:{child.label}")
+    return sequence
+
+
+def submit(app: AppTest, label: str) -> AppTest:
+    return next(widget for widget in app.button if widget.label == label).click().run()
+
+
 @pytest.mark.parametrize("mode, valid", [("correct", True), ("sm-failure", False)])
-def test_agent_panel_shows_report_validity_and_spectrum(monkeypatch, mode, valid):
+def test_result_is_a_chat_with_the_result_block(monkeypatch, mode, valid):
     app = run_agent(page(monkeypatch, mode))
     assert not app.exception
     result = app.session_state["agent_result"]
-    root = app.session_state["agent_task"].parent
-    report, signals = result.report, result.signals
     assert result.valid is valid
-    assert report == (root / "report.md").read_text()
+    assert result.report == (app.session_state["agent_task"].parent / "report.md").read_text()
     for _ in range(2):
-        assert (len(app.success), len(app.error)) == ((1, 0) if valid else (0, 1))
-        assert report.strip() in markdown_texts(app)
+        assert [message.name for message in app.chat_message] == ["user", "assistant"]
+        assert app.chat_message[0].markdown[0].value == "a vector mediator"
         assert len(app.get("image")) == (1 if valid else 0)
+        assert not (app.success or app.warning or app.info or app.json)
+        text = page_text(app)
+        for absent in ("Validation and derivation history", "Backend CLI records", "total_cost_usd", "fake-model", "Round 1", '"findings"'):
+            assert absent not in text
         app.text_area(key="agent_description").input("an edited description").run()
     if valid:
         experiment = get("coherent_csi_2017")
         expected = predicted_counts(experiment, ModelCard.model_validate(EQUIVALENT_CARD).coefficients)
-        np.testing.assert_allclose(signals["coherent_csi_2017"], expected, rtol=1e-12)
+        np.testing.assert_allclose(result.signals["coherent_csi_2017"], expected, rtol=1e-12)
     else:
-        assert signals == {}
+        assert result.signals == {}
+        assert "failed validation" in app.chat_message[1].markdown[0].value
+
+
+def test_result_block_order_table_and_notes(monkeypatch):
+    app = run_agent(page(monkeypatch, "correct"))
+    block = app.chat_message[1]
+    assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Markdown",
+                                     "Expander:Provenance", "Expander:plugin.py", "Expander:card.json"]
+    assert block.subheader[0].value == "Re-evaluate the interaction"
+    table, notes = block.markdown[0].value, block.markdown[1].value
+    record = app.session_state["agent_result"].evaluations[0]
+    for column in ("Observed", "SM signal", "New-physics signal", "Δ", "Signal scale α (new physics / SM)",
+                   "Background scale β, steady state (new physics / SM)", "Background scale β, prompt neutrons (new physics / SM)"):
+        assert column in table
+    assert f"{record['delta']:.6g}" in table and f"{record['new_physics']['alpha']:.4g} / {record['sm']['alpha']:.4g}" in table
+    assert block.caption[0].value == "Verification at the agent's point: cross-validated."
+    assert "α scales the signal prediction" in block.caption[1].value and "each β scales one background" in block.caption[1].value
+    assert notes.strip() == NOTES.strip() and "$C = g_\\nu" in notes and "```" not in notes
+    assert all(not expander.proto.expanded for expander in app.expander)
 
 
 def test_agent_panel_clears_result_when_a_later_run_fails(monkeypatch):
     app = run_agent(page(monkeypatch, "correct", "backend-failure"))
-    report = app.session_state["agent_result"].report
-    assert len(app.success) == 1
+    assert len(app.get("image")) == 1
     assert run_agent(app).exception
     app.text_area(key="agent_description").input("an edited description").run()
     assert not app.exception
     assert "agent_result" not in app.session_state
-    assert not app.success and not app.get("image")
-    assert report.strip() not in markdown_texts(app)
+    assert not app.chat_message and not app.get("image")
 
 
 def test_agent_inputs_and_run_button_are_in_one_form(monkeypatch):
@@ -111,10 +151,6 @@ def test_agent_run_needs_an_experiment(monkeypatch):
     assert calls == [] and "agent_result" not in app.session_state
 
 
-def submit(app: AppTest, label: str) -> AppTest:
-    return next(widget for widget in app.button if widget.label == label).click().run()
-
-
 def test_question_form_runs_the_next_round_on_the_recorded_backend(monkeypatch):
     calls = []
     app = page(monkeypatch, "questions", "questions", calls=calls)
@@ -123,14 +159,16 @@ def test_question_form_runs_the_next_round_on_the_recorded_backend(monkeypatch):
     assert not app.exception
     task = app.session_state["agent_task"]
     assert app.session_state["agent_result"].state == "questions"
-    assert any("Round 1: questions" in text for text in markdown_texts(app))
+    assert [message.name for message in app.chat_message] == ["user", "assistant"]
     numbers = {widget.key.rsplit(":", 1)[1]: widget for widget in app.number_input}
     assert {name: widget.value for name, widget in numbers.items()} == {"mass_mev": 10.0, "g_nu": 1e-4}
     assert all(widget.proto.format == "%g" for widget in numbers.values())
     texts = {widget.key.rsplit(":", 1)[1]: widget for widget in app.text_input}
     assert texts["g_q"].value == ""
-    assert all(widget.key.startswith(f"answer:{task}:1:") for widget in (*app.number_input, *app.text_input, *app.text_area[1:]))
-    assert {widget.form_id for widget in (*app.number_input, *app.text_input, *app.text_area[1:])} == {"questions"}
+    answer_inputs = (*app.number_input, *app.text_input, *app.text_area[1:])
+    assert all(widget.key.startswith(f"answer:{task}:1:") for widget in answer_inputs)
+    assert {widget.form_id for widget in answer_inputs} == {"questions"}
+    assert "Round" not in page_text(app)
     numbers["mass_mev"].set_value(30.0)
     texts["g_q"].input("1e-4")
     app = submit(app, "Submit answers")
@@ -139,12 +177,15 @@ def test_question_form_runs_the_next_round_on_the_recorded_backend(monkeypatch):
     assert (result.state, result.round) == ("valid", 2)
     assert calls == ["codex", "codex"]
     assert read_conversation(task)["rounds"][0]["answers"] == {"mass_mev": 30.0, "g_nu": 1e-4, "g_q": "1e-4"}
-    assert len(app.success) == 1 and len(app.get("image")) == 1
-    assert result.report.strip() in markdown_texts(app)
+    assert [message.name for message in app.chat_message] == ["user", "assistant", "user", "assistant"]
+    assert "mass_mev: 30.0 MeV" in app.chat_message[2].markdown[0].value
+    assert "What is the coupling to quarks?" in app.chat_message[1].markdown[0].value
+    assert len(app.get("image")) == 1
+    assert "Round" not in page_text(app)
     assert not [widget for widget in app.number_input if widget.key.startswith("answer:")]
 
 
-def test_parameter_form_evaluates_a_new_point_without_changing_the_task(monkeypatch):
+def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(monkeypatch):
     app = run_agent(page(monkeypatch, "correct"))
     task = app.session_state["agent_task"]
     plugin = nuagent.physics.plugin.load_coefficient_plugin(task / "plugin.py")
@@ -153,25 +194,37 @@ def test_parameter_form_evaluates_a_new_point_without_changing_the_task(monkeypa
     assert all(widget.proto.format == "%g" and widget.form_id == "parameters" for widget in inputs.values())
     before = snapshot(task, task.parent / "report.md")
     agent_image = app.get("image")[0].proto.SerializeToString()
+    agent_table = app.chat_message[1].markdown[0].value
     inputs[f"parameter:{task}:mass_mev"].set_value(50.0)
     app = submit(app, "Evaluate")
     assert not app.exception
-    assert any("Plugin-only at this point" in info.value for info in app.info)
+    block = app.chat_message[1]
+    assert block_sequence(block)[:5] == ["Form", "Image", "Markdown", "Caption", "Caption"]
     images = app.get("image")
     assert len(images) == 1 and images[0].proto.SerializeToString() != agent_image
     _, records = evaluate_point(task, plugin.parameters | {"mass_mev": 50.0})
-    assert any(f"Δ = {records[0]['delta']:.6g}" in text for text in markdown_texts(app))
+    table = block.markdown[0].value
+    assert table != agent_table and f"{records[0]['delta']:.6g}" in table
+    assert block.caption[0].value == "Verification at the agent's point: cross-validated. Plugin-only at this point."
+    assert not (app.info or app.warning or app.json)
     assert snapshot(task, task.parent / "report.md") == before
+    app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
+    app = submit(app, "Evaluate")
+    assert app.chat_message[1].caption[0].value == "Verification at the agent's point: cross-validated."
+    assert app.chat_message[1].markdown[0].value == agent_table
 
 
-def test_failed_point_shows_findings_and_no_new_spectrum(monkeypatch):
+def test_failed_point_shows_findings_and_keeps_the_agent_point(monkeypatch):
     app = run_agent(page(monkeypatch, "sm-failure-heavy"))
     task = app.session_state["agent_task"]
+    agent_table = app.chat_message[1].markdown[0].value
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(50.0)
     app = submit(app, "Evaluate")
     assert not app.exception
-    assert any("SM-limit counts differ" in error.value for error in app.error)
-    assert not app.info
+    block = app.chat_message[1]
+    assert "SM-limit counts differ" in block.markdown[0].value
+    assert block.markdown[1].value == agent_table
+    assert block.caption[0].value == "Verification at the agent's point: plugin-only."
 
 
 def test_each_run_gets_fresh_inputs_with_its_own_values(monkeypatch):
@@ -189,7 +242,7 @@ def test_each_run_gets_fresh_inputs_with_its_own_values(monkeypatch):
     app = run_agent(app)
     assert app.session_state["agent_result"].state == "valid"
     assert not [widget for widget in (*app.number_input, *app.text_input) if widget.key.startswith("answer:")]
-    assert not any("Round 1: questions" in text for text in markdown_texts(app))
+    assert [message.name for message in app.chat_message] == ["user", "assistant"]
 
 
 def test_unresolved_conversation_says_the_round_limit_was_reached(monkeypatch):
@@ -198,5 +251,6 @@ def test_unresolved_conversation_says_the_round_limit_was_reached(monkeypatch):
         app = submit(app, "Submit answers")
     assert not app.exception
     assert app.session_state["agent_result"].state == "unresolved"
-    assert [warning.value for warning in app.warning] == ["The round limit of 3 was reached; the last questions remain open."]
+    assert [message.name for message in app.chat_message] == ["user", "assistant", "user", "assistant", "user", "assistant"]
+    assert any("The limit of 3 rounds was reached" in markdown.value for markdown in app.chat_message[-1].markdown)
     assert not [widget for widget in app.button if widget.label == "Submit answers"]

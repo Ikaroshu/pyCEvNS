@@ -83,6 +83,8 @@ def score_case(case: EvalCase, output_dir: Path, *, validation_failures: tuple[s
                 clauses = question_clauses(json.loads(questions_path.read_text())["questions"])
                 failures.extend(requirement.label for requirement in case.question_requirements
                                 if not any(all(re.search(pattern, clause) for pattern in requirement.patterns) for clause in clauses))
+                failures.extend(forbidden.label for forbidden in case.forbidden_questions
+                                if any(all(re.search(pattern, clause) for pattern in forbidden.patterns) for clause in clauses))
         elif questions_path.exists():
             failures.append("expected no questions.json")
         if case.notes_requirements and not notes_path.is_file():

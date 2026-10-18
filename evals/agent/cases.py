@@ -25,6 +25,7 @@ class EvalCase:
     expected_coefficients: Coefficients | None
     notes_requirements: tuple[NotesRequirement, ...] = ()
     question_requirements: tuple[NotesRequirement, ...] = ()
+    forbidden_questions: tuple[NotesRequirement, ...] = ()
     answers: dict[str, str] | None = None
 
 
@@ -169,9 +170,11 @@ CASES = (
         UNDER_SPECIFIED,
         False, None,
         question_requirements=(
-            NotesRequirement("asks for the mediator mass", (r"\bmass\b",)),
-            NotesRequirement("asks for the neutrino coupling", (r"\b(?:g_nu|neutrino)",)),
-            NotesRequirement("asks for the quark coupling", (r"\bg_[qudpn](?![a-z])|\bquark",)),
+            NotesRequirement("asks about the quark side or the structure", (r"\bg_[qudpn](?![a-z])|\bquark|\bstructure|\bvector|\bscalar|\bcouple",)),
+        ),
+        forbidden_questions=(
+            NotesRequirement("asks for a mass", (r"\bmass",)),
+            NotesRequirement("asks for a numeric value", (r"\b(?:value|numerical|numeric|magnitude|how (?:large|big|strong))\b",)),
         ),
     ),
     EvalCase(
@@ -193,7 +196,12 @@ CASES = (
         "16_answered_light_vector",
         UNDER_SPECIFIED,
         True, universal_coefficients(30.0, 1e-4, 1e-4, 1e-4),
-        answers={"free_text": "mass 30 MeV, coupling 1e-4 to all three left-handed neutrino flavors and the same "
-                              "coupling 1e-4 to both u and d quarks, nothing else"},
+        answers={"free_text": "a universal vector coupling to u and d quarks and all three neutrino flavors, "
+                              "mass 30 MeV, coupling 1e-4 to neutrinos and to quarks"},
+    ),
+    EvalCase(
+        "17_universal_defaults",
+        "A universal vector Z′ coupling equally to all three neutrino flavors and to u and d quarks.",
+        True, universal_coefficients(10.0, 1e-4, 1e-4, 1e-4),
     ),
 )

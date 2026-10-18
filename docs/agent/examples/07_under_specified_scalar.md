@@ -1,15 +1,15 @@
-# Example 07: under-specified scalar mediator, a questions outcome
+# Example 07: a description whose form is open, then assumed values
 
-Description given to the agent: "A light scalar that couples to muon neutrinos and to down quarks."
+Description given to the agent: "A new light scalar that couples to electron neutrinos."
 
 ## What the description fixes and what it leaves open
 
 1. Lorentz structure: scalar exchange, so structure `S` (conventions section 4). Fixed.
-2. Flavors: only the μμ neutrino entry and only the d quark. Fixed; every other coupling is zero.
-3. Mediator mass: not given. "Light" is not a number.
-4. Coupling values: neither the neutrino coupling nor the down-quark coupling is given.
+2. Neutrino side: only the ee entry. Fixed.
+3. Quark side: not stated. Whether the scalar couples to u, d or both, and with which relative couplings, changes the nuclear scalar charge; it is part of the form of the interaction, not a number to assume. This is a question.
+4. Mass and coupling values: not given. These are numbers, so they are never asked for; once the form is fixed they take the assumed defaults of conventions section 12.
 
-The coefficient C^{dS}_{μμ} = g_ν g_d / (√2 G_F (Q² + m²)) needs all three numbers, so no plugin or card can be written without guessing. This is a questions outcome: write `questions.json` and `notes.md`, and no `plugin.py` or `card.json`.
+Round 1 is therefore a questions outcome: write `questions.json` and `notes.md`, and no `plugin.py` or `card.json`.
 
 ## questions.json
 
@@ -17,36 +17,51 @@ The coefficient C^{dS}_{μμ} = g_ν g_d / (√2 G_F (Q² + m²)) needs all thre
 {
   "questions": [
     {
-      "id": "mass_mev",
-      "question": "What is the mass of the scalar mediator?",
-      "unit": "MeV",
-      "suggested": 10,
-      "reason": "10 MeV is a common light-mediator benchmark in CEvNS studies; the description gives no mass."
-    },
-    {
-      "id": "g_nu",
-      "question": "What is the scalar coupling g_nu in g_nu phi nu-bar_mu nu_mu to muon neutrinos?",
+      "id": "quark_couplings",
+      "question": "Which quarks does the scalar couple to, and with which relative couplings?",
       "unit": null,
-      "suggested": 1e-4,
-      "reason": "1e-4 is a common order-of-magnitude benchmark for light-mediator couplings; the description gives no value."
-    },
-    {
-      "id": "g_d",
-      "question": "What is the scalar coupling g_d in g_d phi d-bar d to down quarks?",
-      "unit": null,
-      "suggested": null,
-      "reason": null
+      "suggested": "equal scalar couplings to u and d quarks",
+      "reason": "Equal u and d couplings are the usual benchmark for a light scalar; the description names no quarks."
     }
   ]
 }
 ```
 
-Each `id` is the parameter name the plugin will use for that quantity. A suggestion is offered only where a conventional benchmark exists, its `reason` says where it comes from, and it is never treated as part of the description. The third question shows a question without a suggestion.
+The question asks about form only. Its `suggested` names a form, its `reason` says where the suggestion comes from, and the suggestion is never treated as part of the description.
 
-## notes.md (what the agent should record)
+## notes.md for round 1
 
-Structure S with only the μμ neutrino entry and the d quark, as stated. Missing: the mediator mass and the values of the neutrino and down-quark couplings, which the scalar matching of conventions section 4 needs. No plugin or card is written until they are given; questions.json asks for them.
+Structure S with only the $ee$ neutrino entry, as stated. Open: the quark side of the interaction, which fixes the nuclear scalar charge $Q_S = g_\nu (Z c_p + N c_n)/(Q^2 + m^2)$ through $c_N = m_N \sum_q g_q f_q^N / m_q$. The mass and the coupling values will take the assumed defaults once the form is known.
 
-## After the answers
+## After the answer
 
-The harness appends the answers to `TASK.md` under `## Answers (round 2)`; they are then part of the description. With mass_mev = 10, g_nu = 1e-4 and g_d = 1e-4, the translation is a plugin with `PARAMETERS = {"mass_mev": 10.0, "g_nu": 1e-4, "g_d": 1e-4}`, `COUPLINGS = ("g_nu", "g_d")` and the single entry C^{dS}_{μμ} = g_nu g_d / (√2 G_F (Q² + m²)), plus a card with one `S` mediator (ν coupling `mm` only, quark coupling `d` only), as in example 04. Write `questions.json` again only if the answers still leave the interaction undetermined.
+The answer "equal scalar couplings to u and d quarks" arrives in `TASK.md` under `## Answers (round 2)` and is then part of the description. The form is now fixed: $g_\nu^{ee} = g_\nu$, $g_u = g_d = g_q$, and every other coupling zero. The mass and couplings take the defaults of conventions section 12 (10 MeV, and 1e-5 for each scalar coupling), and the coefficient is
+
+$$C^{qS}_{ee}(Q^2) = \frac{g_\nu g_q}{\sqrt{2} G_F (Q^2 + m^2)}, \qquad q = u, d.$$
+
+```python
+import numpy as np
+from nuagent.physics.couplings import Coefficients, GF, SQRT2
+
+PARAMETERS = {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5}
+COUPLINGS = ("g_nu", "g_q")
+
+def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
+    c = Coefficients.zeros(q2)
+    value = params["g_nu"] * params["g_q"] / (SQRT2 * GF * (q2 + params["mass_mev"] ** 2))
+    for quark in ("u", "d"):
+        c.set("S", quark, "ee", value)
+    return c
+```
+
+The card has one `S` mediator at 10 MeV with ν coupling `ee` = 1e-5 and quark couplings u = d = 1e-5, as in example 04.
+
+## notes.md for round 2
+
+Structure S with the $ee$ neutrino entry and equal $u$ and $d$ couplings, from the description and the answer. Matching (conventions section 4): $C^{qS}_{ee} = g_\nu g_q / (\sqrt{2} G_F (Q^2 + m^2))$. A Dirac $\bar\nu\nu$ coupling is assumed and stated. The scalar term does not interfere with the SM.
+
+## Assumed values
+
+- mass_mev = 10 MeV: the description gives no mass; light-mediator benchmark (conventions section 12).
+- g_nu = 1e-5: no neutrino coupling value is given; scalar benchmark (conventions section 12).
+- g_q = 1e-5: no quark coupling value is given; scalar benchmark (conventions section 12).

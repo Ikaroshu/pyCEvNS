@@ -135,4 +135,4 @@ In B the mixing is derived from g′, so `g_prime` is the only coupling and sett
 
 ## notes.md
 
-Charges of L_μ−L_τ; quark coupling only via ε e Q^em; proton-only coupling noted; destructive interference for ν_μ; for B, ε = κ g′ with the sign from the loop (section 6) and the value written at full precision in the card.
+Charges of $L_\mu - L_\tau$: $g_\nu^{\mu\mu} = g'$, $g_\nu^{\tau\tau} = -g'$. Quarks couple only through $g_q = \varepsilon e Q_q$, so only protons couple; the interference is destructive for $\nu_\mu$. For B, $\varepsilon = \kappa g'$ with the sign from the loop (section 6), written at full precision in the card.

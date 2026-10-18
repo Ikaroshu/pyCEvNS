@@ -29,13 +29,19 @@ class ValidationFailed(RuntimeError):
 
 @dataclass(frozen=True)
 class RunResult:
-    """The latest round's outcome: `state` is questions, valid, invalid, notes-only or unresolved."""
+    """The latest round's outcome: `state` is questions, valid, invalid, notes-only or unresolved.
+
+    `level` and `evaluations` (one record per experiment) are set for a valid state only.
+    """
     report: str
     histories: list[dict]
     signals: dict[str, np.ndarray]
     state: str
     round: int
     questions: list[dict]
+    level: str | None
+    evaluations: list[dict]
+    provenance: dict
 
     @property
     def valid(self) -> bool:
@@ -63,9 +69,11 @@ def evaluate(model: ValidatedModel, experiments: Sequence[Experiment]) -> list[d
     for experiment in experiments:
         signal = model.signals[experiment.name]
         new = profiled(experiment, signal)
-        standard = profiled(experiment, predicted_counts(experiment))
+        sm_signal = predicted_counts(experiment)
+        standard = profiled(experiment, sm_signal)
         records.append({"experiment": experiment.name, "data_release": experiment.data_release,
                         "predicted_counts": signal.tolist(), "predicted_total": float(signal.sum()),
+                        "sm_predicted_total": float(sm_signal.sum()),
                         "observed_total": float(experiment.observed.sum()),
                         "delta": new.neg2_log_likelihood - standard.neg2_log_likelihood,
                         "new_physics": profile_record(new, experiment), "sm": profile_record(standard, experiment)})
@@ -136,7 +144,8 @@ def run_round(task_dir: Path, conversation: dict, experiments: Sequence[Experime
     report = render_report(conversation, task_dir, provenance, evaluations, state, level, questions)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report)
-    return RunResult(report, histories, model.signals if level else {}, state, number, questions)
+    return RunResult(report, histories, model.signals if level else {}, state, number, questions, level, evaluations,
+                     provenance | {"backend": conversation["backend"]})
 
 
 def run_result(description: str, experiments: Sequence[str], backend: Backend, task_dir: Path, out: Path,
@@ -174,7 +183,7 @@ def continue_run(task_dir: Path, answers: Mapping[str, str | float], backend: Ba
         text += f"\nFree text:\n\n```text\n{answers['free_text']}\n```\n"
     text += (f"\nThese answers are part of the description. The previous questions and notes are in "
              f"history/round-{number - 1}/. Write questions.json again only if the answers leave the "
-             "interaction undetermined.\n")
+             "form of the interaction undetermined; assume missing numeric values as the output contract says.\n")
     with (task_dir / "TASK.md").open("a") as prompt:
         prompt.write(text)
     clear_outputs(task_dir)

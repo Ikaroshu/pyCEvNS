@@ -68,4 +68,4 @@ def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
 
 ## notes.md
 
-Charges from the lepton doublet and quark B−L numbers; the relative sign between neutrino and quark couplings is physical and kept; constructive interference noted. Common mistake to avoid: dropping the sign of Q′_ν, which turns constructive into destructive interference.
+Charges from the lepton doublet and the quark B−L numbers: $g_\nu = -g'$, $g_u = g_d = g'/3$. The relative sign between the neutrino and quark couplings is physical and kept, so the interference is constructive. Common mistake to avoid: dropping the sign of $Q'_\nu$, which turns constructive into destructive interference.

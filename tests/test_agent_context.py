@@ -64,5 +64,14 @@ def test_under_specified_example_questions_are_valid(tmp_path):
     path.write_text(text.split("```json\n")[1].split("```")[0])
     report, questions = check_questions(path)
     assert report.valid
-    assert [question["id"] for question in questions] == ["mass_mev", "g_nu", "g_d"]
-    assert questions[2]["suggested"] is questions[2]["reason"] is None
+    assert [question["id"] for question in questions] == ["quark_couplings"]
+    assert isinstance(questions[0]["suggested"], str)
+    plugin_path = tmp_path / "plugin.py"
+    plugin_path.write_text(text.split("```python\n")[1].split("```")[0])
+    plugin = load_coefficient_plugin(plugin_path)
+    assert plugin.parameters == {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5}
+    expected = template_card("scalar_universal", {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5}).coefficients(np.array([1238.0]))
+    produced = plugin.coefficients(np.array([1238.0]), plugin.parameters)
+    np.testing.assert_allclose(produced.values["S", "u"][0, 0], expected.values["S", "u"][0, 0], rtol=1e-14)
+    assert np.count_nonzero(produced.values["S", "u"][1:]) == 0
+    assert "## Assumed values" in text and "$" in text.split("## notes.md for round 2")[1]

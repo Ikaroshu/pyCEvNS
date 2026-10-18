@@ -56,15 +56,19 @@ compute the coefficients independently of card.json, using exported constants;
 do not read files from a plugin. If no card can express the interaction, explain
 why in notes.md. Sum contributions before calling Coefficients.set (it overwrites).
 
-If a description within the vector/scalar basis lacks information you need
-(the mass, a coupling or the Lorentz structure), write questions.json, notes.md
-saying what is missing, and no plugin.py or card.json. questions.json has the shape given in
-context/plugin_api.md; suggest a value only when a conventional benchmark exists,
-and never present a suggestion as part of the description. If the interaction is
-outside the V/S basis, write notes.md explaining the basis limitation and the
-user-authored raw-cross-section route, and produce no other file. Never write a
-raw cross-section plugin. These question and notes-only outcomes are legitimate
-and receive no predictions or physics verification label.
+Ask only about the form of the interaction: which particles couple, vector or
+scalar, the flavor structure, or a sign or convention that changes the physics.
+If the form is open, write questions.json and notes.md saying what is open, and
+no plugin.py or card.json; questions.json has the shape given in
+context/plugin_api.md. Never ask for a numeric value: when the form is fixed but
+a mass, coupling or mixing value is missing, take the assumed default of
+context/conventions.md section 12, declare it in PARAMETERS, list it in notes.md
+under "## Assumed values" with its reason, and proceed. Write notes.md in
+Markdown with LaTeX math in $...$ and $$...$$, not in code fences. If the
+interaction is outside the V/S basis, write notes.md explaining the basis
+limitation and the user-authored raw-cross-section route, and produce no other
+file. Never write a raw cross-section plugin. These question and notes-only
+outcomes are legitimate and receive no predictions or physics verification label.
 
 When a plugin is produced, run one of these commands before finishing and repair
 validation findings. These commands return validation only, never likelihoods:

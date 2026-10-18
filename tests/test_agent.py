@@ -32,6 +32,14 @@ QUESTIONS = [
 ]
 
 
+NOTES = """Derivation: mediator matching, $C = g_\\nu g_q / (\\sqrt{2} G_F (Q^2 + m^2))$.
+
+## Assumed values
+
+- mass_mev = 30 MeV: benchmark.
+"""
+
+
 class FakeBackend:
     """Writes outputs by mode; once the prompt carries answers it uses the `answered` mode instead."""
 
@@ -47,7 +55,7 @@ class FakeBackend:
         prompt = (task_dir / "TASK.md").read_text()
         self.prompts.append(prompt)
         mode = self.answered if "## Answers (round" in prompt else self.mode
-        (task_dir / "notes.md").write_text("Derivation: mediator matching with sqrt2 GF. No card for general running mixing.")
+        (task_dir / "notes.md").write_text(NOTES)
         if mode == "notes":
             (task_dir / "notes.md").write_text("Missing mass, neutrino coupling g_nu and quark coupling g_q; please specify them.")
         elif mode == "questions":
@@ -189,10 +197,10 @@ def test_evaluation_continues_after_exhausted_validation(tmp_path, invalid_outpu
     backend = ExhaustedFirstBackend("notes")
     root = tmp_path / "eval"
     summary = run_evaluation(root, backend, ["coherent_csi_2017"])
-    assert len(summary["cases"]) == 16
-    assert len(backend.prompts) == 17
+    assert len(summary["cases"]) == 17
+    assert len(backend.prompts) == 18
     assert summary["physics_accuracy"] == 0
-    assert summary["expressibility_recognition"] == pytest.approx((5 if invalid_output == "card-only" else 4) / 16)
+    assert summary["expressibility_recognition"] == pytest.approx((5 if invalid_output == "card-only" else 4) / 17)
     first = summary["cases"][0]
     assert not first["physics_match"]
     assert not first["validation_valid"]
@@ -387,10 +395,10 @@ def test_repository_evaluation_keeps_answers_outside_tasks(tmp_path):
     from evals.agent.run import run_evaluation
     backend = FakeBackend("notes")
     summary = run_evaluation(tmp_path / "eval", backend, ["coherent_csi_2017"])
-    assert len(summary["cases"]) == 16
+    assert len(summary["cases"]) == 17
     assert summary["physics_accuracy"] == 0
-    assert summary["expressibility_recognition"] == pytest.approx(4 / 16)
-    assert summary["card_expressible"]["count"] == 12
+    assert summary["expressibility_recognition"] == pytest.approx(4 / 17)
+    assert summary["card_expressible"]["count"] == 13
     assert summary["plugin_only"]["count"] == summary["no_plugin"]["count"] == 2
     for case, prompt in zip(CASES, backend.prompts):
         assert case.description in prompt
@@ -418,7 +426,7 @@ def test_agent_eval_cli_default_output(tmp_path, monkeypatch):
     output = cli("agent-eval", "--backend", "claude")
     root = Path(output["output_root"])
     assert root.is_relative_to(tmp_path)
-    assert len(output["cases"]) == 16
+    assert len(output["cases"]) == 17
     assert json.loads((root / "summary.json").read_text()) == output
 
 
@@ -617,7 +625,7 @@ def test_evaluation_feeds_case_answers_through_continue_run(tmp_path):
     assert len(backend.prompts) == len(CASES) + 1
     scores = {score["case_id"]: score for score in summary["cases"]}
     assert (scores["14_under_specified"]["state"], scores["14_under_specified"]["rounds"]) == ("questions", 1)
-    assert scores["14_under_specified"]["physics_match"]
+    assert scores["14_under_specified"]["physics_failures"] == ("asks for a mass",)
     answered = scores["16_answered_light_vector"]
     assert (answered["state"], answered["rounds"], answered["expressibility_match"]) == ("valid", 2, True)
     case = CASES[15]
@@ -625,3 +633,20 @@ def test_evaluation_feeds_case_answers_through_continue_run(tmp_path):
     assert read_conversation(root / case.case_id)["rounds"][0]["answers"] == case.answers
     assert (root / case.case_id / "history/round-2/attempt-1/plugin.py").is_file()
     assert (root / f"{case.case_id}.md").read_text().startswith("Verification: **cross-validated**")
+
+
+def test_report_order_with_notes_inline_and_provenance_last(tmp_path):
+    result = run_result("a vector and scalar", ["coherent_csi_2017"], FakeBackend("correct"), tmp_path / "task", tmp_path / "report.md")
+    report = result.report
+    headings = [line for line in report.splitlines() if line.startswith("## ")]
+    assert headings == ["## Description", "## Conversation", "## Experiment predictions and likelihood comparison", "## Notes",
+                        "## Assumed values", "## plugin.py", "## card.json", "## Validation and derivation history",
+                        "## Backend CLI records", "## Provenance"]
+    assert report.startswith("Verification: **cross-validated**")
+    notes = report.split("## Notes\n\n")[1].split("\n## plugin.py")[0]
+    assert notes.strip() == NOTES.strip() and "```" not in notes
+    assert report.rstrip().endswith("```") and '"rounds": 1' in report.split("## Provenance")[1]
+    table = report.split("## Experiment predictions and likelihood comparison\n\n")[1].split("\n\n")[0]
+    record = result.evaluations[0]
+    assert "Background scale β, steady state (new physics / SM)" in table and "Signal scale α (new physics / SM)" in table
+    assert f"{record['delta']:.6g}" in table and f"{record['sm_predicted_total']:.6g}" in table
