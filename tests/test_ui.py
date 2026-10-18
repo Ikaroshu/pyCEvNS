@@ -73,6 +73,13 @@ def block_sequence(block) -> list[str]:
     return sequence
 
 
+def result_section(app: AppTest):
+    """The result block, a keyed page section after the conversation, not a chat message."""
+    sections = [child for child in app.main.children.values() if getattr(child.proto, "id", "").endswith("-result")]
+    assert len(sections) == 1
+    return sections[0]
+
+
 def submit(app: AppTest, label: str) -> AppTest:
     return next(widget for widget in app.button if widget.label == label).click().run()
 
@@ -85,8 +92,10 @@ def test_result_is_a_chat_with_the_result_block(monkeypatch, mode, valid):
     assert result.valid is valid
     assert result.report == (app.session_state["agent_task"].parent / "report.md").read_text()
     for _ in range(2):
-        assert [message.name for message in app.chat_message] == ["user", "assistant"]
+        assert [message.name for message in app.chat_message] == (["user"] if valid else ["user", "assistant"])
         assert app.chat_message[0].markdown[0].value == "a vector mediator"
+        if valid:
+            assert list(app.main.children.values())[-1] is result_section(app)
         assert len(app.get("image")) == (1 if valid else 0)
         assert not (app.success or app.warning or app.info or app.json)
         text = page_text(app)
@@ -104,7 +113,8 @@ def test_result_is_a_chat_with_the_result_block(monkeypatch, mode, valid):
 
 def test_result_block_order_table_and_notes(monkeypatch):
     app = run_agent(page(monkeypatch, "correct"))
-    block = app.chat_message[1]
+    block = result_section(app)
+    assert not any(message.get("image") for message in app.chat_message)
     assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown",
                                      "Expander:Provenance", "Expander:plugin.py", "Expander:card.json"]
     assert [subheader.value for subheader in block.subheader] == ["Evaluate the interaction", "Note"]
@@ -178,7 +188,7 @@ def test_question_form_runs_the_next_round_on_the_recorded_backend(monkeypatch):
     assert (result.state, result.round) == ("valid", 2)
     assert calls == ["codex", "codex"]
     assert read_conversation(task)["rounds"][0]["answers"] == {"mass_mev": 30.0, "g_nu": 1e-4, "g_q": "1e-4"}
-    assert [message.name for message in app.chat_message] == ["user", "assistant", "user", "assistant"]
+    assert [message.name for message in app.chat_message] == ["user", "assistant", "user"]
     assert "mass_mev: 30.0 MeV" in app.chat_message[2].markdown[0].value
     assert "What is the coupling to quarks?" in app.chat_message[1].markdown[0].value
     assert len(app.get("image")) == 1
@@ -195,11 +205,11 @@ def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(mo
     assert all(widget.proto.format == "%g" and widget.form_id == "parameters" for widget in inputs.values())
     before = snapshot(task, task.parent / "report.md")
     agent_image = app.get("image")[0].proto.SerializeToString()
-    agent_table = app.chat_message[1].markdown[0].value
+    agent_table = result_section(app).markdown[0].value
     inputs[f"parameter:{task}:mass_mev"].set_value(50.0)
     app = submit(app, "Evaluate")
     assert not app.exception
-    block = app.chat_message[1]
+    block = result_section(app)
     assert block_sequence(block)[:5] == ["Form", "Image", "Markdown", "Caption", "Caption"]
     images = app.get("image")
     assert len(images) == 1 and images[0].proto.SerializeToString() != agent_image
@@ -211,18 +221,18 @@ def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(mo
     assert snapshot(task, task.parent / "report.md") == before
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
     app = submit(app, "Evaluate")
-    assert app.chat_message[1].caption[0].value == "Verification at the agent's point: cross-validated."
-    assert app.chat_message[1].markdown[0].value == agent_table
+    assert result_section(app).caption[0].value == "Verification at the agent's point: cross-validated."
+    assert result_section(app).markdown[0].value == agent_table
 
 
 def test_failed_point_shows_findings_and_keeps_the_agent_point(monkeypatch):
     app = run_agent(page(monkeypatch, "sm-failure-heavy"))
     task = app.session_state["agent_task"]
-    agent_table = app.chat_message[1].markdown[0].value
+    agent_table = result_section(app).markdown[0].value
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(50.0)
     app = submit(app, "Evaluate")
     assert not app.exception
-    block = app.chat_message[1]
+    block = result_section(app)
     assert "SM-limit counts differ" in block.markdown[0].value
     assert block.markdown[1].value == agent_table
     assert block.caption[0].value == "Verification at the agent's point: plugin-only."
@@ -243,7 +253,7 @@ def test_each_run_gets_fresh_inputs_with_its_own_values(monkeypatch):
     app = run_agent(app)
     assert app.session_state["agent_result"].state == "valid"
     assert not [widget for widget in (*app.number_input, *app.text_input) if widget.key.startswith("answer:")]
-    assert [message.name for message in app.chat_message] == ["user", "assistant"]
+    assert [message.name for message in app.chat_message] == ["user"]
 
 
 def test_unresolved_conversation_says_the_round_limit_was_reached(monkeypatch):

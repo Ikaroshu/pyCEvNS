@@ -87,8 +87,10 @@ prompt disabled. Describe an interaction, pick a backend (`claude` or
 `codex`, installed as described below) and the experiments, and press
 "Run agent". The page runs the `propose` harness in a fresh temporary
 directory and shows the exchange as a chat: your description, the agent's
-questions with an answer form inside, your answers, and the result. A run
-takes minutes and uses the backend's paid model.
+questions with an answer form inside, and your answers. A validated result
+follows as a page section below the chat; a notes-only or failed outcome is
+a short message from the agent. A run takes minutes and uses the backend's
+paid model.
 
 The agent asks only about the form of the interaction (which particles
 couple, vector or scalar, the flavor structure, or a physics-changing sign
@@ -102,7 +104,7 @@ free-text box. "Submit answers" runs the next round in the same task with
 the backend and experiments of the first round; after three rounds that
 still end in questions the page says the round limit was reached.
 
-For a validated model the result is one block, in this order:
+For a validated model the result section has, in this order:
 
 1. "Evaluate the interaction": one input per plugin parameter, pre-filled
    with the agent's values, and an Evaluate button.

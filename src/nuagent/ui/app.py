@@ -1,4 +1,4 @@
-"""Streamlit page: describe an interaction, converse with the agent, then re-evaluate the interaction it wrote."""
+"""Streamlit page: describe an interaction, converse with the agent, then evaluate the interaction it wrote."""
 
 import tempfile
 from pathlib import Path
@@ -135,11 +135,13 @@ if "agent_result" in st.session_state:
         if "answers" in entry:
             with st.chat_message("user"):
                 st.markdown(answers_markdown(entry["answers"], units))
-    if result.state in ("valid", "invalid", "notes-only"):
+    if result.state == "valid":
+        # The result is a page section below the conversation, not an agent message.
+        with st.container(key="result"):
+            result_block(task_dir, result)
+    elif result.state in ("invalid", "notes-only"):
         with st.chat_message("assistant"):
-            if result.state == "valid":
-                result_block(task_dir, result)
-            elif result.state == "invalid":
+            if result.state == "invalid":
                 st.markdown("The outputs failed validation after the one correction attempt, so there are no "
                             f"predictions. The validation findings are in the full report, `{report_path}`.")
             else:
