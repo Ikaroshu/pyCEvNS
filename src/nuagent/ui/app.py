@@ -1,5 +1,6 @@
 """Streamlit page: describe an interaction, converse with the agent, then evaluate the interaction it wrote."""
 
+import io
 import tempfile
 from pathlib import Path
 
@@ -15,10 +16,30 @@ from nuagent.rates import predicted_counts
 from nuagent.ui.figures import spectrum_figure
 
 
+PLUGIN_LABEL = "Plugin (plugin.py): the coefficient code the agent wrote"
+CARD_LABEL = "Model card (card.json): the interaction written in the fixed schema the harness cross-checks against the plugin"
+LEVEL_MEANINGS = {
+    "cross-validated": "the plugin and the model card agree at the agent's values",
+    "plugin-only": "no model card to cross-check; the plugin's own checks pass at the agent's values",
+}
+
+
+def verification_caption(level: str, at_agent_point: bool) -> str:
+    """The level in the report's words, explained, plus a note when the plugin alone evaluated other values."""
+    caption = f"Verification: {level} ({LEVEL_MEANINGS[level]})."
+    if not at_agent_point:
+        caption += " Evaluated by the plugin alone at these values; the model-card cross-check holds at the agent's values."
+    return caption
+
+
 def show_spectra(signals: dict[str, np.ndarray]) -> None:
     for name, signal in signals.items():
         experiment = registry.get(name)
-        st.pyplot(spectrum_figure(experiment, signal, predicted_counts(experiment)), width=760)
+        # Streamlit downsamples an image to an integer display width in pixels, which blurs on a 2x display;
+        # "stretch" keeps up to 1460 pixels for the roughly 700-pixel column.
+        image = io.BytesIO()
+        spectrum_figure(experiment, signal, predicted_counts(experiment)).savefig(image, format="png", dpi=300, bbox_inches="tight")
+        st.image(image, width="stretch")
 
 
 def question_form(task_dir: Path, round_number: int, questions: list[dict]) -> dict[str, str | float] | None:
@@ -77,15 +98,15 @@ def result_block(task_dir: Path, result: RunResult) -> None:
                         + "\n".join(f"- {finding}" for finding in model.report.findings))
     show_spectra(signals)
     st.markdown(likelihood_table(records))
-    st.caption(f"Verification at the agent's point: {result.level}." + ("" if at_agent_point else " Plugin-only at this point."))
+    st.caption(verification_caption(result.level, at_agent_point))
     st.caption(LIKELIHOOD_CAPTION)
     show_notes(task_dir)
     with st.expander("Provenance"):
         st.markdown(provenance_markdown(result.provenance))
-    with st.expander("plugin.py"):
+    with st.expander(PLUGIN_LABEL):
         st.code((task_dir / "plugin.py").read_text(), language="python")
     if (task_dir / "card.json").is_file():
-        with st.expander("card.json"):
+        with st.expander(CARD_LABEL):
             st.code((task_dir / "card.json").read_text(), language="json")
 
 

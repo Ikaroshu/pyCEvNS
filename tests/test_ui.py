@@ -80,6 +80,9 @@ def result_section(app: AppTest):
     return sections[0]
 
 
+CROSS_VALIDATED = "Verification: cross-validated (the plugin and the model card agree at the agent's values)."
+
+
 def submit(app: AppTest, label: str) -> AppTest:
     return next(widget for widget in app.button if widget.label == label).click().run()
 
@@ -116,7 +119,9 @@ def test_result_block_order_table_and_notes(monkeypatch):
     block = result_section(app)
     assert not any(message.get("image") for message in app.chat_message)
     assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown",
-                                     "Expander:Provenance", "Expander:plugin.py", "Expander:card.json"]
+                                     "Expander:Provenance", 
+                                     "Expander:Plugin (plugin.py): the coefficient code the agent wrote",
+                                     "Expander:Model card (card.json): the interaction written in the fixed schema the harness cross-checks against the plugin"]
     assert [subheader.value for subheader in block.subheader] == ["Evaluate the interaction", "Note"]
     table, notes = block.markdown[0].value, block.markdown[1].value
     record = app.session_state["agent_result"].evaluations[0]
@@ -124,7 +129,7 @@ def test_result_block_order_table_and_notes(monkeypatch):
                    "Background scale β, steady state (new physics / SM)", "Background scale β, prompt neutrons (new physics / SM)"):
         assert column in table
     assert f"{record['delta']:.6g}" in table and f"{record['new_physics']['alpha']:.4g} / {record['sm']['alpha']:.4g}" in table
-    assert block.caption[0].value == "Verification at the agent's point: cross-validated."
+    assert block.caption[0].value == CROSS_VALIDATED
     assert "α scales the signal prediction" in block.caption[1].value and "each β scales one background" in block.caption[1].value
     assert "A fake mediator" not in page_text(app)
     assert notes.strip() == NOTES.split("\n", 2)[2].strip() and "## Matching" in notes and "$C = g_\\nu" in notes and "```" not in notes
@@ -216,12 +221,12 @@ def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(mo
     _, records = evaluate_point(task, plugin.parameters | {"mass_mev": 50.0})
     table = block.markdown[0].value
     assert table != agent_table and f"{records[0]['delta']:.6g}" in table
-    assert block.caption[0].value == "Verification at the agent's point: cross-validated. Plugin-only at this point."
+    assert block.caption[0].value == CROSS_VALIDATED + " Evaluated by the plugin alone at these values; the model-card cross-check holds at the agent's values."
     assert not (app.info or app.warning or app.json)
     assert snapshot(task, task.parent / "report.md") == before
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
     app = submit(app, "Evaluate")
-    assert result_section(app).caption[0].value == "Verification at the agent's point: cross-validated."
+    assert result_section(app).caption[0].value == CROSS_VALIDATED
     assert result_section(app).markdown[0].value == agent_table
 
 
@@ -235,7 +240,7 @@ def test_failed_point_shows_findings_and_keeps_the_agent_point(monkeypatch):
     block = result_section(app)
     assert "SM-limit counts differ" in block.markdown[0].value
     assert block.markdown[1].value == agent_table
-    assert block.caption[0].value == "Verification at the agent's point: plugin-only."
+    assert block.caption[0].value == "Verification: plugin-only (no model card to cross-check; the plugin's own checks pass at the agent's values)."
 
 
 def test_each_run_gets_fresh_inputs_with_its_own_values(monkeypatch):

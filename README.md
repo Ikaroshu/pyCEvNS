@@ -115,13 +115,18 @@ For a validated model the result section has, in this order:
    with a caption saying what α and β mean and the verification level.
 4. The agent's notes under the heading "Note" (without their own title),
    rendered as Markdown with LaTeX math.
-5. Collapsed expanders with the provenance, `plugin.py` and `card.json`.
+5. Collapsed expanders: "Provenance", "Plugin (plugin.py): the coefficient
+   code the agent wrote" and "Model card (card.json): the interaction written
+   in the fixed schema the harness cross-checks against the plugin".
 
 The figure and table show the agent's point first. Evaluate checks the
 plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
-perturbativity and counts) and redraws both in place; the caption then adds
-"plugin-only at this point", because the card cross-check holds only where
-the card's numbers were written. A point that fails the checks lists the
+perturbativity and counts) and redraws both in place. The caption names the
+verification level as the report does, for example "Verification:
+cross-validated (the plugin and the model card agree at the agent's
+values).", and at other values adds "Evaluated by the plugin alone at these
+values; the model-card cross-check holds at the agent's values.", because
+the card's numbers were written for the agent's point only. A point that fails the checks lists the
 findings and keeps the agent's point. Re-evaluation does not call the agent
 and leaves the task directory and report unchanged. On the command line the
 same evaluation is `predict` or `compare` with
