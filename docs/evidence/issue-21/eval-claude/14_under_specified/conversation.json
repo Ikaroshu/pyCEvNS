@@ -1,0 +1,72 @@
+{
+  "description": "A new light vector boson that couples to neutrinos.",
+  "experiments": [
+    "coherent_csi_2017"
+  ],
+  "backend": "claude",
+  "max_turns": 16,
+  "rounds": [
+    {
+      "round": 1,
+      "state": "questions",
+      "questions": [
+        {
+          "id": "mass_mev",
+          "question": "What is the mass of the new vector boson?",
+          "unit": "MeV",
+          "suggested": 10,
+          "reason": "10 MeV is a common light-mediator benchmark; the description says only 'light' and gives no mass."
+        },
+        {
+          "id": "g_nu_ee",
+          "question": "What is the coupling of the vector boson to the left-handed electron-neutrino current, g_nu^{ee}?",
+          "unit": null,
+          "suggested": 0.0001,
+          "reason": "1e-4 is a conventional light-Z' benchmark coupling; the description gives no coupling value or flavor structure."
+        },
+        {
+          "id": "g_nu_mm",
+          "question": "What is the coupling of the vector boson to the left-handed muon-neutrino current, g_nu^{mm}?",
+          "unit": null,
+          "suggested": 0.0001,
+          "reason": "1e-4 is a conventional light-Z' benchmark coupling; the description gives no coupling value or flavor structure."
+        },
+        {
+          "id": "g_nu_tt",
+          "question": "What is the coupling of the vector boson to the left-handed tau-neutrino current, g_nu^{tt}?",
+          "unit": null,
+          "suggested": 0.0001,
+          "reason": "1e-4 is a conventional light-Z' benchmark coupling; the description gives no coupling value or flavor structure."
+        },
+        {
+          "id": "g_nu_offdiagonal",
+          "question": "Are any flavor off-diagonal neutrino couplings g_nu^{em}, g_nu^{et}, g_nu^{mt} nonzero, and if so what are their complex values?",
+          "unit": null,
+          "suggested": null,
+          "reason": null
+        },
+        {
+          "id": "g_u",
+          "question": "What is the vector coupling of the boson to the up quark, g_u (the average of its left- and right-handed chiral couplings)?",
+          "unit": null,
+          "suggested": null,
+          "reason": null
+        },
+        {
+          "id": "g_d",
+          "question": "What is the vector coupling of the boson to the down quark, g_d (the average of its left- and right-handed chiral couplings)?",
+          "unit": null,
+          "suggested": null,
+          "reason": null
+        },
+        {
+          "id": "kinetic_mixing",
+          "question": "If the boson has no direct quark coupling, does it couple to quarks through kinetic mixing with the photon, and with what signed mixing parameter epsilon?",
+          "unit": null,
+          "suggested": null,
+          "reason": null
+        }
+      ]
+    }
+  ]
+}

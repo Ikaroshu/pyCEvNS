@@ -1,0 +1,14 @@
+{
+  "description": "The U(1) B\u2212L gauge boson has mass 25 MeV and gauge coupling g\u2032 = 3e-5, with no kinetic mixing.",
+  "experiments": [
+    "coherent_csi_2017"
+  ],
+  "backend": "claude",
+  "max_turns": 16,
+  "rounds": [
+    {
+      "round": 1,
+      "state": "valid"
+    }
+  ]
+}

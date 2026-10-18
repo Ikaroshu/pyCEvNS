@@ -1,0 +1,14 @@
+{
+  "description": "A protophobic vector mediator has mass 20 MeV, universal left-handed neutrino coupling g_nu = 1e-4, and vector nucleon couplings g_p = 0 and g_n = 3e-4. There are no other interactions.",
+  "experiments": [
+    "coherent_csi_2017"
+  ],
+  "backend": "claude",
+  "max_turns": 16,
+  "rounds": [
+    {
+      "round": 1,
+      "state": "valid"
+    }
+  ]
+}

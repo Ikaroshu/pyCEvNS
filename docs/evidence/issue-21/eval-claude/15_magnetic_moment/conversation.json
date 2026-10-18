@@ -1,0 +1,14 @@
+{
+  "description": "A neutrino magnetic moment of 1e-10 Bohr magnetons.",
+  "experiments": [
+    "coherent_csi_2017"
+  ],
+  "backend": "claude",
+  "max_turns": 16,
+  "rounds": [
+    {
+      "round": 1,
+      "state": "notes-only"
+    }
+  ]
+}

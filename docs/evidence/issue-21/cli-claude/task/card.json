@@ -1,0 +1,23 @@
+{
+  "name": "light_vector_universal_nu_ud",
+  "mediators": [
+    {
+      "structure": "V",
+      "mass_mev": 30.0,
+      "nu_couplings": {
+        "ee": 0.0001,
+        "mm": 0.0001,
+        "tt": 0.0001,
+        "em": 0,
+        "et": 0,
+        "mt": 0
+      },
+      "quark_couplings": {
+        "u": 0.0001,
+        "d": 0.0001
+      },
+      "kinetic_mixing": 0.0
+    }
+  ],
+  "contacts": []
+}

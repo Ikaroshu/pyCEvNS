@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "findings": [],
+  "checks": [
+    "couplings are perturbative",
+    "SM-limit counts checked with COUPLINGS zeroed (rtol=1e-9, atol=0)",
+    "proposed counts checked for finiteness and non-negativity",
+    "ModelCard schema valid",
+    "couplings are perturbative",
+    "card SM limit holds by construction",
+    "card counts checked for finiteness and non-negativity",
+    "plugin/card cross-check on 66 Q2 points spanning the selected recoil ranges"
+  ],
+  "notes": "# Universal light vector interaction\n\nThe round-2 answer fixes the mass to 30 MeV and the common positive coupling to g_prime = 1e-4. The neutrino coupling is flavor diagonal and equal for all three left-handed flavors. The up and down quarks have the same vector coupling. \"Nothing else\" sets flavor-changing couplings, kinetic mixing, scalar interactions, and additional contact interactions to zero. All previous questions are resolved.\n\nIn the supplied conventions the interaction is\n\n    L_int = g_prime Zprime_mu [sum_alpha nu-bar_alpha gamma^mu P_L nu_alpha\n                              + u-bar gamma^mu u + d-bar gamma^mu d].\n\nHere alpha runs over e, mu, tau. The neutrino coupling multiplies P_L directly; no factor-of-two conversion is needed. The quark couplings multiply full vector currents, with no axial contribution.\n\nFor spacelike momentum transfer Q\u00b2, exchange produces the current-current term\n\n    -g_prime\u00b2 / (Q\u00b2 + mass_mev\u00b2) [nu-bar_alpha gamma^mu P_L nu_alpha]\n                                [f-bar gamma_mu f],  f = u, d.\n\nMatching to -sqrt(2) G_F C times these currents gives\n\n    C^{uV}_{alpha beta}(Q\u00b2) = C^{dV}_{alpha beta}(Q\u00b2)\n                          = delta_{alpha beta} g_prime\u00b2\n                            / [sqrt(2) G_F (Q\u00b2 + mass_mev\u00b2)].\n\nEvery scalar and flavor-changing coefficient is zero. Energies are in MeV, so Q\u00b2 and mass_mev\u00b2 have units MeV\u00b2; the exported G_F has units MeV^-2, making C dimensionless. The full propagator is retained without a contact approximation.\n\nThe coefficient is positive. Its nuclear charge shift is 3(Z + N) C, opposite to the negative Standard Model nuclear charge for the relevant Cs and I nuclei. Thus the interference term is destructive; this alone does not imply the total rate is below the Standard Model rate when the new amplitude is large. The framework adds the Standard Model once and handles antineutrinos and detector response.\n\nThis is a phenomenological vector interaction within the supported basis, not a specified ultraviolet gauge completion. A gauged interpretation of this restricted charge assignment would need anomaly cancellation and electroweak completion; no additional interactions are inferred here.\n\nThe card represents one constant-coupling vector mediator. The plugin independently computes the coefficients using exported GF and SQRT2, without reading the card or any other file. Each coefficient is set once. PARAMETERS preserves the described mass and common coupling exactly, and COUPLINGS identifies the common coupling for the Standard Model-limit check.\n"
+}

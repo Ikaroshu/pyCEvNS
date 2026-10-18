@@ -1,0 +1,9 @@
+{
+  "case_id": "15_magnetic_moment",
+  "physics_match": true,
+  "expressibility_match": true,
+  "physics_failures": [],
+  "validation_valid": true,
+  "state": "notes-only",
+  "rounds": 1
+}

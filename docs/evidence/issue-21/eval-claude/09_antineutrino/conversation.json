@@ -1,0 +1,14 @@
+{
+  "description": "Muon antineutrinos scatter through a universal vector Z\u2032 of mass 30 MeV with g\u2032 = 8e-5. The same coupling applies to all left-handed neutrino flavors and to both u and d quarks, with no other couplings.",
+  "experiments": [
+    "coherent_csi_2017"
+  ],
+  "backend": "claude",
+  "max_turns": 16,
+  "rounds": [
+    {
+      "round": 1,
+      "state": "valid"
+    }
+  ]
+}
