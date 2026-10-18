@@ -142,4 +142,22 @@ Every dimensionless coupling you write must satisfy |g| ≤ √(4π) ≈ 3.54. M
 
 ## 11. When to stop and ask
 
-If the description does not fix the Lorentz structure, the mass, or the couplings well enough to write numbers, do not guess. Write `notes.md` listing exactly what is missing and produce no plugin. An under-specified description is a valid outcome.
+Ask only about the **form** of the interaction: which particles couple (which quarks, which neutrino flavors), the Lorentz structure (vector or scalar), the flavor structure, or a sign or convention that changes the physics. Never ask for a numeric value. If the form is open, write `questions.json` (shape in `plugin_api.md`) and `notes.md` saying what is open, and produce no plugin or card. A question's `suggested` is then usually a short string naming the suggested form, for example "universal vector coupling to u and d quarks, all three flavors", with `reason` saying where it comes from; never present a suggestion as part of the description. The user's answers arrive in `TASK.md` under `## Answers (round N)` and are then part of the description; ask again only if they still leave the form undetermined. Example 07 shows such a translation. Physics outside the V and S basis is not a question: it is notes-only (`framework.md`).
+
+## 12. Assumed values
+
+When the form is fixed but a numeric value is missing, do not ask: take the benchmark default below, declare it in `PARAMETERS` like any other value, and proceed. The user changes it afterwards by re-evaluating the plugin at other parameter values.
+
+| missing value | assumed default |
+|---|---|
+| light-mediator mass | 10 MeV |
+| vector gauge coupling: each of g_ν and g_q, or g′ of a U(1)′ | 1e-4 |
+| scalar couplings: each of g_ν and g_q | 1e-5 |
+| contact NSI ε | 0.1 |
+| kinetic mixing ε | 0, unless the model fixes it (for L_μ−L_τ the loop value κ g′ of section 6) |
+
+The assumed values live in `PARAMETERS`, which the page shows as the parameter form; do not list them again in `notes.md`.
+
+## 13. Writing notes.md
+
+Write `notes.md` in Markdown. Write math in LaTeX between `$...$` for inline formulas and `$$...$$` for displayed ones, for example $C^{uV}_{\mu\mu} = g_\nu g_u / (\sqrt{2} G_F (Q^2 + m^2))$, so that the page and the report render it. Do not put the notes or their formulas in code fences.

@@ -69,4 +69,4 @@ def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
 
 ## notes.md (what the agent should record)
 
-Structure V; left-handed neutrino coupling taken as written; matching formula from conventions section 3; destructive interference noted; no convention conversion needed.
+Structure V, with the left-handed neutrino coupling taken as written. Matching (conventions section 3): $C^{qV}_{\alpha\alpha} = g'^2 / (\sqrt{2} G_F (Q^2 + m^2))$ for $q = u, d$. Since $g_\nu g_q > 0$ the interference with the SM is destructive. No convention conversion is needed.

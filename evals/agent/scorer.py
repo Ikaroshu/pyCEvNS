@@ -1,5 +1,6 @@
 """Offline scoring of already-produced agent output directories; no backend or harness execution."""
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -52,8 +53,13 @@ def notes_clauses(notes: str) -> list[str]:
     return result
 
 
+def question_clauses(questions: list[dict]) -> list[str]:
+    """One clause per question: its id and question joined, casefolded, with ν written nu."""
+    return [f"{question['id']} {question['question']}".casefold().replace("ν", "nu") for question in questions]
+
+
 def score_case(case: EvalCase, output_dir: Path, *, validation_failures: tuple[str, ...] = ()) -> CaseScore:
-    """Compare plugin defaults with every expected entry, or check a notes-only outcome.
+    """Compare plugin defaults with every expected entry, or check a questions or notes-only outcome.
 
     Missing outputs and coefficient mismatches are scores. Plugin execution and import errors propagate.
     Card contents belong to harness validation; this metric measures card presence only.
@@ -68,10 +74,22 @@ def score_case(case: EvalCase, output_dir: Path, *, validation_failures: tuple[s
     if expected is None:
         if plugin_path.exists():
             failures.append("expected no plugin.py")
+        questions_path = output_dir / "questions.json"
         notes_path = output_dir / "notes.md"
-        if not notes_path.is_file():
+        if case.question_requirements:
+            if not questions_path.is_file():
+                failures.append("missing questions.json")
+            else:
+                clauses = question_clauses(json.loads(questions_path.read_text())["questions"])
+                failures.extend(requirement.label for requirement in case.question_requirements
+                                if not any(all(re.search(pattern, clause) for pattern in requirement.patterns) for clause in clauses))
+                failures.extend(forbidden.label for forbidden in case.forbidden_questions
+                                if any(all(re.search(pattern, clause) for pattern in forbidden.patterns) for clause in clauses))
+        elif questions_path.exists():
+            failures.append("expected no questions.json")
+        if case.notes_requirements and not notes_path.is_file():
             failures.append("missing notes.md")
-        else:
+        elif case.notes_requirements:
             sentences = notes_clauses(notes_path.read_text())
             for requirement in case.notes_requirements:
                 if not any(all(re.search(pattern, sentence) for pattern in requirement.patterns) for sentence in sentences):

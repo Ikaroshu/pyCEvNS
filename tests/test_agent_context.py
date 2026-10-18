@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from nuagent.agent.validate import check_questions
 from nuagent.physics.modelcard import ModelCard, template_card
 from nuagent.physics.plugin import load_coefficient_plugin
 
@@ -14,6 +15,7 @@ CONTEXT_FILES = {
     "README.md", "conventions.md", "card_schema.json", "plugin_api.md", "framework.md", "example_plugin.py",
     "examples/01_zprime_universal.md", "examples/02_zprime_b_minus_l.md", "examples/03_zprime_lmu_ltau.md",
     "examples/04_light_scalar.md", "examples/05_contact_nsi_offdiagonal.md", "examples/06_running_kinetic_mixing.md",
+    "examples/07_under_specified_scalar.md",
 }
 
 
@@ -51,3 +53,25 @@ def test_standalone_example_plugin():
     for key, value in expected.values.items():
         np.testing.assert_allclose(produced.values[key], value, rtol=1e-14, atol=0)
     assert all(np.count_nonzero(value) == 0 for value in plugin.coefficients(q2, {"g_prime": 0, "mass_mev": 30}).values.values())
+
+
+def test_under_specified_example_questions_are_valid(tmp_path):
+    from evals.agent.cases import CASES
+    text = files("nuagent.context").joinpath("examples/07_under_specified_scalar.md").read_text()
+    description = text.split('Description given to the agent: "')[1].split('"')[0]
+    assert description not in {case.description for case in CASES}
+    path = tmp_path / "questions.json"
+    path.write_text(text.split("```json\n")[1].split("```")[0])
+    report, questions = check_questions(path)
+    assert report.valid
+    assert [question["id"] for question in questions] == ["quark_couplings"]
+    assert isinstance(questions[0]["suggested"], str)
+    plugin_path = tmp_path / "plugin.py"
+    plugin_path.write_text(text.split("```python\n")[1].split("```")[0])
+    plugin = load_coefficient_plugin(plugin_path)
+    assert plugin.parameters == {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5}
+    expected = template_card("scalar_universal", {"mass_mev": 10.0, "g_nu": 1e-5, "g_q": 1e-5}).coefficients(np.array([1238.0]))
+    produced = plugin.coefficients(np.array([1238.0]), plugin.parameters)
+    np.testing.assert_allclose(produced.values["S", "u"][0, 0], expected.values["S", "u"][0, 0], rtol=1e-14)
+    assert np.count_nonzero(produced.values["S", "u"][1:]) == 0
+    assert "Assumed values" not in text and "$" in text.split("## notes.md for round 2")[1]

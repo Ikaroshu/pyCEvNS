@@ -2,7 +2,7 @@
 
 A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
 
-Status: milestone 6 of [ROADMAP.md](ROADMAP.md). Physics, prediction, likelihoods, scans, the context pack, the coding-agent harness and a local Streamlit page are implemented.
+Status: milestone 7 of [ROADMAP.md](ROADMAP.md). Physics, prediction, likelihoods, scans, the context pack, the coding-agent harness with conversation rounds, and a local Streamlit page with parameter re-evaluation are implemented.
 
 ## Setup
 
@@ -86,11 +86,54 @@ uv run nuagent ui --port 8600
 prompt disabled. Describe an interaction, pick a backend (`claude` or
 `codex`, installed as described below) and the experiments, and press
 "Run agent". The page runs the `propose` harness in a fresh temporary
-directory, shows its path, whether the outputs passed validation, and the
-report. For a validated model it also plots, per experiment, the predicted
-spectrum of the model and of the SM, each plus the summed backgrounds,
-against the observed counts with √N error bars. A run takes minutes and
-uses the backend's paid model.
+directory and shows the exchange as a chat: your description, the agent's
+questions with an answer form inside, and your answers. A validated result
+follows as a page section below the chat; a notes-only or failed outcome is
+a short message from the agent. A run takes minutes and uses the backend's
+paid model.
+
+The agent asks only about the form of the interaction (which particles
+couple, vector or scalar, the flavor structure, or a physics-changing sign
+or convention), never for a number. Missing masses, couplings and mixings
+take the benchmark defaults of `conventions.md` section 12 (10 MeV, vector
+couplings 1e-4, scalar couplings 1e-5, contact ε 0.1, kinetic mixing 0
+unless the model fixes it), declared in the plugin's `PARAMETERS`. The
+answer form is pre-filled with the agent's suggestion where it gave one
+(numbers in a general `%g` format), with the reason beside it, plus a
+free-text box. "Submit answers" runs the next round in the same task with
+the backend and experiments of the first round; after three rounds that
+still end in questions the page says the round limit was reached.
+
+For a validated model the result section has, in this order:
+
+1. "Evaluate the interaction": one input per plugin parameter, pre-filled
+   with the agent's values, and an Evaluate button.
+2. The predicted spectrum per experiment, of the model and of the SM, each
+   plus the summed backgrounds, against the observed counts with √N errors.
+3. A table per experiment of observed counts, SM and new-physics signal, Δ,
+   and the profiled signal scale α and background scales β of both models,
+   with a caption saying what α and β mean and the verification level.
+4. The agent's notes under the heading "Note" (without their own title),
+   rendered as Markdown with LaTeX math.
+5. Collapsed expanders: "Provenance", "Plugin (plugin.py): the coefficient
+   code the agent wrote" and "Model card (card.json): the interaction written
+   in the fixed schema the harness cross-checks against the plugin".
+
+The figure and table show the agent's point first. Evaluate checks the
+plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
+perturbativity and counts) and redraws both in place. The caption names the
+verification level as the report does, for example "Verification:
+cross-validated (the plugin and the model card agree at the agent's
+values).". At other values it names both levels: "Verification at the
+agent's values: cross-validated (...). At these values: plugin-only (only
+the plugin was checked here; the model-card cross-check holds at the agent's
+values only).", because the card's numbers were written for the agent's
+point only. For a plugin-only result the card clause is left out. A point that fails the checks lists the
+findings and keeps the agent's point. Re-evaluation does not call the agent
+and leaves the task directory and report unchanged. On the command line the
+same evaluation is `predict` or `compare` with
+`--plugin TASK/plugin.py --set NAME=VALUE`. The page shows no validation
+history or backend records; the report file has them.
 
 ## Translate an interaction with an installed coding agent
 
@@ -105,15 +148,38 @@ uv run nuagent validate --raw-plugin raw.py
 uv run nuagent propose --backend claude --experiments coherent_csi_2017 \
   --description "a gauged L_mu minus L_tau Z prime with mass 10 MeV, gauge coupling 1e-4 and kinetic mixing 1e-3" \
   --out report.md
-uv run nuagent propose --backend codex --description "a new light vector boson that couples to neutrinos" --out questions.md
+uv run nuagent propose --backend codex --description "A new light vector boson that couples to neutrinos." \
+  --out questions.md --task-dir light-vector.task
+uv run nuagent propose --task-dir light-vector.task --out report.md \
+  --answer free_text="a universal vector coupling to u and d quarks and all three neutrino flavors"
 uv run nuagent agent-eval --backend claude --out-dir /private/tmp/nuagent-eval
 ```
 
 `propose` creates a fresh `REPORT.task/` directory (or `--task-dir`) containing
-`TASK.md` and the installed context pack. Complete in-basis descriptions produce
-`plugin.py`, `notes.md` and `card.json` whenever expressible. Missing information
-or out-of-basis physics produces notes only, with no predictions or physics
-verification label. Agents never write raw cross-section plugins.
+`TASK.md`, the installed context pack and `conversation.json`, the harness's
+record of the description, experiments, backend, `--max-turns` and rounds.
+Complete in-basis descriptions produce `plugin.py`, `notes.md` and `card.json`
+whenever expressible, with missing numeric values assumed from the defaults
+table and declared in the plugin's `PARAMETERS`. An open form of the interaction produces
+`questions.json` and `notes.md`; out-of-basis physics produces notes only. Neither has predictions
+or a physics verification label. Agents never write raw cross-section plugins.
+
+A questions outcome prints the report path, `"state": "questions"`, the round
+and the questions as JSON, and exits 0. `--task-dir T --answer ID=VALUE`
+(repeated, with `free_text=...` for free text) continues that task: the
+harness checks that every ID was asked, records the answers, appends them to
+`TASK.md` under `## Answers (round N)`, clears the outputs and runs the next
+round with the backend, experiments and turn limit recorded at round 1, so
+`--description`, `--backend`, `--experiments` and `--max-turns` are rejected
+there. A conversation has at most three rounds; a third round that still asks
+ends `unresolved`, printed like a questions outcome. Only a task whose last
+round ended in questions can be continued. The report's first line names the
+verification level, or the outcome (`questions`, `unresolved`, `notes-only`,
+`validation-failed`). Then follow the description and the conversation
+(every round's questions and answers), the predictions and likelihood table,
+the notes inline as Markdown, `plugin.py`, `card.json`, the validation
+history, the backend records, and the provenance, which records the number
+of rounds, last.
 
 Validation prints JSON findings and exits 1 for invalid output. Schema,
 perturbativity, coefficient shape/Hermiticity/finiteness, finite non-negative
@@ -123,20 +189,26 @@ coefficients must agree at every entry to relative 1e-6 (no absolute floor) on
 plugin receives `raw-cross-section`, explicitly skipping the SM-limit check.
 Plugin import/execution errors and backend failures propagate directly.
 
-The harness allows one correction with validation findings only. Before that
-correction it preserves the first attempt and clears the three output files,
-so the agent can change to a plugin-only or notes-only outcome using the same
-restricted tools. It evaluates
+The harness allows one correction per round with validation findings only.
+Before that correction it preserves the first attempt and clears the four
+output files (`plugin.py`, `card.json`, `notes.md`, `questions.json`), so the
+agent can change to a plugin-only, questions or notes-only outcome using the
+same restricted tools. `questions.json` beside a plugin or card, or one that
+does not match the shape in the [plugin API](docs/agent/plugin_api.md), is a
+validation finding. It evaluates
 likelihoods after validation succeeds, so the agent never sees likelihood
 feedback. The report begins with `cross-validated` or `plugin-only` and its
-limitations, or a notes-only outcome. It retains derivations, both validation
+limitations, or with the outcome `questions`, `unresolved`, `notes-only` or
+`validation-failed`. It retains derivations, both validation
 histories, source/package provenance, experiment data releases and unmodified
 backend CLI records including model/cost fields when supplied. Every attempt's
-outputs and backend record remain in `REPORT.task/history/` on failure too.
+outputs and backend record remain in `REPORT.task/history/round-N/attempt-M/`
+on failure too. A backend failure ends the conversation: `conversation.json`
+records that round as `backend-failure`, and the task cannot be continued.
 After two invalid attempts, `propose` leaves a `validation-failed` report with
 both histories and raises; the report has no physics verification or predictions.
 
-Claude Code runs with only task-file reads, writes to the three named output
+Claude Code runs with only task-file reads, writes to the four named output
 files and exact `nuagent validate` commands, enforced by a PreToolUse hook and
 restricted mode. Codex uses its workspace-write sandbox rooted at the task
 directory, with extra writable roots and command network access disabled.
@@ -151,7 +223,8 @@ Omitting `--out-dir` selects a fresh system temporary directory; the command
 prints the chosen location and includes `output_root` in its JSON summary.
 Exhausted validation produces a failed case with both check histories and the
 batch continues; unexpected backend, import and execution failures propagate.
-Only descriptions enter tasks; expected answers remain in `evals/agent/`.
+Only descriptions, and for the answered case its free-text answer, enter tasks;
+expected answers remain in `evals/agent/`.
 Installed packages support `propose` and `validate` without this eval directory.
 
 ## Layout

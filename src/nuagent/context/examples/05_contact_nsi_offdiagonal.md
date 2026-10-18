@@ -60,4 +60,4 @@ def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
 
 ## notes.md
 
-Contact form because epsilons were given; Hermitian partner noted; the eμ entry contributes incoherently to both the ν_e and ν_μ rates.
+Contact form because the $\varepsilon$ values were given; $C = \varepsilon$ directly. The Hermitian partner $\varepsilon_{\mu e} = \varepsilon_{e\mu}^*$ is noted. The $e\mu$ entry contributes incoherently to both the $\nu_e$ and $\nu_\mu$ rates.

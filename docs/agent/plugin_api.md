@@ -33,6 +33,25 @@ Contract:
 
 A raw cross-section plugin (escape hatch) instead exposes `dsigma_dt(e_nu, t, flavor, isotope, params) -> np.ndarray` returning the complete differential cross section including the Standard Model in MeV⁻³, plus the same `PARAMETERS` and `COUPLINGS`. `t` is a scalar or a 1D array of recoil energies in MeV and `e_nu` broadcasts against it; the result has the broadcast shape. `flavor` is one of `e, mu, tau, ebar, mubar, taubar`; `isotope` is a `nuagent.physics.xsec.Isotope` with attributes `z`, `n`, `mass_mev` and `helm_radius_fm` (the experiment's Helm radius), and `isotope.q2(t)` gives Q² = 2 M T. It is written by users, not by the agent: it must include the framework's SM cross section with the experiment's form factor, which it obtains as `nuagent.physics.xsec.dsigma_dt(e_nu, t, flavor, isotope, nuagent.physics.couplings.sm(isotope.q2(t)))`. It is used only for physics outside the basis (magnetic moments, inelastic channels), it skips the SM-limit check, and its report is labeled `raw-cross-section`. If a description needs physics outside the V and S basis, write `notes.md` naming the raw route and produce no plugin.
 
+When a description within the V and S basis leaves the form of the interaction open (which particles couple, vector or scalar, the flavor structure, or a physics-changing sign or convention), write `questions.json` and `notes.md` instead of a plugin or card. Never ask for a numeric value: missing values take the assumed defaults of `conventions.md` section 12.
+
+```json
+{"questions": [
+  {"id": "quark_couplings", "question": "Which quarks does the boson couple to, and with which relative couplings?", "unit": null,
+   "suggested": "a universal vector coupling to u and d quarks", "reason": "The most common benchmark; the description names no quarks."},
+  {"id": "neutrino_flavors", "question": "Does it couple to all three neutrino flavors equally?", "unit": null, "suggested": null, "reason": null}
+]}
+```
+
+- `questions` is a nonempty list. Each entry has exactly the fields `id`, `question`, `unit`, `suggested` and `reason`.
+- `id` is a short `snake_case` identifier, unique in the file and never `free_text` (reserved for the user's free-text answer).
+- `question` is one sentence. `unit` is a string or null.
+- `suggested` is a number (not a boolean), a string or null; for a question about form it is usually a short string naming the suggested form. Never present a suggestion as part of the description.
+- `reason` is one sentence saying where the suggestion comes from, or null when `suggested` is null.
+- `questions.json` beside `plugin.py` or `card.json`, or a file that does not match this shape, is a validation finding. Example 07 shows a complete questions outcome.
+
+`notes.md` is Markdown with LaTeX math in `$...$` and `$$...$$` (`conventions.md` section 13); assumed values appear only in `PARAMETERS` (section 12).
+
 `example_plugin.py` is a standalone runnable coefficient plugin. For example, from the repository root:
 
 ```bash

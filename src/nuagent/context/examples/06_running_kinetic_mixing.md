@@ -57,4 +57,4 @@ def coefficients(q2: np.ndarray, params: dict) -> Coefficients:
 
 ## notes.md
 
-Why no card: Q²-dependent mixing. Reduction check: at Q² = 0 the plugin reproduces example 03 B. 40-point Gauss-Legendre over the Feynman parameter. Sign positive from the loop, as in section 6.
+Why no card: the mixing $\varepsilon(Q^2)$ depends on $Q^2$. Reduction check: at $Q^2 \to 0$ the plugin reproduces example 03 B. The Feynman-parameter integral uses 40-point Gauss–Legendre quadrature. The sign is positive from the loop, as in section 6.
