@@ -1,8 +1,0 @@
-{
-  "final_text": "seeded first attempt",
-  "exit_status": 0,
-  "raw_output": "{\"fixture\": true, \"source\": \"/Users/shu/Projects/AI4Neutrino/pyCEvNS/.worktrees/issue-17-agent-harness/docs/evidence/issue-17/eval-claude_code/01_universal_vector/plugin.py\"}",
-  "stderr": "",
-  "command": [],
-  "error": false
-}

@@ -1,9 +1,0 @@
-{
-  "case_id": "16_answered_light_vector",
-  "physics_match": true,
-  "expressibility_match": true,
-  "physics_failures": [],
-  "validation_valid": true,
-  "state": "valid",
-  "rounds": 2
-}

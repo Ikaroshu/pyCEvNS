@@ -1,1 +1,0 @@
-Seeded inconsistent card for correction-path verification; this first attempt is a test fixture, not model output.
