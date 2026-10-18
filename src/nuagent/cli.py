@@ -92,7 +92,7 @@ def main() -> None:
     validate.add_argument("--card", type=Path)
     for name in ("propose", "agent-eval"):
         command = commands.add_parser(name, help="Translate an interaction." if name == "propose" else "Run repository-only agent evaluations.")
-        command.add_argument("--backend", choices=("claude_code", "codex"), default="claude_code")
+        command.add_argument("--backend", choices=("claude", "codex"), default="claude")
         command.add_argument("--max-turns", type=int, default=16, help="Claude Code turn limit; Codex exec has no equivalent flag.")
         command.add_argument("--experiments", default=",".join(registry.names()))
         if name == "propose":

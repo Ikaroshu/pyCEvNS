@@ -83,7 +83,7 @@ uv run nuagent ui --port 8600
 
 `ui` serves a Streamlit page at http://127.0.0.1:8501 (or `--port`), bound to
 127.0.0.1 only, with Streamlit's usage-statistics gathering and first-run email
-prompt disabled. Describe an interaction, pick a backend (`claude_code` or
+prompt disabled. Describe an interaction, pick a backend (`claude` or
 `codex`, installed as described below) and the experiments, and press
 "Run agent". The page runs the `propose` harness in a fresh temporary
 directory, shows its path, whether the outputs passed validation, and the
@@ -102,11 +102,11 @@ uv run nuagent validate --plugin src/nuagent/context/example_plugin.py
 uv run nuagent validate --card card.json
 uv run nuagent validate --plugin plugin.py --card card.json
 uv run nuagent validate --raw-plugin raw.py
-uv run nuagent propose --backend claude_code --experiments coherent_csi_2017 \
+uv run nuagent propose --backend claude --experiments coherent_csi_2017 \
   --description "a gauged L_mu minus L_tau Z prime with mass 10 MeV, gauge coupling 1e-4 and kinetic mixing 1e-3" \
   --out report.md
 uv run nuagent propose --backend codex --description "a new light vector boson that couples to neutrinos" --out questions.md
-uv run nuagent agent-eval --backend claude_code --out-dir /private/tmp/nuagent-eval
+uv run nuagent agent-eval --backend claude --out-dir /private/tmp/nuagent-eval
 ```
 
 `propose` creates a fresh `REPORT.task/` directory (or `--task-dir`) containing

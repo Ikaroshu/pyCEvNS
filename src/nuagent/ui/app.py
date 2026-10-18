@@ -14,7 +14,7 @@ from nuagent.ui.figures import spectrum_figure
 st.set_page_config(page_title="nuagent")
 st.title("nuagent")
 description = st.text_area("Interaction description", key="agent_description")
-backend = st.selectbox("Backend", ("claude_code", "codex"), key="agent_backend")
+backend = st.selectbox("Backend", ("claude", "codex"), key="agent_backend")
 experiments = st.multiselect("Experiments", registry.names(), default=list(registry.names()), key="agent_experiments")
 if st.button("Run agent"):
     st.session_state.pop("agent_result", None)

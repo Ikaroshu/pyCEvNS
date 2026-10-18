@@ -41,7 +41,7 @@ class SubprocessBackend:
 
     def run(self, task_dir: Path, max_turns: int) -> BackendResult:
         prompt = (task_dir / "TASK.md").read_text()
-        if self.name == "claude_code":
+        if self.name == "claude":
             hook = shlex.join([sys.executable, "-m", "nuagent.agent.tool_policy", str(task_dir.resolve())])
             settings = {"hooks": {"PreToolUse": [{"matcher": "", "hooks": [{"type": "command", "command": hook}]}]}}
             command = ["claude", "-p", "--output-format", "json", "--max-turns", str(max_turns),
@@ -60,7 +60,7 @@ class SubprocessBackend:
         result = BackendResult("", process.returncode, process.stdout, process.stderr, tuple(command))
         if process.returncode:
             return result
-        if self.name == "claude_code":
+        if self.name == "claude":
             payload = json.loads(process.stdout)
             return BackendResult(payload.get("result", ""), process.returncode, process.stdout, process.stderr, tuple(command), bool(payload.get("is_error")))
         events = [json.loads(line) for line in process.stdout.splitlines() if line.strip()]
@@ -71,6 +71,6 @@ class SubprocessBackend:
 
 
 def get_backend(name: str) -> Backend:
-    if name not in ("claude_code", "codex"):
-        raise ValueError(f"unknown backend {name!r}; choose claude_code or codex")
+    if name not in ("claude", "codex"):
+        raise ValueError(f"unknown backend {name!r}; choose claude or codex")
     return SubprocessBackend(name)
