@@ -1,15 +1,9 @@
-"""Matplotlib figures drawn by the Streamlit page."""
-
-from typing import Literal
+"""Matplotlib figure drawn by the Streamlit page."""
 
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
 
 from nuagent.experiments.registry import Experiment
-from nuagent.stats.asimov import Scan
-
-DATA_LABELS = {"asimov": "expected", "observed": "observed"}
 
 
 def spectrum_figure(experiment: Experiment, signal: np.ndarray, sm_signal: np.ndarray) -> Figure:
@@ -27,26 +21,5 @@ def spectrum_figure(experiment: Experiment, signal: np.ndarray, sm_signal: np.nd
     axes.set_ylabel("counts per bin")
     axes.set_title(experiment.name)
     axes.legend()
-    figure.tight_layout()
-    return figure
-
-
-def contour_figure(scan: Scan, thresholds: list[float], data: Literal["asimov", "observed"], log_axes: tuple[bool, bool]) -> Figure:
-    """Contours of Δ over a two-parameter scan, each labeled with its threshold and expected or observed."""
-    (x_name, x), (y_name, y) = scan.axes.items()
-    levels = sorted(thresholds)
-    colors = [f"C{i}" for i in range(len(levels))]
-    figure = Figure(figsize=(6.5, 5))
-    axes = figure.subplots()
-    axes.contour(x, y, scan.delta.T, levels=levels, colors=colors)
-    axes.legend(
-        [Line2D([], [], color=color) for color in colors],
-        [f"Δ = {level:g} ({DATA_LABELS[data]})" for level in levels],
-        loc="lower right",
-    )
-    axes.set_xscale("log" if log_axes[0] else "linear")
-    axes.set_yscale("log" if log_axes[1] else "linear")
-    axes.set_xlabel(x_name)
-    axes.set_ylabel(y_name)
     figure.tight_layout()
     return figure

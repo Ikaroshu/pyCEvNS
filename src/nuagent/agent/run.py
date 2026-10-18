@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from nuagent.agent.backend import Backend, BackendFailure, BackendResult
 from nuagent.agent.report import render_report, source_provenance
 from nuagent.agent.task import build_task
@@ -26,6 +28,7 @@ class ValidationFailed(RuntimeError):
 class RunResult:
     report: str
     histories: list[dict]
+    signals: dict[str, np.ndarray]
 
     @property
     def valid(self) -> bool:
@@ -95,7 +98,7 @@ def run_result(description: str, experiments: Sequence[str], backend: Backend, t
     report = render_report(description, task_dir, backend.name, results, histories, provenance, evaluations, level)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report)
-    return RunResult(report, histories)
+    return RunResult(report, histories, model.signals if level else {})
 
 
 def run(description: str, experiments: Sequence[str], backend: Backend, task_dir: Path, out: Path,

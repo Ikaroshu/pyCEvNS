@@ -81,26 +81,16 @@ uv run nuagent ui
 uv run nuagent ui --port 8600
 ```
 
-`ui` serves a Streamlit page at http://127.0.0.1:8501 (or `--port`). It binds to
-127.0.0.1 only and runs with Streamlit's usage-statistics gathering disabled. The
-page has:
-
-- an experiment selector;
-- a model card editor (JSON) with template presets: choosing a template and its
-  parameters and applying it rewrites the card, which can then be edited freely;
-- the predicted spectrum for the card and for the SM, each plus the summed
-  backgrounds, against the observed counts with √N error bars;
-- Δ on the observed counts with the profiled `alpha` and `beta` of both
-  hypotheses, the same quantities `compare` prints;
-- a scan panel over two template parameters (linear or log spacing, other
-  parameters fixed) on Asimov or observed data, drawing Δ contours at editable
-  thresholds, by default 2.71 and 4.61, labeled expected or observed;
-- an agent panel that runs the `propose` harness with the chosen backend in a
-  fresh temporary directory and shows the report and whether it validated.
-
-Each computation runs only when its button is pressed. The default 8 × 8 scan
-grid takes a few seconds; the 25 × 65 grid above takes minutes. An agent run takes
-minutes and uses the backend's paid model.
+`ui` serves a Streamlit page at http://127.0.0.1:8501 (or `--port`), bound to
+127.0.0.1 only, with Streamlit's usage-statistics gathering and first-run email
+prompt disabled. Describe an interaction, pick a backend (`claude_code` or
+`codex`, installed as described below) and the experiments, and press
+"Run agent". The page runs the `propose` harness in a fresh temporary
+directory, shows its path, whether the outputs passed validation, and the
+report. For a validated model it also plots, per experiment, the predicted
+spectrum of the model and of the SM, each plus the summed backgrounds,
+against the observed counts with √N error bars. A run takes minutes and
+uses the backend's paid model.
 
 ## Translate an interaction with an installed coding agent
 
