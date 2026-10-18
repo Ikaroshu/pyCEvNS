@@ -1,14 +1,20 @@
 # M6 Streamlit page and packaging
 
-The current evidence was recorded on 2026-10-17 against commit
-`590b779f1b48628c0164dbbecee4b1314182d2e1` (tree
-`e4a80a70a58a8c7f9f0ed41278c425b14cdd0f5f`) on branch `m6-ui`, with
-Streamlit 1.66.0. That commit applies the code review pass 1 repairs. The
-screenshots are the built-in browser's captures of the live page at
-http://127.0.0.1:8501 (1280 x 1000 viewport, downscaled by the capture tool
-and converted from JPEG to PNG). The panel checks used a headless server
-(`STREAMLIT_SERVER_HEADLESS=true uv run nuagent ui`), so that no browser
-tab opened on the desktop.
+The page was trimmed for the demo to one panel: describe an interaction, pick
+the backend and experiments, run the `propose` harness, read the report, and
+see the predicted spectrum. The live check below ran on 2026-10-17 with
+Streamlit 1.66.0 and Claude Code 2.1.286 at commit
+`fe4ab18f59948c8cbd5b4a9783f7b48d3e08cb4a` (tree
+`47d137ad67e67bbb3cdec653153c167c6fc7717b`). The report records
+`source_dirty: true` because the removal of the old screenshots was staged
+but not yet committed; no source file differed from that commit.
+
+At that commit the Claude Code backend was still named `claude_code`, so the
+retained report says `"backend": "claude_code"`. The next commit,
+`77812f7cedb071586cffca9776befdba64d6673f` ("Rename the claude_code backend
+to claude"), renames it to `claude` and changes nothing else in the backend.
+The same run is now started with `--backend claude` or by choosing `claude`
+in the page.
 
 ## Launcher
 
@@ -19,124 +25,93 @@ tab opened on the desktop.
 python -m streamlit run <installed nuagent/ui/app.py> --server.address 127.0.0.1 --browser.gatherUsageStats false --server.showEmailPrompt false --server.port <port>
 ```
 
-`--server.showEmailPrompt false` is needed because on a machine where
-Streamlit has never run (no `~/.streamlit/`, as here), Streamlit first asks
-for an email address. With stdin not a terminal it read end-of-file and
-exited 255, which made the first background start fail. In Streamlit 1.66.0,
-`check_credentials` in `streamlit/runtime/credentials.py` skips that prompt
-when `server.headless` is true or `server.showEmailPrompt` is false, so the
-flag removes the prompt and keeps Streamlit's automatic browser opening.
+For the live check, `uv run nuagent ui </dev/null` ran in the background,
+without headless mode.
+- `ps` showed that command line with port 8501.
+- Streamlit logged `Uvicorn server started on 127.0.0.1:8501`.
+- `lsof -iTCP:8501 -sTCP:LISTEN` showed one listener, `TCP 127.0.0.1:8501`.
+- There was no first-run email prompt, although no `~/.streamlit/` existed.
+  `--server.showEmailPrompt false` skips it: in Streamlit 1.66.0,
+  `check_credentials` in `streamlit/runtime/credentials.py` skips the prompt
+  when `server.headless` is true or `server.showEmailPrompt` is false.
+  Without the flag, an earlier non-interactive start read end-of-file at the
+  prompt and exited 255.
+- SIGINT stopped the server with `Stopping...` and no traceback.
 
-Check at `590b779`, without `STREAMLIT_SERVER_HEADLESS` and without
-`~/.streamlit/`: `uv run nuagent ui --port 8604 </dev/null` started.
-- `ps` showed `uv run nuagent ui --port 8604` with one child, the `nuagent`
-  process now running the Streamlit command line above with port 8604.
-- Streamlit logged `Uvicorn server started on 127.0.0.1:8604`, `curl` got 200,
-  and `lsof -iTCP:8604 -sTCP:LISTEN` showed one listener,
-  `TCP 127.0.0.1:8604`. No prompt appeared and no `~/.streamlit/` was created.
-- SIGINT to `uv` and the Streamlit process (as a terminal Ctrl-C delivers to
-  both) printed `Stopping...` and exited 0 with no traceback.
+An earlier check on port 8604 (commit `590b779`) showed the same: one
+listener on `127.0.0.1:8604`, and SIGINT to `uv` and Streamlit, as a terminal
+Ctrl-C delivers it, exited 0 with no traceback.
 
-An earlier check at `17453f1` (before `os.execv`) showed the same listener
-on port 8503. Before `--server.showEmailPrompt` was added (`efed7e8`), an
-installed wheel in a fresh virtual environment outside the repository served
-the page from `site-packages/nuagent/ui/app.py` on `127.0.0.1:8502` only;
-that check was not repeated later.
+Streamlit 1.66.0 also shows its own "Help agents write better apps" toast
+on the page. During the check an accidental click or keypress hit its
+Install control, which ran Streamlit's skill installer in the worktree. That
+created two untracked symlinks, `.agents/skills/developing-with-streamlit`
+and `.claude/skills/developing-with-streamlit`, which were deleted
+afterwards. They do not affect the backend, which runs in its own temporary
+task directory with setting sources disabled.
 
-## Panels exercised
+## Live run from the page
 
-1. Experiment selector: opened, `coherent_csi_2017` (the only registered
-   experiment) chosen.
-2. Model card editor: chose the `zprime_lmu_ltau` preset and pressed
-   "Apply preset to card". The JSON text area was replaced by that
-   template's card, and the kinetic_mixing input stayed empty, so the
-   template's loop value KAPPA_LMU_LTAU · g_prime applies
-   ([card-preset.png](card-preset.png)).
-3. Spectrum and Δ: "Predict and compare" drew new physics + background and
-   SM + background as steps over the 12 PE bins, the summed background, and
-   the observed counts with √N error bars ([spectrum.png](spectrum.png)).
-   At this point (10 MeV, g′ = 1e-4, loop kinetic mixing) the two curves
-   nearly coincide. The page showed Δ = 0.0024282648663600526, new-physics
-   `alpha` 0.07170206454158409 and `beta` steady_state 0.0015948699843009334,
-   prompt_neutrons 0.0028993722580666847, and signal total
-   133.70702102492538. These equal, digit for digit,
-   `uv run nuagent compare --experiment coherent_csi_2017 --template zprime_lmu_ltau --set mass_mev=10 --set g_prime=1e-4`.
-   (Before the repair the preset fixed kinetic_mixing at 1e-3, which gives
-   Δ = 7.507566092489984.)
-4. Scan: defaults `zprime_lmu_ltau`, mass_mev 1 to 1000 MeV and g_prime 1e-5
-   to 1e-2, both log-spaced with 8 points ("Grid: 8 × 8 = 64 points"),
-   kinetic_mixing empty (loop value), thresholds 2.71 and 4.61. 64 points
-   take about 6 s.
-   - Asimov data: contours on log axes with legend entries
-     "Δ = 2.71 (expected)" and "Δ = 4.61 (expected)" and the caption
-     "Contours of Δ at 2.71, 4.61 on asimov data (expected); Δ range 3.93e-14
-     to 19.45" ([scan-expected.png](scan-expected.png)). Below about 10 MeV
-     the Δ = 2.71 contour lies near g′ ≈ 1.7e-3. A separate 61-point 1D
-     Asimov scan at 10 MeV first exceeds 2.71 at g′ = 2.0e-3 (Δ 2.61 at
-     1.78e-3). With kinetic_mixing fixed at 1e-3 it does so already at
-     g′ = 5.0e-5.
-   - Observed data: "(observed)" labels, Δ range 9.693e-08 to 22.76
-     ([scan-observed.png](scan-observed.png)).
-   - The spectrum and Δ from step 3 stayed on the page while the scan ran,
-     because each panel is a Streamlit fragment. The "Δ grid" expander below
-     the caption lists the scanned values.
-5. Agent panel (screenshot from `8c4f46f`, unchanged layout): entered the
-   L_mu − L_tau description used for M5b and opened the backend selector
-   (claude_code, codex), with experiments defaulting to `coherent_csi_2017`
-   ([agent-panel.png](agent-panel.png)). "Run agent" was not pressed with a
-   live backend. Page tests run it with the fake backend.
+In the built-in browser at http://127.0.0.1:8501, the description was
+"a gauged L_mu minus L_tau Z prime with mass 10 MeV, gauge coupling 1e-4 and
+kinetic mixing 1e-3". The backend was `claude_code` (now `claude`) and the
+experiment `coherent_csi_2017`. "Run agent" was pressed once.
 
-Template presets (the values the parameter inputs start with; an empty input
-keeps the template default):
+- Task directory:
+  `/var/folders/m1/2x7x34rx4312bwszy_5409v00000gn/T/nuagent-ui-4gtpwq_c/task`,
+  report `.../nuagent-ui-4gtpwq_c/report.md`. The run took about 97 s of
+  backend time and 22 turns. Claude Code reported `total_cost_usd`
+  1.0507475.
+- The page showed "Outputs passed validation." and the report began
+  `Verification: **cross-validated**`. Validation passed on the first attempt.
+- Δ = 7.507566092489984 and predicted total 55.64316965812137 events, with
+  855 observed ([agent-report.png](agent-report.png) shows the top of the
+  report).
+- The spectrum below the report shows new physics + background below
+  SM + background in the low-PE bins, the background, and the observed counts
+  with √N errors ([agent-spectrum.png](agent-spectrum.png)).
+- The agent read the stated mixing ε = 1e-3 as the total photon mixing. Its
+  card has a vector mediator at 10 MeV with ν couplings (0, 1e-4, −1e-4), no
+  direct quark couplings, and `kinetic_mixing` 1e-3.
 
-| Template | Preset |
-| --- | --- |
-| zprime_universal | mass_mev 30, g_nu 1e-4, g_q 1e-4 |
-| zprime_u1 | mass_mev 10, g_prime 1e-4, q_nu_e = q_nu_mu = q_nu_tau = −1, q_u = q_d = 1/3 (B − L) |
-| zprime_lmu_ltau | mass_mev 10, g_prime 1e-4; kinetic_mixing empty, so the loop value KAPPA_LMU_LTAU · g_prime |
-| scalar_universal | mass_mev 10, g_nu 1e-5, g_q 1e-5 |
-| contact_nsi | eps_u_ee 0.1, eps_d_ee 0.1 |
+Cross-check:
+`uv run nuagent compare --experiment coherent_csi_2017 --template zprime_lmu_ltau --set mass_mev=10 --set g_prime=1e-4 --set kinetic_mixing=1e-3`
+gives `delta` 7.507566092489984 and signal total 55.64316965812137, equal
+digit for digit to the page. The same values appear in the M5b live runs in
+`docs/evidence/issue-17/`.
 
-The scan panel's fixed-parameter inputs start from the same presets.
+[live-run/](live-run/) keeps the unmodified `report.md` and the agent's
+`plugin.py`, `card.json` and `notes.md`. The context pack, prompt and history
+remain in the task directory above.
 
-## Tests
+## Tests and packaging
 
-- `uv run pytest tests/test_ui.py`: 10 passed (9 at `590b779`; review pass 2
-  added the failed-run test below).
+- `uv run pytest tests/test_ui.py`: 5 passed.
   - The launcher test checks the exact flag/value pairs and that the app file
     exists. `nuagent ui --help` runs through the installed executable.
-  - The preset test checks that applying `zprime_lmu_ltau` writes
-    `template_card(...).model_dump_json(indent=2)` into the card. It also
-    checks that the Δ shown equals `profiled` computed directly
-    (relative 1e-9).
-  - For a 2 x 2 scan on Asimov and on observed data, the tests check the
-    caption labels (expected, observed). They also check that the shown Δ
-    grid equals `asimov.scan` (rtol 1e-9).
-  - Another scan test checks that kinetic_mixing starts empty. Set to 1e-3,
-    the shown grid equals `asimov.scan` with that value. Cleared again, it
-    equals `asimov.scan` without kinetic_mixing (the loop value), and the two
-    grids differ.
-  - The agent panel runs with the fake backend from `tests/test_agent.py`, in
-    a validating mode and in a mode that fails after the correction. Each
-    time the test checks the success or error message and that the report
-    file's text is rendered. Both still show after a rerun with an edited
-    description.
-  - A valid fake run followed by a run whose backend fails clears the stored
-    result: after the next rerun no success message or earlier report shows.
-  - The contour figure's legend labels and log axes are checked directly.
-- `uv run pytest`: 332 passed (322 before this milestone plus 10). The only
+  - The agent-panel tests use the fake backend from `tests/test_agent.py`.
+  - In the validating mode they check: the success message; the rendered
+    report text, read from `report.md`; one spectrum figure; and stored
+    signal counts equal to `predicted_counts` of the fake model's card.
+  - In the mode that fails after correction they check the error message,
+    the report, no figure and no stored signals.
+  - Both results still show after a rerun with an edited description.
+  - A valid run followed by a run whose backend fails leaves no success
+    message, report or figure after the next rerun.
+- `uv run pytest`: 327 passed (322 before this milestone plus 5). The only
   warning is the frozen legacy package's `pkg_resources` deprecation warning.
-- `uv build --out-dir <scratch>`: the wheel lists `nuagent/ui/app.py`,
-  `figures.py` and `launch.py`, and its metadata has
-  `Requires-Dist: streamlit>=1.66`. `uv lock` changed only the streamlit
-  requirement line in `uv.lock`; the locked version stays 1.66.0.
+- `uv build --out-dir <scratch>`: the wheel's `nuagent/ui/` contains exactly
+  `app.py`, `figures.py` and `launch.py`, and its metadata requires
+  `streamlit>=1.66`.
 - `uv run nuagent ui --help`: exits 0 and lists `--port`.
 
 ## Not verified
 
-- No live agent run from the page: it costs a paid backend call and minutes.
-  The live propose runs are left for after the merge.
-- Streamlit's automatic browser opening was not observed. The panel checks ran
-  headless, and the non-headless 8604 check only verified the listener and
-  the SIGINT exit.
+- The live run was made once, with the Claude Code backend. Codex was not run
+  live from the page.
+- The live run used the backend name in force at `fe4ab18` (`claude_code`).
+  After the rename the backend is covered by the offline tests, not by a
+  second live run.
+- Streamlit's automatic browser opening was not observed in the desktop
+  browser.
 - Fresh-clone checking is left for after the merge.
