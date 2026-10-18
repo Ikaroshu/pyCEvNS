@@ -11,6 +11,7 @@ Tracked in the GitHub project [pyCEvNS: Agentic CEvNS prototype](https://github.
 - M5a [#16](https://github.com/Ikaroshu/pyCEvNS/issues/16) Agent context pack and eval set.
 - M5b [#17](https://github.com/Ikaroshu/pyCEvNS/issues/17) Agent backends (`claude -p`, `codex exec`), harness and `propose`.
 - M6 [#18](https://github.com/Ikaroshu/pyCEvNS/issues/18) Streamlit page and packaging.
+- M7 [#21](https://github.com/Ikaroshu/pyCEvNS/issues/21) Conversational agent rounds (`questions.json`, `propose --answer`, the page's question form) and parameter re-evaluation on the page.
 
 ## Deferred
 
