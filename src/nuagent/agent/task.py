@@ -1,4 +1,4 @@
-"""Create isolated translation inputs from installed context resources."""
+"""Create isolated translation inputs from installed context resources; name the agent output files."""
 
 from collections.abc import Sequence
 from importlib.resources import files
@@ -6,6 +6,9 @@ from importlib.resources.abc import Traversable
 from pathlib import Path
 
 OUTPUT_FILES = ("plugin.py", "card.json", "notes.md", "questions.json")
+# A directory holding FIT_RECORD is a fit directory, whose agent writes only FIT_OUTPUT_FILES.
+FIT_RECORD = "fit.json"
+FIT_OUTPUT_FILES = ("points.json", "notes.md")
 
 
 def copy_context(source: Traversable, destination: Path) -> None:

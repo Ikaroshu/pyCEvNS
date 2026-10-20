@@ -1,4 +1,4 @@
-"""Streamlit page: describe an interaction, converse with the agent, then evaluate the interaction it wrote."""
+"""Streamlit page: describe an interaction, converse with the agent, evaluate the interaction it wrote, then fit its parameters."""
 
 import io
 import tempfile
@@ -9,6 +9,7 @@ import streamlit as st
 
 from nuagent.agent.backend import get_backend
 from nuagent.agent.report import LIKELIHOOD_CAPTION, answers_markdown, likelihood_table, questions_markdown
+from nuagent.agent.fit import best_point, pareto_set, points_table, read_fit, read_history, round_notes, run_fit_round, start_fit
 from nuagent.agent.run import MAX_ROUNDS, RunResult, continue_run, evaluate_point, read_conversation, run_result
 from nuagent.experiments import registry
 from nuagent.physics.plugin import load_coefficient_plugin
@@ -111,6 +112,57 @@ def result_block(task_dir: Path, result: RunResult) -> None:
             st.code((task_dir / "card.json").read_text(), language="json")
 
 
+def fit_form(task_dir: Path, result: RunResult) -> None:
+    """Rounds and guidance for a fit on the task's recorded backend; run it one round at a time with visible progress."""
+    with st.form("fit"):
+        st.subheader("Fit parameters")
+        rounds = st.number_input("Agent rounds", min_value=1, value=5, step=1, key=f"fit_rounds:{task_dir}")
+        guidance = st.text_area("Guidance for the fit agent (optional)", key=f"fit_guidance:{task_dir}")
+        submitted = st.form_submit_button("Fit")
+    if submitted:
+        st.session_state.pop("fit_dir", None)
+        backend = get_backend(read_conversation(task_dir)["backend"])
+        fit_dir = Path(tempfile.mkdtemp(prefix="fit-", dir=task_dir.parent)) / "fit"
+        with st.status(f"Fitting with {backend.name} in {fit_dir}; each agent round takes minutes", expanded=True) as status:
+            history = start_fit(task_dir, fit_dir, backend, int(rounds), guidance or None)
+            names, experiments = list(history[0]["parameters"]), read_fit(fit_dir)["experiments"]
+            st.markdown("The translation agent's point (round 0):\n\n" + points_table(history, names, experiments))
+            while True:
+                step = run_fit_round(fit_dir, backend, fit_dir.parent / "report.md")
+                summary = points_table(step.points, names, experiments) if step.points else "no points"
+                st.markdown(f"Agent round {step.round} of {int(rounds)}: {step.state}\n\n{summary}")
+                if step.fit_state:
+                    break
+            status.update(label=f"Fit {step.fit_state} after {step.round} agent rounds", state="complete", expanded=False)
+        st.session_state.fit_dir = fit_dir
+    if "fit_dir" in st.session_state:
+        with st.container(key="fit_result"):
+            fit_block(st.session_state.fit_dir, result)
+
+
+def fit_block(fit_dir: Path, result: RunResult) -> None:
+    """Outcome, Pareto set, the best point's spectrum and table, every point, the round notes and the paths."""
+    record, history = read_fit(fit_dir), read_history(fit_dir)
+    names, experiments = list(history[0]["parameters"]), record["experiments"]
+    pareto = pareto_set(history)
+    best = best_point(pareto)
+    st.subheader("Fit result")
+    st.markdown(f"Outcome: **{record['state']}** after {len(record['rounds'])} of {record['rounds_requested']} agent rounds; "
+                f"{len(history)} points evaluated, including the translation agent's point (round 0).")
+    st.markdown("Pareto set (no other point is as good on every experiment and better on one):\n\n"
+                + points_table(pareto, names, experiments, findings=False))
+    st.markdown(f"Best point: round {best['round']}, point {best['index']} (lowest summed Δ in the Pareto set).")
+    show_spectra({evaluation["experiment"]: np.array(evaluation["predicted_counts"]) for evaluation in best["evaluations"]})
+    st.markdown(likelihood_table(best["evaluations"]))
+    st.caption(verification_caption(result.level, best["round"] == 0))
+    st.caption(LIKELIHOOD_CAPTION)
+    st.markdown("Points by round:\n\n" + points_table(history, names, experiments))
+    for entry in record["rounds"]:
+        with st.expander(f"Agent notes, round {entry['round']} ({entry['state']})"):
+            st.markdown(round_notes(fit_dir, entry["round"]))
+    st.caption(f"Fit directory: `{fit_dir}`; fit report: `{fit_dir.parent / 'report.md'}`")
+
+
 st.set_page_config(page_title="nuagent")
 st.title("nuagent")
 # A form sends no rerun until submit: a rerun during a run would stop the script before it stores the result.
@@ -124,6 +176,7 @@ if submitted and not experiments:
 elif submitted:
     st.session_state.pop("agent_result", None)
     st.session_state.pop("agent_task", None)
+    st.session_state.pop("fit_dir", None)
     root = Path(tempfile.mkdtemp(prefix="nuagent-ui-"))
     with st.spinner(f"Running {backend} in {root}; this takes minutes"):
         result = run_result(description, experiments, get_backend(backend), root / "task", root / "report.md")
@@ -161,6 +214,7 @@ if "agent_result" in st.session_state:
         # The result is a page section below the conversation, not an agent message.
         with st.container(key="result"):
             result_block(task_dir, result)
+        fit_form(task_dir, result)
     elif result.state in ("invalid", "notes-only"):
         with st.chat_message("assistant"):
             if result.state == "invalid":

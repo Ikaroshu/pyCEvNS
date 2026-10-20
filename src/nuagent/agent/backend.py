@@ -1,4 +1,4 @@
-"""Installed coding-agent subprocess backends; no model SDK or likelihood loop."""
+"""Installed coding-agent subprocess backends; no model SDK."""
 
 import json
 import os

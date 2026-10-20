@@ -235,3 +235,37 @@ def check_questions(path: Path) -> tuple[ValidationReport, list[dict]]:
         return report, []
     report.checks.append(f"questions.json shape valid ({len(questions)} questions)")
     return report, questions
+
+
+def check_points(path: Path, names: Sequence[str], limit: int) -> tuple[ValidationReport, list[dict[str, float]]]:
+    """Check a fit agent's points.json at the agent-output boundary; return the points when valid."""
+    report = ValidationReport()
+    if not path.is_file():
+        report.findings.append("points.json is missing")
+        return report, []
+    text = path.read_text()
+    if not JSON_TEXT.isinstance_python(text):
+        report.findings.append("points.json is not valid JSON")
+        return report, []
+    data = json.loads(text)
+    if not isinstance(data, dict) or set(data) != {"points"} or not isinstance(data["points"], list):
+        report.findings.append('points.json must be {"points": [{name: value, ...}, ...]}')
+        return report, []
+    points = data["points"]
+    if len(points) > limit:
+        report.findings.append(f"points.json has {len(points)} points; at most {limit} are allowed")
+    for index, point in enumerate(points, 1):
+        if not isinstance(point, dict):
+            report.findings.append(f"points.json point {index}: must be an object mapping parameter names to numbers")
+            continue
+        unknown = sorted(set(point) - set(names))
+        if unknown:
+            report.findings.append(f"points.json point {index}: unknown parameters {', '.join(unknown)}; "
+                                   f"plugin parameters: {', '.join(names)}")
+        for name, value in point.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+                report.findings.append(f"points.json point {index}: {name} must be a finite real number (not a boolean)")
+    if not report.valid:
+        return report, []
+    report.checks.append(f"points.json shape valid ({len(points)} points)")
+    return report, points
