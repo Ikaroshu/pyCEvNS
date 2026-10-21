@@ -6,9 +6,9 @@ from importlib.resources.abc import Traversable
 from pathlib import Path
 
 OUTPUT_FILES = ("plugin.py", "card.json", "notes.md", "questions.json")
-# A directory holding FIT_RECORD is a fit directory, whose agent writes only FIT_OUTPUT_FILES.
-FIT_RECORD = "fit.json"
-FIT_OUTPUT_FILES = ("points.json", "notes.md")
+# A directory holding LOOP_RECORD is an agent-loop directory, whose agent writes only LOOP_OUTPUT_FILES.
+LOOP_RECORD = "loop.json"
+LOOP_OUTPUT_FILES = ("points.json", "notes.md")
 
 
 def copy_context(source: Traversable, destination: Path) -> None:

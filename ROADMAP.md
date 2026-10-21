@@ -12,7 +12,7 @@ Tracked in the GitHub project [pyCEvNS: Agentic CEvNS prototype](https://github.
 - M5b [#17](https://github.com/Ikaroshu/pyCEvNS/issues/17) Agent backends (`claude -p`, `codex exec`), harness and `propose`.
 - M6 [#18](https://github.com/Ikaroshu/pyCEvNS/issues/18) Streamlit page and packaging.
 - M7 [#21](https://github.com/Ikaroshu/pyCEvNS/issues/21) Conversational agent rounds (`questions.json`, `propose --answer`, the page's question form) and parameter re-evaluation on the page.
-- M8 [#22](https://github.com/Ikaroshu/pyCEvNS/issues/22) Agent parameter fit loop (`fit`, the page's fit form): with the interaction of a validated plugin fixed, a fit agent proposes parameter points round by round and the harness returns the Pareto set of per-experiment Δ.
+- M8 [#22](https://github.com/Ikaroshu/pyCEvNS/issues/22) Agent loop (`loop`, the agent-loop row of the page's Evaluate section): with the interaction of a validated plugin fixed, a loop agent proposes parameter points round by round and the harness returns the Pareto set of per-experiment Δ.
 
 ## Deferred
 

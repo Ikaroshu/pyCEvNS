@@ -238,7 +238,7 @@ def check_questions(path: Path) -> tuple[ValidationReport, list[dict]]:
 
 
 def check_points(path: Path, names: Sequence[str], limit: int) -> tuple[ValidationReport, list[dict[str, float]]]:
-    """Check a fit agent's points.json at the agent-output boundary; return the points when valid."""
+    """Check a loop agent's points.json at the agent-output boundary; return the points when valid."""
     report = ValidationReport()
     if not path.is_file():
         report.findings.append("points.json is missing")

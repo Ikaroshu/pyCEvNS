@@ -1,32 +1,32 @@
-"""Claude PreToolUse policy for the task's explicit tool restrictions; a fit directory gets the fit rules."""
+"""Claude PreToolUse policy for the task's explicit tool restrictions; an agent-loop directory gets the loop rules."""
 
 import json
 import sys
 from pathlib import Path
 
-from nuagent.agent.task import FIT_OUTPUT_FILES, FIT_RECORD, OUTPUT_FILES, validation_commands
+from nuagent.agent.task import LOOP_OUTPUT_FILES, LOOP_RECORD, OUTPUT_FILES, validation_commands
 
 
-def is_fit_directory(task_dir: Path) -> bool:
-    return (task_dir / FIT_RECORD).is_file()
+def is_loop_directory(task_dir: Path) -> bool:
+    return (task_dir / LOOP_RECORD).is_file()
 
 
 def allowed_tool(name: str, arguments: dict, task_dir: Path) -> bool:
-    fit = is_fit_directory(task_dir)
+    loop = is_loop_directory(task_dir)
     if name == "Bash":
-        return not fit and arguments.get("command", "").strip() in validation_commands()
+        return not loop and arguments.get("command", "").strip() in validation_commands()
     if name in ("Read", "Write", "Edit"):
         path = Path(arguments["file_path"])
         target = (task_dir / path).resolve()
         if name == "Read":
             return target.is_relative_to(task_dir.resolve())
-        return target in {task_dir.resolve() / output for output in (FIT_OUTPUT_FILES if fit else OUTPUT_FILES)}
+        return target in {task_dir.resolve() / output for output in (LOOP_OUTPUT_FILES if loop else OUTPUT_FILES)}
     return False
 
 
 def deny_reason(task_dir: Path) -> str:
-    if is_fit_directory(task_dir):
-        return f"Only fit-directory reads and {'/'.join(FIT_OUTPUT_FILES)} writes are allowed; every shell command is denied."
+    if is_loop_directory(task_dir):
+        return f"Only loop-directory reads and {'/'.join(LOOP_OUTPUT_FILES)} writes are allowed; every shell command is denied."
     return f"Only task reads, {'/'.join(OUTPUT_FILES)} writes and exact nuagent validate commands are allowed."
 
 

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
 from test_agent import NOTES, QUESTIONS, FakeBackend, snapshot
-from test_fit import FitBackend
+from test_loop import LoopBackend
 from test_plugins import EQUIVALENT_CARD
 
 import nuagent.agent.backend
@@ -100,9 +100,7 @@ def test_result_is_a_chat_with_the_result_block(monkeypatch, mode, valid):
         assert [message.name for message in app.chat_message] == (["user"] if valid else ["user", "assistant"])
         assert app.chat_message[0].markdown[0].value == "a vector mediator"
         if valid:
-            # The result section is followed only by the fit form.
-            children = list(app.main.children.values())
-            assert children[-2] is result_section(app) and [button.label for button in children[-1].button] == ["Fit"]
+            assert list(app.main.children.values())[-1] is result_section(app)
         assert len(app.get("image")) == (1 if valid else 0)
         assert not (app.success or app.warning or app.info or app.json)
         text = page_text(app)
@@ -122,7 +120,7 @@ def test_result_block_order_table_and_notes(monkeypatch):
     app = run_agent(page(monkeypatch, "correct"))
     block = result_section(app)
     assert not any(message.get("image") for message in app.chat_message)
-    assert block_sequence(block) == ["Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown",
+    assert block_sequence(block) == ["Form", "Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown",
                                      "Expander:Provenance", 
                                      "Expander:Plugin (plugin.py): the coefficient code the agent wrote",
                                      "Expander:Model card (card.json): the interaction written in the fixed schema the harness cross-checks against the plugin"]
@@ -219,7 +217,7 @@ def test_evaluate_updates_figure_and_table_in_place_without_changing_the_task(mo
     app = submit(app, "Evaluate")
     assert not app.exception
     block = result_section(app)
-    assert block_sequence(block)[:5] == ["Form", "Image", "Markdown", "Caption", "Caption"]
+    assert block_sequence(block)[:6] == ["Form", "Form", "Image", "Markdown", "Caption", "Caption"]
     images = app.get("image")
     assert len(images) == 1 and images[0].proto.SerializeToString() != agent_image
     _, records = evaluate_point(task, plugin.parameters | {"mass_mev": 50.0})
@@ -257,7 +255,7 @@ def test_each_run_gets_fresh_inputs_with_its_own_values(monkeypatch):
     assert second != first
     assert app.number_input(key=f"parameter:{second}:g_nu").value == 2e-4
     assert app.number_input(key=f"parameter:{second}:mass_mev").value == 20.0
-    assert all(widget.key.startswith(f"parameter:{second}:") for widget in app.number_input if not widget.key.startswith("fit_"))
+    assert all(widget.key.startswith(f"parameter:{second}:") for widget in app.number_input if not widget.key.startswith("loop_"))
     app = run_agent(app)
     assert app.session_state["agent_result"].state == "questions"
     app = run_agent(app)
@@ -315,10 +313,10 @@ def test_notes_title_is_dropped_only_when_it_opens_the_notes(monkeypatch):
     assert result_section(app).markdown[1].value.strip() == "Body."
 
 
-FIT_LABEL = "Fit"
+LOOP_LABEL = "Run agent loop"
 
 
-def fit_page(monkeypatch, *backends) -> tuple[AppTest, list]:
+def loop_page(monkeypatch, *backends) -> tuple[AppTest, list]:
     """A page that hands out `backends` in order, one per get_backend call, and runs the agent with the first."""
     calls = []
     def get_backend(name):
@@ -330,69 +328,81 @@ def fit_page(monkeypatch, *backends) -> tuple[AppTest, list]:
     return run_agent(app), calls
 
 
-def fit_section(app: AppTest):
-    sections = [child for child in app.main.children.values() if getattr(child.proto, "id", "").endswith("-fit_result")]
-    return sections[0] if sections else None
+def loop_expander_labels(app: AppTest) -> list[str]:
+    return [expander.label for expander in result_section(app).expander if expander.label.startswith("Agent loop")]
 
 
 @pytest.mark.parametrize("mode", ["sm-failure", "questions"])
-def test_fit_form_only_for_a_valid_result(monkeypatch, mode):
+def test_agent_loop_only_for_a_valid_result(monkeypatch, mode):
     app = run_agent(page(monkeypatch, mode))
-    assert not [widget for widget in app.button if widget.label == FIT_LABEL]
-    assert not [widget for widget in app.number_input if widget.key.startswith("fit_")]
+    assert not [widget for widget in app.button if widget.label == LOOP_LABEL]
+    assert not [widget for widget in app.number_input if widget.key.startswith("loop_")]
 
 
-def test_fit_runs_round_by_round_and_a_new_run_clears_it(monkeypatch):
-    fit_backend = FitBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}], name="claude")
-    app, calls = fit_page(monkeypatch, FakeBackend("plugin-only", name="claude"), fit_backend, FakeBackend("correct", name="claude"))
+def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
+    loop_backend = LoopBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}], name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("plugin-only", name="claude"), loop_backend, FakeBackend("correct", name="claude"))
     task = app.session_state["agent_task"]
-    rounds = app.number_input(key=f"fit_rounds:{task}")
-    assert (rounds.value, rounds.min, rounds.form_id) == (5, 1, "fit")
-    assert app.text_area(key=f"fit_guidance:{task}").form_id == "fit"
-    assert fit_section(app) is None
+    block = result_section(app)
+    rounds = block.number_input(key=f"loop_rounds:{task}")
+    assert (rounds.value, rounds.min, rounds.form_id) == (5, 1, "loop")
+    assert block.text_area(key=f"loop_guidance:{task}").form_id == "loop"
+    assert [button.label for button in block.button] == ["Evaluate", LOOP_LABEL]
+    assert block_sequence(block)[:3] == ["Form", "Form", "Image"] and not loop_expander_labels(app)
+    agent_table = block.markdown[0].value
     rounds.set_value(2)
-    app.text_area(key=f"fit_guidance:{task}").input("prefer light mediators")
-    app = submit(app, FIT_LABEL)
+    block.text_area(key=f"loop_guidance:{task}").input("prefer light mediators")
+    app = submit(app, LOOP_LABEL)
     assert not app.exception
     assert calls == ["claude", "claude"]
-    fit_dir = app.session_state["fit_dir"]
-    assert fit_dir.parent.parent == task.parent and (fit_dir.parent / "report.md").read_text().startswith("Outcome: **completed**")
-    assert "prefer light mediators" in (fit_dir / "TASK.md").read_text()
-    progress = app.status[0]
-    assert progress.label == "Fit completed after 2 agent rounds"
-    assert [markdown.value.split("\n")[0] for markdown in progress.markdown] == [
-        "The translation agent's point (round 0):", "Agent round 1 of 2: evaluated", "Agent round 2 of 2: evaluated"]
-    assert "non-perturbative coupling g_nu" in progress.markdown[1].value
-    section = fit_section(app)
-    texts = [markdown.value for markdown in section.markdown]
-    assert texts[0].startswith("Outcome: **completed** after 2 of 2 agent rounds; 4 points evaluated")
-    assert texts[1].startswith("Pareto set") and "| Round | Point |" in texts[1]
-    history = json.loads((fit_dir / "history.json").read_text())
+    loop_dir = app.session_state["loop_dir"]
+    assert loop_dir.parent.parent == task.parent and (loop_dir.parent / "report.md").read_text().startswith("Outcome: **completed**")
+    assert "prefer light mediators" in (loop_dir / "TASK.md").read_text()
+    history = json.loads((loop_dir / "history.json").read_text())
     best = min((entry for entry in history if entry["evaluations"]), key=lambda entry: entry["evaluations"][0]["delta"])
-    assert texts[2] == f"Best point: round {best['round']}, point {best['index']} (lowest summed Δ in the Pareto set)."
     assert best["round"] != 0
-    assert f"{best['evaluations'][0]['delta']:.6g}" in texts[3] and "Background scale β" in texts[3]
-    assert section.caption[0].value == ("Verification at the agent's values: plugin-only (no model card to cross-check; the plugin's own checks pass "
-                                        "at the agent's values). At these values: plugin-only (only the plugin was checked here).")
-    assert texts[4].startswith("Points by round") and texts[4].count("\n|") == 6
-    assert [expander.label for expander in section.expander] == ["Agent notes, round 1 (evaluated)", "Agent notes, round 2 (evaluated)"]
-    assert str(fit_dir) in section.caption[-1].value
-    assert len(app.get("image")) == 2
+    block = result_section(app)
+    assert {name: block.number_input(key=f"parameter:{task}:{name}").value for name in best["parameters"]} == best["parameters"]
+    table = block.markdown[0].value
+    assert table != agent_table and f"{best['evaluations'][0]['delta']:.6g}" in table
+    assert block.caption[0].value == ("Verification at the agent's values: plugin-only (no model card to cross-check; the plugin's own checks pass "
+                                      "at the agent's values). At these values: plugin-only (only the plugin was checked here).")
+    assert block_sequence(block)[:8] == ["Form", "Form", "Image", "Markdown", "Caption", "Caption",
+                                         "Expander:Agent loop: completed, best fit", "Expander:Agent loop: points by round"]
+    assert loop_expander_labels(app) == ["Agent loop: completed, best fit", "Agent loop: points by round",
+                                         "Agent loop: notes, round 1 (evaluated)", "Agent loop: notes, round 2 (evaluated)",
+                                         "Agent loop: directory and report"]
+    outcome = block.expander[0].markdown[0].value
+    assert outcome.startswith("Outcome: **completed** after 2 of 2 agent rounds; 4 points evaluated")
+    assert f"round {best['round']}, point {best['index']}" in outcome and "| Round | Point |" in outcome
+    assert block.expander[1].markdown[0].value.count("\n|") == 5
+    assert str(loop_dir) in block.expander[4].markdown[0].value
+    assert len(app.get("image")) == 1 and not app.status
+    app = submit(app, "Evaluate")
+    assert result_section(app).markdown[0].value == table
+    app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
+    app.number_input(key=f"parameter:{task}:g_nu").set_value(1e-4)
+    app = submit(app, "Evaluate")
+    assert result_section(app).markdown[0].value == agent_table
     app = run_agent(app)
     assert not app.exception
-    assert "fit_dir" not in app.session_state and fit_section(app) is None
+    assert "loop_dir" not in app.session_state and not loop_expander_labels(app)
     assert calls == ["claude"] * 3
 
 
-def test_starting_a_new_fit_clears_the_previous_one(monkeypatch):
-    fit_backend = FitBackend([{"g_nu": 2e-4}], "failure", name="claude")
-    app, calls = fit_page(monkeypatch, FakeBackend("correct", name="claude"), fit_backend, fit_backend)
+def test_agent_loop_progress_and_a_new_loop_clears_the_previous_one(monkeypatch):
+    loop_backend = LoopBackend([{"g_nu": 2e-4}], [{"g_nu": 3e-4}], "failure", name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend, loop_backend)
     task = app.session_state["agent_task"]
-    app.number_input(key=f"fit_rounds:{task}").set_value(1)
-    app = submit(app, FIT_LABEL)
-    assert fit_section(app) is not None
-    app = submit(app, FIT_LABEL)
+    app.number_input(key=f"loop_rounds:{task}").set_value(1)
+    app = submit(app, LOOP_LABEL)
+    assert loop_expander_labels(app)
+    app.number_input(key=f"loop_rounds:{task}").set_value(2)
+    app = submit(app, LOOP_LABEL)
     assert app.exception
-    assert "fit_dir" not in app.session_state
+    assert "loop_dir" not in app.session_state
+    progress = app.status[0]
+    assert [markdown.value.split("\n")[0] for markdown in progress.markdown] == [
+        "The translation agent's point (round 0):", "Agent round 1 of 2: evaluated"]
     app.text_area(key="agent_description").input("an edited description").run()
-    assert not app.exception and fit_section(app) is None
+    assert not app.exception and not loop_expander_labels(app)
