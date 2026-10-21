@@ -14,15 +14,16 @@ from test_cli import cli
 from test_plugins import COEFFICIENT_PLUGIN
 
 from nuagent.agent.backend import BackendFailure, BackendResult
-from nuagent.agent.loop import pareto_set, read_loop, read_history, run_loop, run_loop_round, start_loop
+from nuagent.agent.loop import pareto_set, read_loop, read_history, run_loop, run_loop_step, start_loop
 from nuagent.agent.run import evaluate_point, run_result
 from nuagent.agent.tool_policy import allowed_tool, deny_reason
 from nuagent.physics.plugin import load_coefficient_plugin
 
 
 class LoopBackend:
-    """Plays one scripted step per call: a points list or raw points.json text with notes, None for notes without
-    points.json, "nothing" for no output at all, or "failure" for a failing CLI."""
+    """Plays one scripted step per call, writing notes: a points list (with the hypothesis "Hypothesis <call>", and for an
+    empty list the conclusion "Conclusion <call>"), raw points.json text, None for no points.json, "nothing" for no output
+    at all, or "failure" for a failing CLI."""
 
     def __init__(self, *script, name="fake", edit_plugin_copy=False):
         self.script = list(script)
@@ -47,7 +48,9 @@ class LoopBackend:
             copy.write_text(COEFFICIENT_PLUGIN.replace("return c", "c.set('V', 'u', 'mm', 0.5)\n    return c"))
         (task_dir / "notes.md").write_text(f"# Loop notes\n\nObservations for call {len(self.prompts)}.")
         if step is not None:
-            (task_dir / "points.json").write_text(step if isinstance(step, str) else json.dumps({"points": step}))
+            call = len(self.prompts)
+            output = {"hypothesis": f"Hypothesis {call}", "points": step} | ({} if step else {"conclusion": f"Conclusion {call}"})
+            (task_dir / "points.json").write_text(step if isinstance(step, str) else json.dumps(output))
         return BackendResult("done", 0, '{"model":"fake-loop-model","total_cost_usd":0.01}')
 
 
@@ -66,14 +69,21 @@ def test_three_round_flow_records_and_leaves_the_source_task_unchanged(tmp_path)
     task = valid_task(tmp_path)
     before = snapshot(task)
     loop_dir, out = tmp_path / "F.loop", tmp_path / "F.md"
-    backend = LoopBackend([{"g_nu": 2e-4}], [{"mass_mev": 50.0}, {"g_nu": 5.0}], [{"g_u": -4e-5, "g_d": 8e-5}], name="other")
+    backend = LoopBackend([{"g_nu": 2e-4}], [{"mass_mev": 50.0}, {"g_nu": 5.0}], [{"g_u": -4e-5, "g_d": 8e-5}], [], name="other")
     step = run_loop(task, loop_dir, backend, out, rounds=3)
-    assert (step.round, step.state, step.loop_state) == (3, "evaluated", "completed")
+    assert (step.round, step.closing, step.state, step.loop_state) == (3, True, "concluded", "completed")
     assert snapshot(task) == before
     record = read_loop(loop_dir)
     assert record["backend"] == "other" and record["source_task"] == str(task.resolve())
     assert (record["experiments"], record["rounds_requested"], record["batch_limit"], record["guidance"]) == (["coherent_csi_2017"], 3, 8, None)
-    assert record["rounds"] == [{"round": n, "state": "evaluated"} for n in (1, 2, 3)] and record["state"] == "completed"
+    assert record["rounds"] == [{"round": n, "state": "evaluated", "hypothesis": f"Hypothesis {n}"} for n in (1, 2, 3)]
+    assert record["closing"] == {"state": "concluded", "hypothesis": "Hypothesis 4", "conclusion": "Conclusion 4"}
+    assert (record["conclusion"], record["state"]) == ("Conclusion 4", "completed")
+    assert {path.name for path in (loop_dir / "history/closing/attempt-1").iterdir()} == {
+        "backend.json", "validation.json", "points.json", "notes.md"}
+    assert "## Closing call" in backend.prompts[3] and "no more points will be\nevaluated" in backend.prompts[3]
+    assert "- history/round-3/attempt-1/notes.md" in backend.prompts[3] and "## Closing call" not in backend.prompts[2]
+    assert "Conclusion 4" in step.report
     history = read_history(loop_dir)
     assert [(entry["round"], entry["index"]) for entry in history] == [(0, 1), (1, 1), (2, 1), (2, 2), (3, 1)]
     assert history[0]["parameters"] == defaults(task)
@@ -90,7 +100,7 @@ def test_three_round_flow_records_and_leaves_the_source_task_unchanged(tmp_path)
     assert "Round 2 of 3" in backend.prompts[1] and "- history/round-1/attempt-1/notes.md" in backend.prompts[1]
     assert "history/round-2/attempt-1/notes.md" in backend.prompts[2]
     assert [(entry["round"], bool(entry["evaluations"])) for entry in backend.histories[1]] == [(0, True), (1, True)]
-    assert backend.leftovers == [[], [], []]
+    assert backend.leftovers == [[], [], [], []]
     for prompt in backend.prompts:
         assert "α near −1" in prompt and "points.json" in prompt and "User guidance" not in prompt
         assert ("On Codex, read files inside\nthis directory with read-only shell commands (cat, sed -n, ls, head) and write\nwith apply_patch. "
@@ -101,7 +111,7 @@ def test_three_round_flow_records_and_leaves_the_source_task_unchanged(tmp_path)
 
 def test_points_take_defaults_match_evaluate_point_and_ignore_the_plugin_copy(tmp_path):
     task = valid_task(tmp_path)
-    backend = LoopBackend([{"mass_mev": 50.0}, {"g_nu": 5.0}, {"g_nu": 2e-4, "mass_mev": 20}], edit_plugin_copy=True)
+    backend = LoopBackend([{"mass_mev": 50.0}, {"g_nu": 5.0}, {"g_nu": 2e-4, "mass_mev": 20}], [], edit_plugin_copy=True)
     run_loop(task, tmp_path / "F.loop", backend, tmp_path / "F.md", rounds=1)
     history = read_history(tmp_path / "F.loop")
     first, failed, third = history[1:]
@@ -113,23 +123,33 @@ def test_points_take_defaults_match_evaluate_point_and_ignore_the_plugin_copy(tm
     assert third["evaluations"][0]["delta"] == evaluate_point(task, {"g_nu": 2e-4, "mass_mev": 20})[1][0]["delta"]
 
 
-NINE = json.dumps({"points": [{"g_nu": 1e-4 * n} for n in range(1, 10)]})
+def points_text(points, **fields) -> str:
+    return json.dumps({"hypothesis": "A larger coupling raises the signal.", "points": points} | fields)
+
+
+NINE = points_text([{"g_nu": 1e-4 * n} for n in range(1, 10)])
 
 
 @pytest.mark.parametrize("bad,finding", [
-    (json.dumps({"points": [{"width": 1.0}]}), "unknown parameters width"),
+    (points_text([{"width": 1.0}]), "unknown parameters width"),
     (NINE, "has 9 points; at most 8"),
-    (json.dumps({"points": [{"g_nu": True}]}), "g_nu must be a finite real number (not a boolean)"),
-    ('{"points": [{"g_nu": NaN}]}', "g_nu must be a finite real number"),
+    (points_text([{"g_nu": True}]), "g_nu must be a finite real number (not a boolean)"),
+    ('{"hypothesis": "h", "points": [{"g_nu": NaN}]}', "g_nu must be a finite real number"),
+    (json.dumps({"points": [{"g_nu": 1e-4}]}), "points.json must be"),
+    (points_text([{"g_nu": 1e-4}], hypothesis=""), "hypothesis must be a nonempty string"),
+    (points_text([{"g_nu": 1e-4}], hypothesis=3), "hypothesis must be a nonempty string"),
+    (points_text([{"g_nu": 1e-4}], conclusion="Done."), "conclusion is written only with an empty points list"),
+    (points_text([]), "must carry the conclusion"),
+    (points_text([], conclusion=" "), "conclusion must be a nonempty string"),
     ('{"points": [', "not valid JSON"),
     (json.dumps([{"g_nu": 1e-4}]), "points.json must be"),
     (None, "points.json is missing"),
 ])
 def test_malformed_points_get_one_correction_then_stop_the_loop(tmp_path, bad, finding):
     task = valid_task(tmp_path)
-    backend = LoopBackend(bad, [{"g_nu": 2e-4}])
-    step = run_loop(task, tmp_path / "A.loop", backend, tmp_path / "A.md", rounds=1)
-    assert (step.state, len(backend.prompts)) == ("evaluated", 2)
+    backend = LoopBackend(bad, [{"g_nu": 2e-4}], [])
+    run_loop(task, tmp_path / "A.loop", backend, tmp_path / "A.md", rounds=1)
+    assert (read_loop(tmp_path / "A.loop")["rounds"][0]["state"], len(backend.prompts)) == ("evaluated", 3)
     assert finding in backend.prompts[1] and "## Validation correction (one attempt)" in backend.prompts[1]
     assert backend.leftovers[1] == []
     validation = json.loads((tmp_path / "A.loop/history/round-1/attempt-1/validation.json").read_text())
@@ -140,15 +160,17 @@ def test_malformed_points_get_one_correction_then_stop_the_loop(tmp_path, bad, f
     report = (tmp_path / "B.md").read_text()
     assert report == step.report and report.startswith("Outcome: **stopped-invalid**")
     assert "| 1 | 1 |" in report and "### Round 2, attempt 2" in report
-    assert read_loop(tmp_path / "B.loop")["rounds"][-1] == {"round": 2, "state": "invalid"}
+    record = read_loop(tmp_path / "B.loop")
+    assert record["rounds"][-1] == {"round": 2, "state": "invalid"} and (record["closing"], record["conclusion"]) == (None, None)
+    assert len(backend.prompts) == 3 and "No conclusion: the loop stopped" in report
 
 
 def test_round_two_outputs_start_cleared(tmp_path):
     task = valid_task(tmp_path)
-    backend = LoopBackend([{"g_nu": 2e-4}], None, [{"g_nu": 3e-4}])
-    step = run_loop(task, tmp_path / "A.loop", backend, tmp_path / "A.md", rounds=2)
-    assert (step.state, len(backend.prompts)) == ("evaluated", 3)
-    assert backend.leftovers == [[], [], []]
+    backend = LoopBackend([{"g_nu": 2e-4}], None, [{"g_nu": 3e-4}], [])
+    run_loop(task, tmp_path / "A.loop", backend, tmp_path / "A.md", rounds=2)
+    assert (read_loop(tmp_path / "A.loop")["rounds"][1]["state"], len(backend.prompts)) == ("evaluated", 4)
+    assert backend.leftovers == [[], [], [], []]
     assert "points.json is missing" in backend.prompts[2]
     backend = LoopBackend([{"g_nu": 2e-4}], "nothing")
     with pytest.raises(RuntimeError, match="no nonempty notes.md"):
@@ -164,7 +186,27 @@ def test_empty_points_converge_early(tmp_path):
     assert (step.round, step.state, step.loop_state, step.points) == (2, "converged", "converged", [])
     assert len(backend.prompts) == 2
     assert step.report.startswith("Outcome: **converged**") and "Rounds run: 2 of 5" in step.report
-    assert [entry["state"] for entry in read_loop(tmp_path / "F.loop")["rounds"]] == ["evaluated", "converged"]
+    record = read_loop(tmp_path / "F.loop")
+    assert [entry["state"] for entry in record["rounds"]] == ["evaluated", "converged"]
+    assert (record["rounds"][1]["conclusion"], record["conclusion"], record["closing"]) == ("Conclusion 2", "Conclusion 2", None)
+    assert "### Conclusion\n\nConclusion 2" in step.report
+
+
+def test_closing_call_malformed_twice_or_failing(tmp_path):
+    task = valid_task(tmp_path)
+    backend = LoopBackend([{"g_nu": 2e-4}], points_text([{"g_nu": 3e-4}]), None)
+    step = run_loop(task, tmp_path / "A.loop", backend, tmp_path / "A.md", rounds=1)
+    assert (step.closing, step.state, step.loop_state) == (True, "invalid", "completed")
+    assert "points must be an empty list in the closing call" in backend.prompts[2] and "## Closing call" in backend.prompts[2]
+    record = read_loop(tmp_path / "A.loop")
+    assert (record["state"], record["closing"], record["conclusion"]) == ("completed", {"state": "invalid"}, None)
+    assert "No conclusion: the closing call's points.json was malformed twice." in step.report
+    assert "### Closing call, attempt 2" in step.report
+    backend = LoopBackend([{"g_nu": 2e-4}], "failure")
+    with pytest.raises(BackendFailure):
+        run_loop(task, tmp_path / "B.loop", backend, tmp_path / "B.md", rounds=1)
+    assert read_loop(tmp_path / "B.loop")["closing"] == {"state": "backend-failure"}
+    assert not (tmp_path / "B.md").exists()
 
 
 def entry(number: int, index: int, *deltas: float) -> dict:
@@ -191,10 +233,11 @@ def test_failures_name_the_state_and_record_backend_failure(tmp_path):
     loop_dir = tmp_path / "F.loop"
     backend = LoopBackend([{"g_nu": 2e-4}], "failure")
     start_loop(task, loop_dir, backend, 3)
-    assert run_loop_round(loop_dir, backend, tmp_path / "F.md").loop_state is None
+    assert run_loop_step(loop_dir, backend, tmp_path / "F.md").loop_state is None
     with pytest.raises(BackendFailure, match="loop backend failure raw"):
-        run_loop_round(loop_dir, backend, tmp_path / "F.md")
-    assert read_loop(loop_dir)["rounds"] == [{"round": 1, "state": "evaluated"}, {"round": 2, "state": "backend-failure"}]
+        run_loop_step(loop_dir, backend, tmp_path / "F.md")
+    assert read_loop(loop_dir)["rounds"] == [{"round": 1, "state": "evaluated", "hypothesis": "Hypothesis 1"},
+                                             {"round": 2, "state": "backend-failure"}]
     assert "unavailable" in (loop_dir / "history/round-2/attempt-1/backend.json").read_text()
     assert not (tmp_path / "F.md").exists()
 
@@ -228,11 +271,16 @@ def test_loop_tool_policy(tmp_path):
     assert decision["permissionDecision"] == "deny" and "points.json/notes.md" in decision["permissionDecisionReason"]
 
 
+CLOSING = json.dumps({"hypothesis": "The best point stands.", "points": [], "conclusion": "A larger g_nu fits slightly better."})
+
+
 def fake_loop_cli(directory: Path, points: str) -> None:
+    """A fake claude executable writing `points` in rounds and a valid conclusion in the closing call."""
     directory.mkdir()
     executable = directory / "claude"
     executable.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nimport json\n"
-                          f"Path('points.json').write_text({points!r})\n"
+                          "closing = '## Closing call' in Path('TASK.md').read_text()\n"
+                          f"Path('points.json').write_text({CLOSING!r} if closing else {points!r})\n"
                           "Path('notes.md').write_text('Raised g_nu to probe a larger signal.')\n"
                           "print(json.dumps({'result':'done','model':'fake','total_cost_usd':0}))\n")
     executable.chmod(0o755)
@@ -244,7 +292,7 @@ def nuagent(*arguments: str) -> subprocess.CompletedProcess:
 
 def test_loop_cli(tmp_path, monkeypatch):
     task = valid_task(tmp_path, name="claude")
-    fake_loop_cli(tmp_path / "good", json.dumps({"points": [{"g_nu": 2e-4}, {"g_nu": 5e-5}]}))
+    fake_loop_cli(tmp_path / "good", points_text([{"g_nu": 2e-4}, {"g_nu": 5e-5}]))
     monkeypatch.setenv("PATH", str(tmp_path / "good") + os.pathsep + os.environ["PATH"])
     out = tmp_path / "F.md"
     output = cli("loop", "--task-dir", str(task), "--out", str(out), "--rounds", "2", "--guidance", "keep mass_mev at 30")
@@ -259,7 +307,7 @@ def test_loop_cli(tmp_path, monkeypatch):
     assert read_loop(tmp_path / "F.loop")["backend"] == "claude"
     prompt = (tmp_path / "F.loop/TASK.md").read_text()
     assert "## User guidance\n\nThe user's instruction for this agent loop:\n\nkeep mass_mev at 30\n" in prompt
-    assert "- Guidance: keep mass_mev at 30" in out.read_text()
+    assert "- Guidance: keep mass_mev at 30" in out.read_text() and "A larger g_nu fits slightly better." in out.read_text()
     rejected = nuagent("loop", "--task-dir", str(task), "--out", str(tmp_path / "Z.md"), "--rounds", "0")
     assert rejected.returncode == 2 and "--rounds must be a positive integer" in rejected.stderr
     questions = tmp_path / "questions"
@@ -278,12 +326,12 @@ def test_loop_cli(tmp_path, monkeypatch):
 
 def test_report_sections_points_and_guidance(tmp_path):
     task = valid_task(tmp_path, mode="plugin-only")
-    backend = LoopBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}])
+    backend = LoopBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}], [])
     step = run_loop(task, tmp_path / "F.loop", backend, tmp_path / "F.md", rounds=2, guidance="prefer light mediators")
     report = step.report
     assert report.splitlines()[0] == "Outcome: **completed**"
     headings = [line for line in report.splitlines() if line.startswith("## ")]
-    assert headings == ["## Best fit", "## Source task", "## Points by round", "## Round notes", "## Validation history",
+    assert headings == ["## Research log", "## Best fit", "## Source task", "## Points by round", "## Round notes", "## Validation history",
                         "## Backend CLI records", "## Provenance"]
     assert "Rounds run: 2 of 2. Points evaluated: 4" in report
     points = report.split("## Points by round\n\n")[1].split("\n\n")[0].splitlines()[2:]
@@ -291,7 +339,13 @@ def test_report_sections_points_and_guidance(tmp_path):
     assert "non-perturbative coupling g_nu" in points[2]
     assert "- Guidance: prefer light mediators" in report and "- Verification of the translation: plugin-only" in report
     assert "Round 0, the translation agent's point, for comparison: Δ coherent_csi_2017 = " in report
-    assert "### Round 1\n\n# Loop notes" in report and "fake-loop-model" in report
+    assert "### Round 1\n\n# Loop notes" in report and "### Closing call\n\n# Loop notes" in report and "fake-loop-model" in report
+    log = report.split("## Research log\n\n")[1].split("\n## Best fit")[0].strip()
+    assert log.split("\n\n") == ["### Round 1 · 2 points, 1 passed checks · best Δ " + log.split("best Δ ")[1].split("\n")[0],
+                                   "Hypothesis: Hypothesis 1", log.split("\n\n")[2], "Hypothesis: Hypothesis 2",
+                                   "### Conclusion", "Conclusion 3"]
+    assert log.split("\n\n")[2].startswith("### Round 2 · 1 points, 1 passed checks · best Δ ")
+    assert '"closing_call": "concluded"' in report
     provenance = json.loads(report.split("## Provenance\n\n```json\n")[1].split("\n```")[0])
     assert (provenance["rounds_requested"], provenance["rounds_run"], provenance["backend"]) == (2, 2, "fake")
     assert provenance["source_task"] == str(task.resolve()) and "git_revision" in provenance

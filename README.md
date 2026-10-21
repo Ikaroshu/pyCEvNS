@@ -161,15 +161,17 @@ For a validated model the result section has, in this order:
 
 Directly below the parameter inputs, the agent-loop row runs the agent
 loop described below on the task's backend: choose the number of agent
-rounds (default 5) and optional guidance, and press "Run agent loop". A
-status element shows each round's points and Δ as it finishes. When the
+rounds (default 5) and optional guidance, and press "Run agent loop". When the
 loop ends, its best point (the Pareto point with the lowest summed Δ) is
 written into the parameter inputs, and the spectrum and table show it with
 the usual verification caption; change the values and Evaluate from there.
-Expanders under the table hold the loop's outcome and best-fit (Pareto)
-table, every point by round, each round's notes, and the agent-loop
-directory and report paths. A new agent run or a new loop clears the
-previous loop result.
+Below the table follow the research log (per round the points tried and
+passed, the best Δ and the agent's hypothesis, then the agent's conclusion
+highlighted), expanders with the outcome and best-fit (Pareto) table, every
+point by round, each round's notes and the agent-loop directory and report
+paths, and the trajectory: Δ by round with the best so far, and Δ against
+each parameter. While the loop runs, the log and the charts grow round by
+round. A new agent run or a new loop clears the previous loop result.
 
 The figure and table show the agent's point first. Evaluate checks the
 plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
@@ -264,10 +266,13 @@ plugin, card and notes, the context pack, `data/<experiment>.json` (bins,
 observed counts, backgrounds and priors, the SM prediction and profile) and
 `history.json`, every point evaluated so far starting with round 0, the
 translation agent's own point. Each round the agent writes `points.json`
-(at most 8 points, `{"points": [{name: value, ...}, ...]}`; omitted names keep
-the translation agent's values; an empty list ends the loop as converged) and
-`notes.md` with its reasoning. A malformed `points.json` gets one correction
-attempt; a second ends the loop `stopped-invalid`.
+(`{"hypothesis": "...", "points": [{name: value, ...}, ...]}` with at most 8
+points; omitted names keep the translation agent's values; an empty list ends
+the loop as converged and carries `"conclusion"`) and `notes.md` with its
+reasoning. A malformed `points.json` gets one correction attempt; a second
+ends the loop `stopped-invalid`. If the requested rounds end without
+convergence, one closing call (not a round) asks the agent for its
+conclusion with an empty points list.
 
 The harness alone evaluates: each point is checked like a translation
 (perturbativity, the SM limit with `COUPLINGS` zeroed, counts) with the
@@ -279,7 +284,8 @@ plugin-only, since the card cross-check holds only at the translation agent's
 point. `--guidance` is passed to the agent verbatim and is advisory.
 
 The report's first line is the outcome (`completed`, `converged` or
-`stopped-invalid`), followed by the best fit with its likelihood tables, the
+`stopped-invalid`), followed by the research log (each round's hypothesis,
+points and best Δ, then the conclusion), the best fit with its likelihood tables, the
 source task, every point by round, each round's notes, the validation and
 backend records, and the provenance. The command prints JSON with the report
 path, the outcome, the rounds run and the Pareto set, and exits 1 for

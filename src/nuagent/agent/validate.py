@@ -237,21 +237,36 @@ def check_questions(path: Path) -> tuple[ValidationReport, list[dict]]:
     return report, questions
 
 
-def check_points(path: Path, names: Sequence[str], limit: int) -> tuple[ValidationReport, list[dict[str, float]]]:
-    """Check a loop agent's points.json at the agent-output boundary; return the points when valid."""
+def check_points(path: Path, names: Sequence[str], limit: int, closing: bool = False) -> tuple[ValidationReport, dict | None]:
+    """Check a loop agent's points.json at the agent-output boundary; return its contents when valid.
+
+    Every points.json carries a hypothesis; an empty points list (converging, or required in the closing call) also
+    carries the conclusion, which must not appear beside points.
+    """
     report = ValidationReport()
     if not path.is_file():
         report.findings.append("points.json is missing")
-        return report, []
+        return report, None
     text = path.read_text()
     if not JSON_TEXT.isinstance_python(text):
         report.findings.append("points.json is not valid JSON")
-        return report, []
+        return report, None
     data = json.loads(text)
-    if not isinstance(data, dict) or set(data) != {"points"} or not isinstance(data["points"], list):
-        report.findings.append('points.json must be {"points": [{name: value, ...}, ...]}')
-        return report, []
+    if (not isinstance(data, dict) or not {"hypothesis", "points"} <= set(data) <= {"hypothesis", "points", "conclusion"}
+            or not isinstance(data["points"], list)):
+        report.findings.append('points.json must be {"hypothesis": "...", "points": [{name: value, ...}, ...]}, '
+                               'plus "conclusion": "..." when the points list is empty')
+        return report, None
+    for field in ("hypothesis", "conclusion"):
+        if field in data and (not isinstance(data[field], str) or not data[field].strip()):
+            report.findings.append(f"points.json {field} must be a nonempty string")
     points = data["points"]
+    if closing and points:
+        report.findings.append("points.json points must be an empty list in the closing call; no more points are evaluated")
+    elif points and "conclusion" in data:
+        report.findings.append("points.json conclusion is written only with an empty points list, after every result is in")
+    elif not points and "conclusion" not in data:
+        report.findings.append("points.json with an empty points list must carry the conclusion")
     if len(points) > limit:
         report.findings.append(f"points.json has {len(points)} points; at most {limit} are allowed")
     for index, point in enumerate(points, 1):
@@ -266,6 +281,6 @@ def check_points(path: Path, names: Sequence[str], limit: int) -> tuple[Validati
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
                 report.findings.append(f"points.json point {index}: {name} must be a finite real number (not a boolean)")
     if not report.valid:
-        return report, []
+        return report, None
     report.checks.append(f"points.json shape valid ({len(points)} points)")
-    return report, points
+    return report, data

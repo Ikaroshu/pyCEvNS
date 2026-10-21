@@ -340,7 +340,7 @@ def test_agent_loop_only_for_a_valid_result(monkeypatch, mode):
 
 
 def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
-    loop_backend = LoopBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}], name="claude")
+    loop_backend = LoopBackend([{"g_nu": 2e-4}, {"g_nu": 5.0}], [{"mass_mev": 50.0}], [], name="claude")
     app, calls = loop_page(monkeypatch, FakeBackend("plugin-only", name="claude"), loop_backend, FakeBackend("correct", name="claude"))
     task = app.session_state["agent_task"]
     block = result_section(app)
@@ -367,17 +367,24 @@ def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
     assert table != agent_table and f"{best['evaluations'][0]['delta']:.6g}" in table
     assert block.caption[0].value == ("Verification at the agent's values: plugin-only (no model card to cross-check; the plugin's own checks pass "
                                       "at the agent's values). At these values: plugin-only (only the plugin was checked here).")
-    assert block_sequence(block)[:8] == ["Form", "Form", "Image", "Markdown", "Caption", "Caption",
-                                         "Expander:Agent loop: completed, best fit", "Expander:Agent loop: points by round"]
-    assert loop_expander_labels(app) == ["Agent loop: completed, best fit", "Agent loop: points by round",
-                                         "Agent loop: notes, round 1 (evaluated)", "Agent loop: notes, round 2 (evaluated)",
-                                         "Agent loop: directory and report"]
+    # The research log, its records collapsed, then the trajectory, all after the likelihood table.
+    assert block_sequence(block)[:19] == [
+        "Form", "Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown", "Markdown", "Info",
+        "Expander:Agent loop: completed, best fit", "Expander:Agent loop: points by round",
+        "Expander:Agent loop: notes, round 1 (evaluated)", "Expander:Agent loop: notes, round 2 (evaluated)",
+        "Expander:Agent loop: notes, closing call (concluded)", "Expander:Agent loop: directory and report",
+        "Subheader", "Image", "Image"]
+    assert [subheader.value for subheader in block.subheader] == ["Evaluate the interaction", "Research log", "Agent loop trajectory", "Note"]
+    first, second = block.markdown[1].value, block.markdown[2].value
+    assert first.startswith("**Round 1 · 2 points, 1 passed checks · best Δ ") and first.endswith("Hypothesis: Hypothesis 1")
+    assert second.startswith("**Round 2 · 1 points, 1 passed checks · best Δ ") and second.endswith("Hypothesis: Hypothesis 2")
+    assert block.info[0].value == "**Conclusion.** Conclusion 3"
     outcome = block.expander[0].markdown[0].value
     assert outcome.startswith("Outcome: **completed** after 2 of 2 agent rounds; 4 points evaluated")
     assert f"round {best['round']}, point {best['index']}" in outcome and "| Round | Point |" in outcome
     assert block.expander[1].markdown[0].value.count("\n|") == 5
-    assert str(loop_dir) in block.expander[4].markdown[0].value
-    assert len(app.get("image")) == 1 and not app.status
+    assert str(loop_dir) in block.expander[5].markdown[0].value
+    assert len(app.get("image")) == 3
     app = submit(app, "Evaluate")
     assert result_section(app).markdown[0].value == table
     app.number_input(key=f"parameter:{task}:mass_mev").set_value(30.0)
@@ -391,7 +398,7 @@ def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
 
 
 def test_agent_loop_progress_and_a_new_loop_clears_the_previous_one(monkeypatch):
-    loop_backend = LoopBackend([{"g_nu": 2e-4}], [{"g_nu": 3e-4}], "failure", name="claude")
+    loop_backend = LoopBackend([{"g_nu": 2e-4}], [], [{"g_nu": 3e-4}, {"g_nu": 5.0}], "failure", name="claude")
     app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend, loop_backend)
     task = app.session_state["agent_task"]
     app.number_input(key=f"loop_rounds:{task}").set_value(1)
@@ -401,8 +408,36 @@ def test_agent_loop_progress_and_a_new_loop_clears_the_previous_one(monkeypatch)
     app = submit(app, LOOP_LABEL)
     assert app.exception
     assert "loop_dir" not in app.session_state
-    progress = app.status[0]
-    assert [markdown.value.split("\n")[0] for markdown in progress.markdown] == [
-        "The translation agent's point (round 0):", "Agent round 1 of 2: evaluated"]
+    # The log and the trajectory grew in place: they show round 1 while round 2 was running when it failed.
+    block = result_section(app)
+    assert any(caption.value.startswith("Agent loop on claude") and "running round 2 of 2" in caption.value for caption in block.caption)
+    assert [markdown.value.split("  \n")[0] for markdown in block.markdown if markdown.value.startswith("**Round")] == [
+        f"**Round 1 · 2 points, 1 passed checks · best Δ {round_one_best(app):.4g}**"]
+    assert not block.info and not [expander for expander in block.expander if expander.label.endswith("best fit")]
+    # The failed run stopped before the spectrum; the two images are the growing trajectory.
+    assert len(app.get("image")) == 2
     app.text_area(key="agent_description").input("an edited description").run()
     assert not app.exception and not loop_expander_labels(app)
+
+
+def round_one_best(app: AppTest) -> float:
+    loop_dirs = sorted(app.session_state["agent_task"].parent.glob("loop-*/loop"), key=lambda path: path.stat().st_mtime)
+    history = json.loads((loop_dirs[-1] / "history.json").read_text())
+    return min(entry["evaluations"][0]["delta"] for entry in history if entry["round"] == 1 and entry["evaluations"])
+
+
+def test_trajectory_figures_leave_out_failing_points_and_choose_axes():
+    from nuagent.ui.figures import delta_by_round_figure, parameter_figure
+    def point(number, delta, **parameters):
+        return {"round": number, "index": 1, "parameters": {"mass_mev": 10.0, "g": 1e-4} | parameters, "findings": [] if delta is not None else ["x"],
+                "evaluations": [] if delta is None else [{"experiment": "e", "delta": delta}]}
+    history = [point(0, 7.5), point(1, 0.4, mass_mev=20.0, g=2e-3), point(1, None, g=5.0), point(2, -0.1, mass_mev=-5.0, g=2e-4)]
+    rounds = delta_by_round_figure(history, ["e"])
+    axes = rounds.axes[0]
+    assert len(axes.collections[0].get_offsets()) == 3
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [7.5, 0.4, -0.1])
+    panels = parameter_figure(history, ["mass_mev", "g"], ["e"])
+    visible = [axes for axes in panels.axes if axes.get_visible()]
+    assert [axes.get_xlabel() for axes in visible] == ["mass_mev", "g"]
+    assert [axes.get_xscale() for axes in visible] == ["linear", "log"]
+    assert all(len(axes.collections[0].get_offsets()) == 3 for axes in visible)

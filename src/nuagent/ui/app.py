@@ -6,15 +6,17 @@ from pathlib import Path
 
 import numpy as np
 import streamlit as st
+from matplotlib.figure import Figure
 
 from nuagent.agent.backend import get_backend
 from nuagent.agent.report import LIKELIHOOD_CAPTION, answers_markdown, likelihood_table, questions_markdown
-from nuagent.agent.loop import best_point, pareto_set, points_table, read_loop, read_history, round_notes, run_loop_round, start_loop
+from nuagent.agent.loop import (best_point, call_notes, missing_conclusion, pareto_set, points_table, read_history, read_loop,
+                                round_summary, run_loop_step, start_loop)
 from nuagent.agent.run import MAX_ROUNDS, RunResult, continue_run, evaluate_point, read_conversation, run_result
 from nuagent.experiments import registry
 from nuagent.physics.plugin import load_coefficient_plugin
 from nuagent.rates import predicted_counts
-from nuagent.ui.figures import spectrum_figure
+from nuagent.ui.figures import delta_by_round_figure, parameter_figure, spectrum_figure
 
 
 PLUGIN_LABEL = "Plugin (plugin.py): the coefficient code the agent wrote"
@@ -34,14 +36,18 @@ def verification_caption(level: str, at_agent_point: bool) -> str:
             f"At these values: plugin-only (only the plugin was checked here{card}).")
 
 
+def show_figure(figure: Figure) -> None:
+    # Streamlit downsamples an image to an integer display width in pixels, which blurs on a 2x display;
+    # "stretch" keeps up to 1460 pixels for the roughly 700-pixel column.
+    image = io.BytesIO()
+    figure.savefig(image, format="png", dpi=300, bbox_inches="tight")
+    st.image(image, width="stretch")
+
+
 def show_spectra(signals: dict[str, np.ndarray]) -> None:
     for name, signal in signals.items():
         experiment = registry.get(name)
-        # Streamlit downsamples an image to an integer display width in pixels, which blurs on a 2x display;
-        # "stretch" keeps up to 1460 pixels for the roughly 700-pixel column.
-        image = io.BytesIO()
-        spectrum_figure(experiment, signal, predicted_counts(experiment)).savefig(image, format="png", dpi=300, bbox_inches="tight")
-        st.image(image, width="stretch")
+        show_figure(spectrum_figure(experiment, signal, predicted_counts(experiment)))
 
 
 def question_form(task_dir: Path, round_number: int, questions: list[dict]) -> dict[str, str | float] | None:
@@ -118,7 +124,7 @@ def result_block(task_dir: Path, result: RunResult) -> None:
     st.caption(verification_caption(result.level, at_agent_point))
     st.caption(LIKELIHOOD_CAPTION)
     if loop_dir:
-        loop_expanders(loop_dir)
+        loop_display(loop_dir)
     show_notes(task_dir)
     with st.expander("Provenance"):
         st.markdown(provenance_markdown(result.provenance))
@@ -141,40 +147,60 @@ def loop_form(task_dir: Path) -> None:
     st.session_state.pop("loop_dir", None)
     backend = get_backend(read_conversation(task_dir)["backend"])
     loop_dir = Path(tempfile.mkdtemp(prefix="loop-", dir=task_dir.parent)) / "loop"
-    with st.status(f"Agent loop on {backend.name} in {loop_dir}; each agent round takes minutes", expanded=True) as status:
-        history = start_loop(task_dir, loop_dir, backend, int(rounds), guidance or None)
-        names, experiments = list(history[0]["parameters"]), read_loop(loop_dir)["experiments"]
-        st.markdown("The translation agent's point (round 0):\n\n" + points_table(history, names, experiments))
-        while True:
-            step = run_loop_round(loop_dir, backend, loop_dir.parent / "report.md")
-            summary = points_table(step.points, names, experiments) if step.points else "no points"
-            st.markdown(f"Agent round {step.round} of {int(rounds)}: {step.state}\n\n{summary}")
-            if step.loop_state:
-                break
-        status.update(label=f"Agent loop {step.loop_state} after {step.round} agent rounds", state="complete")
+    start_loop(task_dir, loop_dir, backend, int(rounds), guidance or None)
+    # The research log and trajectory grow in place after every step; a rerun during the loop would stop it.
+    progress = st.empty()
+    while True:
+        done = len(read_loop(loop_dir)["rounds"])
+        running = f"round {done + 1} of {int(rounds)}" if done < rounds else "the closing call, for the agent's conclusion"
+        with progress.container():
+            st.caption(f"Agent loop on {backend.name} in `{loop_dir}`: running {running}; each agent call takes minutes.")
+            loop_display(loop_dir)
+        step = run_loop_step(loop_dir, backend, loop_dir.parent / "report.md")
+        if step.loop_state:
+            break
     st.session_state.loop_dir = loop_dir
     st.session_state.loop_point = best_point(pareto_set(read_history(loop_dir)))["parameters"]
     st.rerun()
 
 
-def loop_expanders(loop_dir: Path) -> None:
-    """The latest agent loop's outcome and best fit, every point, the round notes and the paths, collapsed."""
+def loop_display(loop_dir: Path) -> None:
+    """The research log (each round's summary and hypothesis, the conclusion, then the records collapsed), then the trajectory."""
     record, history = read_loop(loop_dir), read_history(loop_dir)
     names, experiments = list(history[0]["parameters"]), record["experiments"]
-    best = best_point(pareto_set(history))
-    with st.expander(f"Agent loop: {record['state']}, best fit"):
-        st.markdown(f"Outcome: **{record['state']}** after {len(record['rounds'])} of {record['rounds_requested']} agent rounds; "
-                    f"{len(history)} points evaluated, including the translation agent's point (round 0). The figure, table "
-                    f"and inputs above show the best point, round {best['round']}, point {best['index']} (lowest summed Δ in "
-                    "the Pareto set).\n\nPareto set (no other point is as good on every experiment and better on one):\n\n"
-                    + points_table(pareto_set(history), names, experiments, findings=False))
+    st.subheader("Research log")
+    for entry in record["rounds"]:
+        text = f"**{round_summary(entry, history, experiments)}**"
+        if "hypothesis" in entry:
+            text += f"  \nHypothesis: {entry['hypothesis']}"
+        if entry["state"] not in ("evaluated", "converged"):
+            text += f"  \nRound state: {entry['state']}"
+        st.markdown(text)
+    if record["conclusion"]:
+        st.info(f"**Conclusion.** {record['conclusion']}")
+    elif record["state"] != "running":
+        st.info(missing_conclusion(record))
+    if record["state"] != "running":
+        best = best_point(pareto_set(history))
+        with st.expander(f"Agent loop: {record['state']}, best fit"):
+            st.markdown(f"Outcome: **{record['state']}** after {len(record['rounds'])} of {record['rounds_requested']} agent rounds; "
+                        f"{len(history)} points evaluated, including the translation agent's point (round 0). The figure, table "
+                        f"and inputs above show the best point, round {best['round']}, point {best['index']} (lowest summed Δ in "
+                        "the Pareto set).\n\nPareto set (no other point is as good on every experiment and better on one):\n\n"
+                        + points_table(pareto_set(history), names, experiments, findings=False))
     with st.expander("Agent loop: points by round"):
         st.markdown(points_table(history, names, experiments))
-    for entry in record["rounds"]:
-        with st.expander(f"Agent loop: notes, round {entry['round']} ({entry['state']})"):
-            st.markdown(round_notes(loop_dir, entry["round"]))
+    labels = [(f"round {entry['round']} ({entry['state']})", f"round-{entry['round']}") for entry in record["rounds"]]
+    if record["closing"]:
+        labels.append((f"closing call ({record['closing']['state']})", "closing"))
+    for title, label in labels:
+        with st.expander(f"Agent loop: notes, {title}"):
+            st.markdown(call_notes(loop_dir, label))
     with st.expander("Agent loop: directory and report"):
         st.markdown(f"- Agent-loop directory: `{loop_dir}`\n- Agent-loop report: `{loop_dir.parent / 'report.md'}`")
+    st.subheader("Agent loop trajectory")
+    show_figure(delta_by_round_figure(history, experiments))
+    show_figure(parameter_figure(history, names, experiments))
 
 
 st.set_page_config(page_title="nuagent")

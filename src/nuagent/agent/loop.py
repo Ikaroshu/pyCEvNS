@@ -1,7 +1,8 @@
 """Agent loop: with the interaction of a valid task frozen, a loop agent proposes parameter points round by round.
 
-The harness alone evaluates each point with the source task's plugin; the loop agent writes only points.json and notes.md
-in a fresh loop directory. The objective is the vector of per-experiment Δ and the result its Pareto set.
+The harness alone evaluates each point with the source task's plugin; the loop agent writes only points.json (its points
+and a hypothesis) and notes.md in a fresh loop directory. The objective is the vector of per-experiment Δ and the result its
+Pareto set. A loop that runs its requested rounds without converging ends with one closing call for the agent's conclusion.
 """
 
 import json
@@ -15,7 +16,7 @@ from nuagent.agent.backend import Backend, BackendFailure
 from nuagent.agent.report import LIKELIHOOD_CAPTION, VERIFICATION, likelihood_table, provenance_section, source_provenance
 from nuagent.agent.run import evaluate_point, read_conversation
 from nuagent.agent.task import LOOP_OUTPUT_FILES, LOOP_RECORD, copy_context
-from nuagent.agent.validate import check_points
+from nuagent.agent.validate import ValidationReport, check_points
 from nuagent.experiments import registry
 from nuagent.experiments.registry import Experiment
 from nuagent.physics.plugin import load_coefficient_plugin
@@ -24,16 +25,18 @@ from nuagent.stats.likelihood import profile_record, profiled
 
 HISTORY = "history.json"
 BATCH_LIMIT = 8
-LOOP_STATES = {"evaluated": "completed", "converged": "converged", "invalid": "stopped-invalid"}
+LOOP_STATES = {"converged": "converged", "invalid": "stopped-invalid"}
 
 
 @dataclass(frozen=True)
-class LoopRound:
-    """One round's outcome: its state (evaluated, converged or invalid) and its history entries.
+class LoopStep:
+    """One step's outcome: a round (state evaluated, converged or invalid, with its history entries) or the closing call
+    (state concluded or invalid, `closing` true, `round` the last round run).
 
-    `loop_state` (completed, converged or stopped-invalid) and `report` are set when this round ended the loop.
+    `loop_state` (completed, converged or stopped-invalid) and `report` are set when this step ended the loop.
     """
     round: int
+    closing: bool
     state: str
     points: list[dict]
     loop_state: str | None
@@ -106,7 +109,8 @@ def start_loop(task_dir: Path, loop_dir: Path, backend: Backend, rounds: int, gu
     write_history(loop_dir, history)
     write_loop(loop_dir, {"source_task": str(task_dir.resolve()), "experiments": conversation["experiments"],
                         "backend": backend.name, "max_turns": max_turns, "rounds_requested": rounds,
-                        "guidance": guidance, "batch_limit": BATCH_LIMIT, "state": "running", "rounds": []})
+                        "guidance": guidance, "batch_limit": BATCH_LIMIT, "state": "running", "rounds": [],
+                          "closing": None, "conclusion": None})
     return history
 
 
@@ -116,7 +120,8 @@ def notes_paths(loop_dir: Path, before: int) -> list[str]:
             for path in sorted((loop_dir / "history" / f"round-{number}").glob("attempt-*/notes.md"))]
 
 
-def loop_prompt(loop_dir: Path, record: dict, number: int) -> str:
+def loop_prompt(loop_dir: Path, record: dict, number: int, closing: bool = False) -> str:
+    """The round's prompt; with `closing`, the prompt of the closing call after the last requested round."""
     agent_point = read_history(loop_dir)[0]["parameters"]
     names = list(agent_point)
     point = ", ".join(f"{name} = {value:g}" for name, value in agent_point.items())
@@ -126,6 +131,14 @@ def loop_prompt(loop_dir: Path, record: dict, number: int) -> str:
     data = "\n".join(f"- data/{name}.json: bin edges and unit, observed counts, each background's per-bin counts and "
                      "normalization prior, the signal normalization prior, the Standard Model per-bin prediction and the "
                      "Standard Model profile (−2 ln L, α, β)." for name in record["experiments"])
+    requested = record["rounds_requested"]
+    stage = (f"""## Closing call
+
+All {requested} requested rounds have been evaluated, and no more points will be
+evaluated. Read the results, then write points.json with an empty points list,
+a hypothesis (it may restate the final picture) and the conclusion: a few
+sentences on what the agent loop found, naming the best points and their Δ.
+Write notes.md with your final reasoning.""" if closing else f"## Round {number} of {requested}")
     text = f"""# Agent loop: search the parameters of a fixed neutrino interaction
 
 ## Goal
@@ -145,7 +158,7 @@ not a better fit. Δ is not monotonic in the signal size: a universal vector at
 g = 1e-2 scores Δ ≈ 21.2 against 21.9 at g = 1e-4, both far worse than the
 Standard Model.
 
-## Round {number} of {record['rounds_requested']}
+{stage}
 
 history.json holds every earlier point and its result, in order, starting with
 round 0, the translation agent's own point ({point}). For each point it gives the
@@ -174,13 +187,18 @@ with apply_patch. Run no other command, use no other tool, do not edit any
 other file, and do not compute predictions or likelihoods yourself: the harness
 evaluates every point you propose and adds it to history.json.
 
-points.json has the shape {{"points": [{{"name": value, ...}}, ...]}} with at most
-{record['batch_limit']} points. Each point maps parameter names of plugin.py to finite
+points.json has the shape
+{{"hypothesis": "...", "points": [{{"name": value, ...}}, ...]}} with at most
+{record['batch_limit']} points. The hypothesis is one or two sentences saying what you
+expect this round's points to show. Each point maps parameter names of plugin.py to finite
 real numbers (not booleans); a name a point omits keeps the translation agent's
 value. A point that fails the plugin checks (for example a coupling above
 sqrt(4 pi)) is recorded with its findings and no Δ, and still counts toward the
-{record['batch_limit']} points. An empty list, {{"points": []}}, means you judge the search
-converged; the agent loop then ends after this round.
+{record['batch_limit']} points. An empty list means you judge the search converged; the
+agent loop then ends after this round, and points.json must also carry
+"conclusion": a few sentences on what the agent loop found. Write the
+conclusion only with an empty list, once every result is in; if the requested
+rounds end without convergence, the harness asks for it in a closing call.
 
 notes.md: what you observed in the earlier results and why you chose these
 points, in Markdown.
@@ -197,34 +215,32 @@ def clear_loop_outputs(loop_dir: Path) -> None:
             path.unlink()
 
 
-def run_loop_round(loop_dir: Path, backend: Backend, out: Path) -> LoopRound:
-    """Run the next round with one correction attempt, evaluate its points, and write the report if the loop ends."""
-    record = read_loop(loop_dir)
-    task_dir = Path(record["source_task"])
-    number = len(record["rounds"]) + 1
+def agent_call(loop_dir: Path, record: dict, entry: dict, label: str, backend: Backend,
+               closing: bool) -> tuple[ValidationReport, dict | None]:
+    """Run the backend on the current TASK.md with one correction attempt, keeping every attempt under history/<label>/.
+
+    A backend failure, or a missing or empty notes.md, marks `entry` (a round or the closing call in `record`) as
+    backend-failure and raises.
+    """
     names = list(read_history(loop_dir)[0]["parameters"])
-    (loop_dir / "TASK.md").write_text(loop_prompt(loop_dir, record, number))
-    clear_loop_outputs(loop_dir)
-    record["rounds"].append({"round": number, "state": "running"})
-    write_loop(loop_dir, record)
     for attempt in (1, 2):
         result = backend.run(loop_dir, record["max_turns"])
-        history_dir = loop_dir / "history" / f"round-{number}" / f"attempt-{attempt}"
+        history_dir = loop_dir / "history" / label / f"attempt-{attempt}"
         history_dir.mkdir(parents=True)
         (history_dir / "backend.json").write_text(json.dumps(result.as_dict(), indent=2))
         if result.exit_status or result.error:
-            record["rounds"][-1]["state"] = "backend-failure"
+            entry["state"] = "backend-failure"
             write_loop(loop_dir, record)
             raise BackendFailure(result)
         notes = loop_dir / "notes.md"
         if not notes.is_file() or not notes.read_text().strip():
-            record["rounds"][-1]["state"] = "backend-failure"
+            entry["state"] = "backend-failure"
             write_loop(loop_dir, record)
             raise RuntimeError(f"backend produced no nonempty notes.md\n{result.raw_output}\n{result.stderr}")
         for name in LOOP_OUTPUT_FILES:
             if (loop_dir / name).is_file():
                 shutil.copyfile(loop_dir / name, history_dir / name)
-        validation, points = check_points(loop_dir / "points.json", names, record["batch_limit"])
+        validation, data = check_points(loop_dir / "points.json", names, record["batch_limit"], closing)
         (history_dir / "validation.json").write_text(json.dumps(validation.as_dict() | {"notes": notes.read_text()}, indent=2))
         if validation.valid:
             break
@@ -232,36 +248,66 @@ def run_loop_round(loop_dir: Path, backend: Backend, out: Path) -> LoopRound:
             clear_loop_outputs(loop_dir)
             with (loop_dir / "TASK.md").open("a") as prompt:
                 prompt.write(f"\n## Validation correction (one attempt)\n\npoints.json did not satisfy the output contract. "
-                             f"The previous outputs are preserved in history/round-{number}/attempt-1/. points.json and notes.md "
+                             f"The previous outputs are preserved in history/{label}/attempt-1/. points.json and notes.md "
                              "have been cleared; write both again, following the output contract.\n\n```json\n"
                              + json.dumps(validation.as_dict(), indent=2) + "\n```\n")
+    return validation, data
+
+
+def finish_loop(loop_dir: Path, record: dict, state: str, out: Path) -> str:
+    record["state"] = state
+    write_loop(loop_dir, record)
+    report = render_loop_report(loop_dir, record, read_history(loop_dir))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(report)
+    return report
+
+
+def run_loop_step(loop_dir: Path, backend: Backend, out: Path) -> LoopStep:
+    """Run the next round, or after the last requested round the closing call; write the report if the loop ends."""
+    record = read_loop(loop_dir)
+    number = len(record["rounds"])
+    if number == record["rounds_requested"]:
+        entry = record["closing"] = {"state": "running"}
+        (loop_dir / "TASK.md").write_text(loop_prompt(loop_dir, record, number + 1, closing=True))
+        clear_loop_outputs(loop_dir)
+        write_loop(loop_dir, record)
+        validation, data = agent_call(loop_dir, record, entry, "closing", backend, closing=True)
+        if validation.valid:
+            entry |= {"state": "concluded", "hypothesis": data["hypothesis"], "conclusion": data["conclusion"]}
+            record["conclusion"] = data["conclusion"]
+        else:
+            entry["state"] = "invalid"
+        return LoopStep(number, True, entry["state"], [], "completed", finish_loop(loop_dir, record, "completed", out))
+    number += 1
+    entry = {"round": number, "state": "running"}
+    record["rounds"].append(entry)
+    (loop_dir / "TASK.md").write_text(loop_prompt(loop_dir, record, number))
+    clear_loop_outputs(loop_dir)
+    write_loop(loop_dir, record)
+    validation, data = agent_call(loop_dir, record, entry, f"round-{number}", backend, closing=False)
     entries = []
     if not validation.valid:
-        state = "invalid"
-    elif not points:
-        state = "converged"
+        entry["state"] = "invalid"
     else:
-        state = "evaluated"
-        entries = evaluate_points(task_dir, number, points)
-        write_history(loop_dir, read_history(loop_dir) + entries)
-    record["rounds"][-1]["state"] = state
-    loop_state, report = None, None
-    if state != "evaluated" or number == record["rounds_requested"]:
-        loop_state = LOOP_STATES[state]
-        record["state"] = loop_state
-        report = render_loop_report(loop_dir, record, read_history(loop_dir))
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(report)
+        entry |= {"state": "evaluated" if data["points"] else "converged", "hypothesis": data["hypothesis"]}
+        if data["points"]:
+            entries = evaluate_points(Path(record["source_task"]), number, data["points"])
+            write_history(loop_dir, read_history(loop_dir) + entries)
+        else:
+            entry["conclusion"] = record["conclusion"] = data["conclusion"]
+    loop_state = LOOP_STATES.get(entry["state"])
+    report = finish_loop(loop_dir, record, loop_state, out) if loop_state else None
     write_loop(loop_dir, record)
-    return LoopRound(number, state, entries, loop_state, report)
+    return LoopStep(number, False, entry["state"], entries, loop_state, report)
 
 
 def run_loop(task_dir: Path, loop_dir: Path, backend: Backend, out: Path, rounds: int = 5, guidance: str | None = None,
-            max_turns: int = 16) -> LoopRound:
-    """Start the agent loop and run rounds until one ends it; return that last round."""
+             max_turns: int = 16) -> LoopStep:
+    """Start the agent loop and run steps until one ends it; return that last step."""
     start_loop(task_dir, loop_dir, backend, rounds, guidance, max_turns)
     while True:
-        step = run_loop_round(loop_dir, backend, out)
+        step = run_loop_step(loop_dir, backend, out)
         if step.loop_state:
             return step
 
@@ -304,13 +350,46 @@ def point_level(entry: dict, level: str) -> str:
             "a model-card cross-check holds only at the translation agent's point).")
 
 
-def round_notes(loop_dir: Path, number: int) -> str:
-    """The notes of the round's last attempt."""
-    return sorted((loop_dir / "history" / f"round-{number}").glob("attempt-*/notes.md"))[-1].read_text().strip()
+def call_notes(loop_dir: Path, label: str) -> str:
+    """The notes of the last attempt of a round (label round-N) or of the closing call (label closing)."""
+    return sorted((loop_dir / "history" / label).glob("attempt-*/notes.md"))[-1].read_text().strip()
+
+
+def round_summary(entry: dict, history: list[dict], experiments: list[str]) -> str:
+    """The harness's line for one round: points tried and passed and the round's best Δ per experiment."""
+    points = [point for point in history if point["round"] == entry["round"]]
+    passed = [point for point in points if point["evaluations"]]
+    line = f"Round {entry['round']} · {len(points)} points, {len(passed)} passed checks"
+    if passed:
+        line += " · best Δ " + ", ".join(
+            f"{min(point['evaluations'][k]['delta'] for point in passed):.4g}" + (f" ({name})" if len(experiments) > 1 else "")
+            for k, name in enumerate(experiments))
+    return line
+
+
+def missing_conclusion(record: dict) -> str:
+    """Why a finished loop has no conclusion."""
+    if record["state"] == "stopped-invalid":
+        return "No conclusion: the loop stopped because a round's points.json was malformed twice."
+    return "No conclusion: the closing call's points.json was malformed twice."
+
+
+def research_log(record: dict, history: list[dict]) -> str:
+    """Per round the harness's summary line and the agent's hypothesis, then the conclusion."""
+    parts = []
+    for entry in record["rounds"]:
+        text = f"### {round_summary(entry, history, record['experiments'])}"
+        if "hypothesis" in entry:
+            text += f"\n\nHypothesis: {entry['hypothesis']}"
+        if entry["state"] != "evaluated":
+            text += f"\n\nRound state: {entry['state']}."
+        parts.append(text)
+    parts.append("### Conclusion\n\n" + (record["conclusion"] or missing_conclusion(record)))
+    return "\n\n".join(parts)
 
 
 def render_loop_report(loop_dir: Path, record: dict, history: list[dict]) -> str:
-    """Outcome, best fit, source task, points by round, round notes, validation and backend records, provenance last."""
+    """Outcome, research log, best fit, source task, points by round, round notes, validation and backend records, provenance last."""
     task_dir = Path(record["source_task"])
     conversation = read_conversation(task_dir)
     experiments = record["experiments"]
@@ -318,9 +397,13 @@ def render_loop_report(loop_dir: Path, record: dict, history: list[dict]) -> str
     level = source_level(task_dir)
     pareto = pareto_set(history)
     run = len(record["rounds"])
+    labels = [(f"Round {entry['round']}", f"round-{entry['round']}") for entry in record["rounds"]]
+    if record["closing"]:
+        labels.append(("Closing call", "closing"))
     parts = [f"Outcome: **{record['state']}**\n\nAgent loop over the parameters of a fixed interaction. Rounds run: {run} of {record['rounds_requested']}. Points evaluated: "
              f"{len(history)} ({len(history) - 1} proposed by the loop agent and round 0, the translation agent's point); "
              f"{sum(1 for entry in history if entry['evaluations'])} passed the plugin checks."]
+    parts.append("## Research log\n\n" + research_log(record, history))
     best = ["## Best fit", "The Pareto set: the points that no other evaluated point matches or beats on every experiment "
             "and beats on one.", points_table(pareto, names, experiments, findings=False),
             "Round 0, the translation agent's point, for comparison: "
@@ -334,20 +417,18 @@ def render_loop_report(loop_dir: Path, record: dict, history: list[dict]) -> str
                  f"- Verification of the translation: {level}\n- Guidance: {record['guidance'] or 'none'}")
     parts.append("## Points by round\n\n" + points_table(history, names, experiments)
                  + "\n\nPer-bin predictions and full profiles of every point are in `history.json` in the loop directory.")
-    parts.append("## Round notes\n\n" + "\n\n".join(f"### Round {entry['round']}\n\n{round_notes(loop_dir, entry['round'])}"
-                                                    for entry in record["rounds"]))
-    attempts = [(entry["round"], attempt, loop_dir / "history" / f"round-{entry['round']}" / f"attempt-{attempt}")
-                for entry in record["rounds"] for attempt in (1, 2)]
-    attempts = [(number, attempt, path) for number, attempt, path in attempts if path.is_dir()]
+    parts.append("## Round notes\n\n" + "\n\n".join(f"### {title}\n\n{call_notes(loop_dir, label)}" for title, label in labels))
+    attempts = [(title, attempt, loop_dir / "history" / label / f"attempt-{attempt}") for title, label in labels for attempt in (1, 2)]
+    attempts = [(title, attempt, path) for title, attempt, path in attempts if path.is_dir()]
     parts.append("## Validation history")
-    for number, attempt, path in attempts:
-        parts.append(f"### Round {number}, attempt {attempt}\n\n```json\n{(path / 'validation.json').read_text()}\n```")
+    for title, attempt, path in attempts:
+        parts.append(f"### {title}, attempt {attempt}\n\n```json\n{(path / 'validation.json').read_text()}\n```")
     parts.append("## Backend CLI records\n\nModel, cost and usage fields, when supplied by the CLI, are retained below verbatim. "
                  "Codex exec has no native max-turns flag; max_turns bounds Claude Code only.")
-    for number, attempt, path in attempts:
-        parts.append(f"### Round {number}, attempt {attempt}\n\n```json\n{(path / 'backend.json').read_text()}\n```")
+    for title, attempt, path in attempts:
+        parts.append(f"### {title}, attempt {attempt}\n\n```json\n{(path / 'backend.json').read_text()}\n```")
     parts.append(provenance_section(source_provenance() | {
         "data_releases": {name: registry.get(name).data_release for name in experiments}, "backend": record["backend"],
         "max_turns": record["max_turns"], "rounds_requested": record["rounds_requested"], "rounds_run": run,
-        "source_task": str(task_dir)}))
+        "closing_call": record["closing"]["state"] if record["closing"] else None, "source_task": str(task_dir)}))
     return "\n\n".join(parts) + "\n"
