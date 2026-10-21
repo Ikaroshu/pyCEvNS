@@ -113,7 +113,7 @@ def loop(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     pareto = [{"round": entry["round"], "index": entry["index"], "parameters": entry["parameters"],
                "delta": dict(zip(conversation["experiments"], deltas(entry)))} for entry in pareto_set(read_history(loop_dir))]
     print(json.dumps({"report": str(args.out), "state": step.loop_state, "rounds": step.round, "pareto": pareto}, allow_nan=False))
-    sys.exit(1 if step.loop_state == "stopped-invalid" else 0)
+    sys.exit(1 if step.loop_state in ("stopped-invalid", "stopped-backend-failure") else 0)
 
 
 def main() -> None:

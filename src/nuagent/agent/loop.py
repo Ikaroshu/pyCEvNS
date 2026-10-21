@@ -3,6 +3,7 @@
 The harness alone evaluates each point with the source task's plugin; the loop agent writes only points.json (its points
 and a hypothesis) and notes.md in a fresh loop directory. The objective is the vector of per-experiment Δ and the result its
 Pareto set. A loop that runs its requested rounds without converging ends with one closing call for the agent's conclusion.
+A backend failure stops the loop with a report over the completed rounds instead of raising.
 """
 
 import json
@@ -12,7 +13,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 
-from nuagent.agent.backend import Backend, BackendFailure
+from nuagent.agent.backend import Backend, BackendResult
 from nuagent.agent.report import LIKELIHOOD_CAPTION, VERIFICATION, likelihood_table, provenance_section, source_provenance
 from nuagent.agent.run import evaluate_point, read_conversation
 from nuagent.agent.task import LOOP_OUTPUT_FILES, LOOP_RECORD, copy_context
@@ -25,15 +26,16 @@ from nuagent.stats.likelihood import profile_record, profiled
 
 HISTORY = "history.json"
 BATCH_LIMIT = 8
-LOOP_STATES = {"converged": "converged", "invalid": "stopped-invalid"}
+LOOP_STATES = {"converged": "converged", "invalid": "stopped-invalid", "backend-failure": "stopped-backend-failure"}
+ERROR_TAIL_CHARS = 2000
 
 
 @dataclass(frozen=True)
 class LoopStep:
-    """One step's outcome: a round (state evaluated, converged or invalid, with its history entries) or the closing call
-    (state concluded or invalid, `closing` true, `round` the last round run).
+    """One step's outcome: a round (state evaluated, converged, invalid or backend-failure, with its history entries) or the
+    closing call (state concluded, invalid or backend-failure, `closing` true, `round` the last round run).
 
-    `loop_state` (completed, converged or stopped-invalid) and `report` are set when this step ended the loop.
+    `loop_state` (completed, converged, stopped-invalid or stopped-backend-failure) and `report` are set when this step ended the loop.
     """
     round: int
     closing: bool
@@ -216,11 +218,11 @@ def clear_loop_outputs(loop_dir: Path) -> None:
 
 
 def agent_call(loop_dir: Path, record: dict, entry: dict, label: str, backend: Backend,
-               closing: bool) -> tuple[ValidationReport, dict | None]:
+               closing: bool) -> tuple[ValidationReport | None, dict | None]:
     """Run the backend on the current TASK.md with one correction attempt, keeping every attempt under history/<label>/.
 
     A backend failure, or a missing or empty notes.md, marks `entry` (a round or the closing call in `record`) as
-    backend-failure and raises.
+    backend-failure with the error text and returns no validation.
     """
     names = list(read_history(loop_dir)[0]["parameters"])
     for attempt in (1, 2):
@@ -228,15 +230,17 @@ def agent_call(loop_dir: Path, record: dict, entry: dict, label: str, backend: B
         history_dir = loop_dir / "history" / label / f"attempt-{attempt}"
         history_dir.mkdir(parents=True)
         (history_dir / "backend.json").write_text(json.dumps(result.as_dict(), indent=2))
-        if result.exit_status or result.error:
-            entry["state"] = "backend-failure"
-            write_loop(loop_dir, record)
-            raise BackendFailure(result)
         notes = loop_dir / "notes.md"
-        if not notes.is_file() or not notes.read_text().strip():
-            entry["state"] = "backend-failure"
+        if result.exit_status or result.error:
+            error = f"backend failed (exit {result.exit_status}): {backend_error(result)}"
+        elif not notes.is_file() or not notes.read_text().strip():
+            error = f"backend produced no nonempty notes.md: {backend_error(result)}"
+        else:
+            error = None
+        if error:
+            entry |= {"state": "backend-failure", "error": error}
             write_loop(loop_dir, record)
-            raise RuntimeError(f"backend produced no nonempty notes.md\n{result.raw_output}\n{result.stderr}")
+            return None, None
         for name in LOOP_OUTPUT_FILES:
             if (loop_dir / name).is_file():
                 shutil.copyfile(loop_dir / name, history_dir / name)
@@ -252,6 +256,13 @@ def agent_call(loop_dir: Path, record: dict, entry: dict, label: str, backend: B
                              "have been cleared; write both again, following the output contract.\n\n```json\n"
                              + json.dumps(validation.as_dict(), indent=2) + "\n```\n")
     return validation, data
+
+
+def backend_error(result: BackendResult) -> str:
+    """The CLI's final message, or else the tail of its raw output and stderr."""
+    if result.final_text.strip():
+        return result.final_text.strip()
+    return (result.raw_output + "\n" + result.stderr).strip()[-ERROR_TAIL_CHARS:]
 
 
 def finish_loop(loop_dir: Path, record: dict, state: str, out: Path) -> str:
@@ -273,10 +284,11 @@ def run_loop_step(loop_dir: Path, backend: Backend, out: Path) -> LoopStep:
         clear_loop_outputs(loop_dir)
         write_loop(loop_dir, record)
         validation, data = agent_call(loop_dir, record, entry, "closing", backend, closing=True)
-        if validation.valid:
+        # A backend failure (no validation) has already marked the closing entry; the loop stays completed either way.
+        if validation and validation.valid:
             entry |= {"state": "concluded", "hypothesis": data["hypothesis"], "conclusion": data["conclusion"]}
             record["conclusion"] = data["conclusion"]
-        else:
+        elif validation:
             entry["state"] = "invalid"
         return LoopStep(number, True, entry["state"], [], "completed", finish_loop(loop_dir, record, "completed", out))
     number += 1
@@ -287,9 +299,9 @@ def run_loop_step(loop_dir: Path, backend: Backend, out: Path) -> LoopStep:
     write_loop(loop_dir, record)
     validation, data = agent_call(loop_dir, record, entry, f"round-{number}", backend, closing=False)
     entries = []
-    if not validation.valid:
+    if validation and not validation.valid:
         entry["state"] = "invalid"
-    else:
+    elif validation:
         entry |= {"state": "evaluated" if data["points"] else "converged", "hypothesis": data["hypothesis"]}
         if data["points"]:
             entries = evaluate_points(Path(record["source_task"]), number, data["points"])
@@ -352,18 +364,29 @@ def point_level(entry: dict, level: str) -> str:
 
 def call_notes(loop_dir: Path, label: str) -> str:
     """The notes of the last attempt of a round (label round-N) or of the closing call (label closing)."""
-    return sorted((loop_dir / "history" / label).glob("attempt-*/notes.md"))[-1].read_text().strip()
+    paths = sorted((loop_dir / "history" / label).glob("attempt-*/notes.md"))
+    return paths[-1].read_text().strip() if paths else "No notes: the backend failed before the harness kept any."
+
+
+def delta_text(passed: list[dict], experiments: list[str]) -> str:
+    """The lowest Δ among `passed` per experiment."""
+    return ", ".join(f"{min(point['evaluations'][k]['delta'] for point in passed):.4g}"
+                     + (f" ({name})" if len(experiments) > 1 else "") for k, name in enumerate(experiments))
+
+
+def round_zero_summary(history: list[dict], experiments: list[str]) -> str:
+    return f"Round 0 · translation agent's point · Δ {delta_text(history[:1], experiments)}"
 
 
 def round_summary(entry: dict, history: list[dict], experiments: list[str]) -> str:
     """The harness's line for one round: points tried and passed and the round's best Δ per experiment."""
+    if entry["state"] == "backend-failure":
+        return f"Round {entry['round']} · backend failure"
     points = [point for point in history if point["round"] == entry["round"]]
     passed = [point for point in points if point["evaluations"]]
     line = f"Round {entry['round']} · {len(points)} points, {len(passed)} passed checks"
     if passed:
-        line += " · best Δ " + ", ".join(
-            f"{min(point['evaluations'][k]['delta'] for point in passed):.4g}" + (f" ({name})" if len(experiments) > 1 else "")
-            for k, name in enumerate(experiments))
+        line += f" · best Δ {delta_text(passed, experiments)}"
     return line
 
 
@@ -371,17 +394,23 @@ def missing_conclusion(record: dict) -> str:
     """Why a finished loop has no conclusion."""
     if record["state"] == "stopped-invalid":
         return "No conclusion: the loop stopped because a round's points.json was malformed twice."
+    if record["state"] == "stopped-backend-failure":
+        return f"No conclusion: the backend failed in round {record['rounds'][-1]['round']}."
+    if record["closing"]["state"] == "backend-failure":
+        return f"No conclusion: the closing call's backend failed: {record['closing']['error']}"
     return "No conclusion: the closing call's points.json was malformed twice."
 
 
 def research_log(record: dict, history: list[dict]) -> str:
-    """Per round the harness's summary line and the agent's hypothesis, then the conclusion."""
-    parts = []
+    """Round 0, then per round the harness's summary line and the agent's hypothesis or error, then the conclusion."""
+    parts = [f"### {round_zero_summary(history, record['experiments'])}"]
     for entry in record["rounds"]:
         text = f"### {round_summary(entry, history, record['experiments'])}"
         if "hypothesis" in entry:
             text += f"\n\nHypothesis: {entry['hypothesis']}"
-        if entry["state"] != "evaluated":
+        if "error" in entry:
+            text += f"\n\nError: {entry['error']}"
+        elif entry["state"] != "evaluated":
             text += f"\n\nRound state: {entry['state']}."
         parts.append(text)
     parts.append("### Conclusion\n\n" + (record["conclusion"] or missing_conclusion(record)))
@@ -422,7 +451,9 @@ def render_loop_report(loop_dir: Path, record: dict, history: list[dict]) -> str
     attempts = [(title, attempt, path) for title, attempt, path in attempts if path.is_dir()]
     parts.append("## Validation history")
     for title, attempt, path in attempts:
-        parts.append(f"### {title}, attempt {attempt}\n\n```json\n{(path / 'validation.json').read_text()}\n```")
+        validation = path / "validation.json"
+        parts.append(f"### {title}, attempt {attempt}\n\n" + (f"```json\n{validation.read_text()}\n```" if validation.is_file()
+                                                              else "No validation: the backend failed on this attempt."))
     parts.append("## Backend CLI records\n\nModel, cost and usage fields, when supplied by the CLI, are retained below verbatim. "
                  "Codex exec has no native max-turns flag; max_turns bounds Claude Code only.")
     for title, attempt, path in attempts:

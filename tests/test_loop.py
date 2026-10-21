@@ -13,7 +13,7 @@ from test_agent import FakeBackend, snapshot
 from test_cli import cli
 from test_plugins import COEFFICIENT_PLUGIN
 
-from nuagent.agent.backend import BackendFailure, BackendResult
+from nuagent.agent.backend import BackendResult
 from nuagent.agent.loop import pareto_set, read_loop, read_history, run_loop, run_loop_step, start_loop
 from nuagent.agent.run import evaluate_point, run_result
 from nuagent.agent.tool_policy import allowed_tool, deny_reason
@@ -23,7 +23,7 @@ from nuagent.physics.plugin import load_coefficient_plugin
 class LoopBackend:
     """Plays one scripted step per call, writing notes: a points list (with the hypothesis "Hypothesis <call>", and for an
     empty list the conclusion "Conclusion <call>"), raw points.json text, None for no points.json, "nothing" for no output
-    at all, or "failure" for a failing CLI."""
+    at all, "failure" for a failing CLI, "crash" to raise, or "capacity" for a CLI reporting an error."""
 
     def __init__(self, *script, name="fake", edit_plugin_copy=False):
         self.script = list(script)
@@ -38,8 +38,12 @@ class LoopBackend:
         self.histories.append(json.loads((task_dir / "history.json").read_text()))
         self.leftovers.append([name for name in ("points.json", "notes.md") if (task_dir / name).exists()])
         step = self.script.pop(0)
+        if step == "crash":
+            raise RuntimeError("the fake backend crashed")
         if step == "failure":
-            return BackendResult("failed", 2, "loop backend failure raw", "unavailable")
+            return BackendResult("", 2, "loop backend failure raw", "unavailable")
+        if step == "capacity":
+            return BackendResult("Selected model is at capacity.", 0, '{"is_error": true}', error=True)
         if step == "nothing":
             return BackendResult("done", 0, "{}")
         if self.edit_plugin_copy:
@@ -173,10 +177,10 @@ def test_round_two_outputs_start_cleared(tmp_path):
     assert backend.leftovers == [[], [], [], []]
     assert "points.json is missing" in backend.prompts[2]
     backend = LoopBackend([{"g_nu": 2e-4}], "nothing")
-    with pytest.raises(RuntimeError, match="no nonempty notes.md"):
-        run_loop(task, tmp_path / "B.loop", backend, tmp_path / "B.md", rounds=3)
-    assert read_loop(tmp_path / "B.loop")["rounds"][-1] == {"round": 2, "state": "backend-failure"}
-    assert not (tmp_path / "B.md").exists()
+    step = run_loop(task, tmp_path / "B.loop", backend, tmp_path / "B.md", rounds=3)
+    assert (step.round, step.state, step.loop_state) == (2, "backend-failure", "stopped-backend-failure")
+    assert read_loop(tmp_path / "B.loop")["rounds"][-1] == {"round": 2, "state": "backend-failure", "error": "backend produced no nonempty notes.md: done"}
+    assert step.report.startswith("Outcome: **stopped-backend-failure**") and "No conclusion: the backend failed in round 2." in step.report
 
 
 def test_empty_points_converge_early(tmp_path):
@@ -203,10 +207,14 @@ def test_closing_call_malformed_twice_or_failing(tmp_path):
     assert "No conclusion: the closing call's points.json was malformed twice." in step.report
     assert "### Closing call, attempt 2" in step.report
     backend = LoopBackend([{"g_nu": 2e-4}], "failure")
-    with pytest.raises(BackendFailure):
-        run_loop(task, tmp_path / "B.loop", backend, tmp_path / "B.md", rounds=1)
-    assert read_loop(tmp_path / "B.loop")["closing"] == {"state": "backend-failure"}
-    assert not (tmp_path / "B.md").exists()
+    step = run_loop(task, tmp_path / "B.loop", backend, tmp_path / "B.md", rounds=1)
+    assert (step.closing, step.state, step.loop_state) == (True, "backend-failure", "completed")
+    error = "backend failed (exit 2): loop backend failure raw\nunavailable"
+    record = read_loop(tmp_path / "B.loop")
+    assert (record["state"], record["closing"], record["conclusion"]) == ("completed", {"state": "backend-failure", "error": error}, None)
+    assert step.report == (tmp_path / "B.md").read_text()
+    assert f"No conclusion: the closing call's backend failed: {error}" in step.report
+    assert "### Closing call\n\nNo notes: the backend failed" in step.report
 
 
 def entry(number: int, index: int, *deltas: float) -> dict:
@@ -231,15 +239,19 @@ def test_failures_name_the_state_and_record_backend_failure(tmp_path):
     assert not (tmp_path / "Q.loop").exists()
     task = valid_task(tmp_path)
     loop_dir = tmp_path / "F.loop"
-    backend = LoopBackend([{"g_nu": 2e-4}], "failure")
+    backend = LoopBackend([{"g_nu": 2e-4}], "capacity")
     start_loop(task, loop_dir, backend, 3)
     assert run_loop_step(loop_dir, backend, tmp_path / "F.md").loop_state is None
-    with pytest.raises(BackendFailure, match="loop backend failure raw"):
-        run_loop_step(loop_dir, backend, tmp_path / "F.md")
+    step = run_loop_step(loop_dir, backend, tmp_path / "F.md")
+    assert (step.round, step.state, step.loop_state) == (2, "backend-failure", "stopped-backend-failure")
+    error = "backend failed (exit 0): Selected model is at capacity."
     assert read_loop(loop_dir)["rounds"] == [{"round": 1, "state": "evaluated", "hypothesis": "Hypothesis 1"},
-                                             {"round": 2, "state": "backend-failure"}]
-    assert "unavailable" in (loop_dir / "history/round-2/attempt-1/backend.json").read_text()
-    assert not (tmp_path / "F.md").exists()
+                                             {"round": 2, "state": "backend-failure", "error": error}]
+    assert "is_error" in (loop_dir / "history/round-2/attempt-1/backend.json").read_text()
+    report = (tmp_path / "F.md").read_text()
+    log = report.split("## Research log\n\n")[1].split("\n## Best fit")[0]
+    assert log.endswith(f"### Round 2 · backend failure\n\nError: {error}\n\n### Conclusion\n\nNo conclusion: the backend failed in round 2.\n")
+    assert "| 1 | 1 |" in report
 
 
 def test_loop_tool_policy(tmp_path):
@@ -274,11 +286,14 @@ def test_loop_tool_policy(tmp_path):
 CLOSING = json.dumps({"hypothesis": "The best point stands.", "points": [], "conclusion": "A larger g_nu fits slightly better."})
 
 
-def fake_loop_cli(directory: Path, points: str) -> None:
-    """A fake claude executable writing `points` in rounds and a valid conclusion in the closing call."""
+def fake_loop_cli(directory: Path, points: str, fail_on: str | None = None) -> None:
+    """A fake claude executable writing `points` in rounds and a valid conclusion in the closing call; it exits 1 with a
+    capacity error, writing nothing, when TASK.md contains `fail_on`."""
     directory.mkdir()
     executable = directory / "claude"
-    executable.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nimport json\n"
+    executable.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nimport json, sys\n"
+                          f"if {fail_on!r} and {fail_on!r} in Path('TASK.md').read_text():\n"
+                          "    print('Selected model is at capacity.', file=sys.stderr)\n    sys.exit(1)\n"
                           "closing = '## Closing call' in Path('TASK.md').read_text()\n"
                           f"Path('points.json').write_text({CLOSING!r} if closing else {points!r})\n"
                           "Path('notes.md').write_text('Raised g_nu to probe a larger signal.')\n"
@@ -341,6 +356,8 @@ def test_report_sections_points_and_guidance(tmp_path):
     assert "Round 0, the translation agent's point, for comparison: Δ coherent_csi_2017 = " in report
     assert "### Round 1\n\n# Loop notes" in report and "### Closing call\n\n# Loop notes" in report and "fake-loop-model" in report
     log = report.split("## Research log\n\n")[1].split("\n## Best fit")[0].strip()
+    assert log.split("\n\n")[0] == f"### Round 0 · translation agent's point · Δ {read_history(tmp_path / 'F.loop')[0]['evaluations'][0]['delta']:.4g}"
+    log = log.split("\n\n", 1)[1]
     assert log.split("\n\n") == ["### Round 1 · 2 points, 1 passed checks · best Δ " + log.split("best Δ ")[1].split("\n")[0],
                                    "Hypothesis: Hypothesis 1", log.split("\n\n")[2], "Hypothesis: Hypothesis 2",
                                    "### Conclusion", "Conclusion 3"]
@@ -352,3 +369,18 @@ def test_report_sections_points_and_guidance(tmp_path):
     best = report.split("## Best fit")[1].split("## Source task")[0]
     assert "Verification: **plugin-only**" in best and "Background scale β" in best
     assert "prefer light mediators" in backend.prompts[0]
+
+
+@pytest.mark.parametrize("fail_on,state,exit_status", [("## Round 2 of 3", "stopped-backend-failure", 1),
+                                                       ("## Closing call", "completed", 0)])
+def test_loop_cli_after_a_backend_failure(tmp_path, monkeypatch, fail_on, state, exit_status):
+    task = valid_task(tmp_path, name="claude")
+    fake_loop_cli(tmp_path / "bin", points_text([{"g_nu": 2e-4}]), fail_on)
+    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
+    result = nuagent("loop", "--task-dir", str(task), "--out", str(tmp_path / "F.md"), "--rounds", "3")
+    assert result.returncode == exit_status
+    output = json.loads(result.stdout)
+    assert (output["state"], output["rounds"]) == (state, 2 if exit_status else 3)
+    report = (tmp_path / "F.md").read_text()
+    assert report.startswith(f"Outcome: **{state}**") and "Selected model is at capacity." in report
+    assert ("No conclusion: the backend failed in round 2." if exit_status else "No conclusion: the closing call's backend failed") in report

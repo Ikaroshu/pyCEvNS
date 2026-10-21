@@ -368,14 +368,15 @@ def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
     assert block.caption[0].value == ("Verification at the agent's values: plugin-only (no model card to cross-check; the plugin's own checks pass "
                                       "at the agent's values). At these values: plugin-only (only the plugin was checked here).")
     # The research log, its records collapsed, then the trajectory, all after the likelihood table.
-    assert block_sequence(block)[:19] == [
-        "Form", "Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown", "Markdown", "Info",
+    assert block_sequence(block)[:20] == [
+        "Form", "Form", "Image", "Markdown", "Caption", "Caption", "Subheader", "Markdown", "Markdown", "Markdown", "Info",
         "Expander:Agent loop: completed, best fit", "Expander:Agent loop: points by round",
         "Expander:Agent loop: notes, round 1 (evaluated)", "Expander:Agent loop: notes, round 2 (evaluated)",
         "Expander:Agent loop: notes, closing call (concluded)", "Expander:Agent loop: directory and report",
         "Subheader", "Image", "Image"]
     assert [subheader.value for subheader in block.subheader] == ["Evaluate the interaction", "Research log", "Agent loop trajectory", "Note"]
-    first, second = block.markdown[1].value, block.markdown[2].value
+    assert block.markdown[1].value == f"**Round 0 · translation agent's point · Δ {history[0]['evaluations'][0]['delta']:.4g}**"
+    first, second = block.markdown[2].value, block.markdown[3].value
     assert first.startswith("**Round 1 · 2 points, 1 passed checks · best Δ ") and first.endswith("Hypothesis: Hypothesis 1")
     assert second.startswith("**Round 2 · 1 points, 1 passed checks · best Δ ") and second.endswith("Hypothesis: Hypothesis 2")
     assert block.info[0].value == "**Conclusion.** Conclusion 3"
@@ -397,27 +398,71 @@ def test_agent_loop_sets_the_best_point_in_the_evaluate_section(monkeypatch):
     assert calls == ["claude"] * 3
 
 
-def test_agent_loop_progress_and_a_new_loop_clears_the_previous_one(monkeypatch):
-    loop_backend = LoopBackend([{"g_nu": 2e-4}], [], [{"g_nu": 3e-4}, {"g_nu": 5.0}], "failure", name="claude")
+def test_a_new_loop_clears_the_previous_one(monkeypatch):
+    loop_backend = LoopBackend([{"g_nu": 2e-4}], [], "crash", name="claude")
     app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend, loop_backend)
     task = app.session_state["agent_task"]
     app.number_input(key=f"loop_rounds:{task}").set_value(1)
     app = submit(app, LOOP_LABEL)
     assert loop_expander_labels(app)
-    app.number_input(key=f"loop_rounds:{task}").set_value(2)
     app = submit(app, LOOP_LABEL)
     assert app.exception
     assert "loop_dir" not in app.session_state
-    # The log and the trajectory grew in place: they show round 1 while round 2 was running when it failed.
-    block = result_section(app)
-    assert any(caption.value.startswith("Agent loop on claude") and "running round 2 of 2" in caption.value for caption in block.caption)
-    assert [markdown.value.split("  \n")[0] for markdown in block.markdown if markdown.value.startswith("**Round")] == [
-        f"**Round 1 · 2 points, 1 passed checks · best Δ {round_one_best(app):.4g}**"]
-    assert not block.info and not [expander for expander in block.expander if expander.label.endswith("best fit")]
-    # The failed run stopped before the spectrum; the two images are the growing trajectory.
-    assert len(app.get("image")) == 2
     app.text_area(key="agent_description").input("an edited description").run()
     assert not app.exception and not loop_expander_labels(app)
+
+
+def test_round_zero_and_the_running_line_appear_before_round_one_ends(monkeypatch):
+    # The fake backend raises inside round 1, freezing the page as it looked while round 1 was running.
+    loop_backend = LoopBackend("crash", name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend)
+    task = app.session_state["agent_task"]
+    app.number_input(key=f"loop_rounds:{task}").set_value(3)
+    app = submit(app, LOOP_LABEL)
+    assert app.exception
+    block = result_section(app)
+    assert block.subheader[1].value == "Research log"
+    assert block.markdown[0].value.startswith("**Round 0 · translation agent's point · Δ ")
+    assert [status.label for status in block.status] == ["Round 1 of 3 running on claude…"]
+    # The log grows in its own slot under the loop row: round 0, then the running line, then records and charts.
+    progress = list(block.children.values())[2]
+    assert block_sequence(progress) == ["Subheader", "Markdown", "Status", "Expander:Agent loop: points by round",
+                                        "Expander:Agent loop: directory and report", "Subheader", "Image", "Image"]
+    assert len(app.get("image")) == 2
+
+
+@pytest.mark.parametrize("failure", ["failure", "nothing"])
+def test_backend_failure_in_round_two_keeps_the_results(monkeypatch, failure):
+    loop_backend = LoopBackend([{"g_nu": 2e-4}, {"mass_mev": 50.0}], failure, name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend)
+    task = app.session_state["agent_task"]
+    app.number_input(key=f"loop_rounds:{task}").set_value(3)
+    app = submit(app, LOOP_LABEL)
+    assert not app.exception
+    loop_dir = app.session_state["loop_dir"]
+    assert (loop_dir.parent / "report.md").read_text().startswith("Outcome: **stopped-backend-failure**")
+    history = json.loads((loop_dir / "history.json").read_text())
+    best = min((entry for entry in history if entry["evaluations"]), key=lambda entry: entry["evaluations"][0]["delta"])
+    block = result_section(app)
+    assert {name: block.number_input(key=f"parameter:{task}:{name}").value for name in best["parameters"]} == best["parameters"]
+    error = "backend failed (exit 2): loop backend failure raw\nunavailable" if failure == "failure" else "backend produced no nonempty notes.md: done"
+    assert block.markdown[3].value == f"**Round 2 · backend failure**  \nError: {error}"
+    assert block.info[0].value == "No conclusion: the backend failed in round 2."
+    assert "Agent loop: stopped-backend-failure, best fit" in loop_expander_labels(app)
+    assert len(app.get("image")) == 3
+
+
+def test_backend_failure_in_the_closing_call_keeps_the_results(monkeypatch):
+    loop_backend = LoopBackend([{"g_nu": 2e-4}], "failure", name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("plugin-only", name="claude"), loop_backend)
+    task = app.session_state["agent_task"]
+    app.number_input(key=f"loop_rounds:{task}").set_value(1)
+    app = submit(app, LOOP_LABEL)
+    assert not app.exception
+    block = result_section(app)
+    assert block.info[0].value == "No conclusion: the closing call's backend failed: backend failed (exit 2): loop backend failure raw\nunavailable"
+    assert "Agent loop: completed, best fit" in loop_expander_labels(app)
+    assert "Agent loop: notes, closing call (backend-failure)" in loop_expander_labels(app)
 
 
 def round_one_best(app: AppTest) -> float:

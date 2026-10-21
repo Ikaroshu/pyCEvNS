@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 from nuagent.agent.backend import get_backend
 from nuagent.agent.report import LIKELIHOOD_CAPTION, answers_markdown, likelihood_table, questions_markdown
 from nuagent.agent.loop import (best_point, call_notes, missing_conclusion, pareto_set, points_table, read_history, read_loop,
-                                round_summary, run_loop_step, start_loop)
+                                round_summary, round_zero_summary, run_loop_step, start_loop)
 from nuagent.agent.run import MAX_ROUNDS, RunResult, continue_run, evaluate_point, read_conversation, run_result
 from nuagent.experiments import registry
 from nuagent.physics.plugin import load_coefficient_plugin
@@ -152,10 +152,11 @@ def loop_form(task_dir: Path) -> None:
     progress = st.empty()
     while True:
         done = len(read_loop(loop_dir)["rounds"])
-        running = f"round {done + 1} of {int(rounds)}" if done < rounds else "the closing call, for the agent's conclusion"
+        running = (f"Round {done + 1} of {int(rounds)} running on {backend.name}…" if done < rounds
+                   else f"Closing call running on {backend.name}: the agent is writing its conclusion…")
         with progress.container():
-            st.caption(f"Agent loop on {backend.name} in `{loop_dir}`: running {running}; each agent call takes minutes.")
-            loop_display(loop_dir)
+            # The running line ends the log, above the records and charts; a running status label carries a spinner.
+            loop_display(loop_dir, running=True).status(running, state="running", expanded=False)
         step = run_loop_step(loop_dir, backend, loop_dir.parent / "report.md")
         if step.loop_state:
             break
@@ -164,18 +165,23 @@ def loop_form(task_dir: Path) -> None:
     st.rerun()
 
 
-def loop_display(loop_dir: Path) -> None:
-    """The research log (each round's summary and hypothesis, the conclusion, then the records collapsed), then the trajectory."""
+def loop_display(loop_dir: Path, running: bool = False):
+    """The research log (round 0, each round's summary and hypothesis or error, the conclusion, then the records collapsed),
+    then the trajectory. With `running`, return an empty slot at the end of the log for the running line."""
     record, history = read_loop(loop_dir), read_history(loop_dir)
     names, experiments = list(history[0]["parameters"]), record["experiments"]
     st.subheader("Research log")
+    st.markdown(f"**{round_zero_summary(history, experiments)}**")
     for entry in record["rounds"]:
         text = f"**{round_summary(entry, history, experiments)}**"
         if "hypothesis" in entry:
             text += f"  \nHypothesis: {entry['hypothesis']}"
-        if entry["state"] not in ("evaluated", "converged"):
+        if "error" in entry:
+            text += f"  \nError: {entry['error']}"
+        elif entry["state"] not in ("evaluated", "converged"):
             text += f"  \nRound state: {entry['state']}"
         st.markdown(text)
+    running_slot = st.empty() if running else None
     if record["conclusion"]:
         st.info(f"**Conclusion.** {record['conclusion']}")
     elif record["state"] != "running":
@@ -201,6 +207,7 @@ def loop_display(loop_dir: Path) -> None:
     st.subheader("Agent loop trajectory")
     show_figure(delta_by_round_figure(history, experiments))
     show_figure(parameter_figure(history, names, experiments))
+    return running_slot
 
 
 st.set_page_config(page_title="nuagent")
