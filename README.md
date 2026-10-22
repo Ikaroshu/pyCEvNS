@@ -36,10 +36,13 @@ flowchart TD
     X --> F["Rates: fold with the experiment's flux, quenching, resolution and efficiency into bins"]
     F --> L["Likelihood: binned Poisson, profiled nuisances; Δ versus the SM, observed or Asimov; scans"]
     L --> R["Report and page: spectrum, Δ, notes, plugin, card, provenance; re-evaluate at other values"]
+    R -- "agent loop" --> FA["Loop agent: proposes parameter points for the fixed plugin, at most 8 per round"]
+    FA -- "points, evaluated by the harness" --> L
+    L -- "Δ per point, next round" --> FA
     R -. "deferred: Δ back to the agent, which proposes the next interaction" .-> A
 ```
 
-The dashed edge is the autonomous proposal loop, deliberately not built: the prototype runs one translation per description and shows the agent no likelihood values, so a likelihood bug cannot become something the agent optimizes toward. What the loop needs first (a multi-experiment global likelihood, hard perturbativity and complementary-constraint caps, hypothesis counting, an enumerable hypothesis space and per-iteration provenance) is recorded in [#11](https://github.com/Ikaroshu/pyCEvNS/issues/11); the other deferred items are listed in [ROADMAP.md](ROADMAP.md).
+The agent loop varies only the parameter values of a validated plugin: a separate loop agent sees Δ for the points it proposes, while the interaction stays fixed and the translation agent still never sees likelihood values. The dashed edge is the autonomous proposal loop, deliberately not built: changing the interaction itself in response to Δ would let a likelihood bug become something the agent optimizes toward. What the loop needs first (a multi-experiment global likelihood, hard perturbativity and complementary-constraint caps, hypothesis counting, an enumerable hypothesis space and per-iteration provenance) is recorded in [#11](https://github.com/Ikaroshu/pyCEvNS/issues/11); the other deferred items are listed in [ROADMAP.md](ROADMAP.md).
 
 ## Setup
 
@@ -156,6 +159,21 @@ For a validated model the result section has, in this order:
    code the agent wrote" and "Model card (card.json): the interaction written
    in the fixed schema the harness cross-checks against the plugin".
 
+Directly below the parameter inputs, the agent-loop row runs the agent
+loop described below on the task's backend: choose the number of agent
+rounds (default 5) and optional guidance, and press "Run agent loop". When the
+loop ends, its best point (the Pareto point with the lowest summed Δ) is
+written into the parameter inputs, and the spectrum and table show it with
+the usual verification caption; change the values and Evaluate from there.
+Below the table follow the research log (per round the points tried and
+passed, the best Δ and the agent's hypothesis, then the agent's conclusion
+highlighted), expanders with the outcome and best-fit (Pareto) table, every
+point by round, each round's notes and the agent-loop directory and report
+paths, and the trajectory: Δ by round with the best so far, and Δ against
+each parameter. While the loop runs, the log (starting with round 0) and the
+charts grow round by round, and the log ends with a running line naming the
+step and backend. A new agent run or a new loop clears the previous loop result.
+
 The figure and table show the agent's point first. Evaluate checks the
 plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
 perturbativity and counts) and redraws both in place. The caption names the
@@ -232,6 +250,60 @@ exact `nuagent validate` commands, enforced by a PreToolUse hook, with
 task directory without network access and exposes no turn limit. Coefficient
 plugins execute in-process without a sandbox, as specified by the
 [plugin API](docs/agent/plugin_api.md).
+
+## Run the agent loop over a translation's parameters
+
+```bash
+uv run nuagent loop --task-dir lmu-ltau.task --out loop.md
+uv run nuagent loop --task-dir lmu-ltau.task --out loop-10mev.md --rounds 3 --guidance "keep mass_mev at 10"
+uv run nuagent loop --task-dir lmu-ltau.task --out loop-codex.md --backend codex --rounds 2
+```
+
+`loop` starts from a task whose last round is valid and keeps its interaction
+fixed: only the values of the plugin's `PARAMETERS` vary. A loop agent (the
+task's backend, or `--backend`) runs `--rounds` rounds (default 5) in a fresh
+agent-loop directory (`REPORT.loop/`, or `--loop-dir`) holding read-only copies of the
+plugin, card and notes, the context pack, `data/<experiment>.json` (bins,
+observed counts, backgrounds and priors, the SM prediction and profile) and
+`history.json`, every point evaluated so far starting with round 0, the
+translation agent's own point. Each round the agent writes `points.json`
+(`{"hypothesis": "...", "points": [{name: value, ...}, ...]}` with at most 8
+points; omitted names keep the translation agent's values; an empty list ends
+the loop as converged and carries `"conclusion"`) and `notes.md` with its
+reasoning. A malformed `points.json` gets one correction attempt; a second
+ends the loop `stopped-invalid`. If the requested rounds end without
+convergence, one closing call (not a round) asks the agent for its
+conclusion with an empty points list. A backend failure (or a missing
+`notes.md`) in a round stops the loop `stopped-backend-failure` with a report
+over the completed rounds; in the closing call it leaves the loop `completed`
+without a conclusion. Either way the error text is kept in the log.
+
+The harness alone evaluates: each point is checked like a translation
+(perturbativity, the SM limit with `COUPLINGS` zeroed, counts) with the
+source task's own `plugin.py`, and a passing point gets Δ per experiment.
+The result is the Pareto set over every passing point, round 0 included: the
+points no other point matches or beats on every experiment. With one
+experiment that is the lowest-Δ point. Every point other than round 0 is
+plugin-only, since the card cross-check holds only at the translation agent's
+point. `--guidance` is passed to the agent verbatim and is advisory.
+
+The report's first line is the outcome (`completed`, `converged`,
+`stopped-invalid` or `stopped-backend-failure`), followed by the research log
+(round 0, then each round's hypothesis, points and best Δ, then the
+conclusion), the best fit with its likelihood tables, the
+source task, every point by round, each round's notes, the validation and
+backend records, and the provenance. The command prints JSON with the report
+path, the outcome, the rounds run and the Pareto set, and exits 1 for
+`stopped-invalid` and `stopped-backend-failure`.
+
+Claude Code runs the loop agent with reads inside the agent-loop directory, writes to
+`points.json` and `notes.md` only, and every shell command denied. On Codex
+the prompt asks for reads with read-only shell commands (`cat`, `sed -n`,
+`ls`, `head`), writes with `apply_patch`, and no other command or tool. Codex's
+workspace-write sandbox also leaves `$TMPDIR` and `/tmp` writable, so only the
+prompt keeps a Codex loop agent from editing files outside its outputs,
+including the source task's plugin when it sits in the same temporary
+directory; editing the agent-loop directory's copy has no effect.
 
 ## Layout
 

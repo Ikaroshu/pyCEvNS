@@ -95,6 +95,27 @@ def propose(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     print(json.dumps(output))
 
 
+def loop(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Run the agent loop over the parameters of the valid task in --task-dir; exit 1 when it stops invalid."""
+    from nuagent.agent.backend import get_backend
+    from nuagent.agent.loop import deltas, pareto_set, read_history, run_loop
+    from nuagent.agent.run import read_conversation
+    if args.rounds < 1:
+        parser.error(f"--rounds must be a positive integer, got {args.rounds}")
+    task_dir = args.task_dir.resolve()
+    conversation = read_conversation(task_dir)
+    state = conversation["rounds"][-1]["state"]
+    if state != "valid":
+        parser.error(f"task {task_dir} is in state {state!r}; only a task in state 'valid' can start an agent loop")
+    loop_dir = (args.loop_dir or args.out.with_suffix(".loop")).resolve()
+    step = run_loop(task_dir, loop_dir, get_backend(args.backend or conversation["backend"]), args.out, args.rounds,
+                    args.guidance, args.max_turns)
+    pareto = [{"round": entry["round"], "index": entry["index"], "parameters": entry["parameters"],
+               "delta": dict(zip(conversation["experiments"], deltas(entry)))} for entry in pareto_set(read_history(loop_dir))]
+    print(json.dumps({"report": str(args.out), "state": step.loop_state, "rounds": step.round, "pareto": pareto}, allow_nan=False))
+    sys.exit(1 if step.loop_state in ("stopped-invalid", "stopped-backend-failure") else 0)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="nuagent",
@@ -134,6 +155,14 @@ def main() -> None:
             command.add_argument("--task-dir", type=Path, help="Fresh task directory (defaults to REPORT.task), or with --answer the task to continue.")
         else:
             command.add_argument("--out-dir", type=Path, help="Fresh output directory; defaults to a new temporary directory.")
+    loop_command = commands.add_parser("loop", help="Run the agent loop: an agent searches the parameters of a valid task's plugin to minimize Δ, with the interaction fixed.")
+    loop_command.add_argument("--task-dir", type=Path, required=True, help="A task whose last round is valid.")
+    loop_command.add_argument("--out", type=Path, required=True, help="The agent-loop report.")
+    loop_command.add_argument("--rounds", type=int, default=5, help="Agent rounds, a positive integer (default 5).")
+    loop_command.add_argument("--guidance", help="Your instruction for the loop agent, passed verbatim.")
+    loop_command.add_argument("--backend", choices=("claude", "codex"), help="Default: the task's recorded backend.")
+    loop_command.add_argument("--max-turns", type=int, default=16, help="Claude Code turn limit per round (default 16); Codex exec has no equivalent flag.")
+    loop_command.add_argument("--loop-dir", type=Path, help="Fresh agent-loop directory (defaults to REPORT.loop).")
     ui = commands.add_parser("ui", help="Serve the Streamlit page on 127.0.0.1 with usage statistics disabled.")
     ui.add_argument("--port", type=int, default=8501)
     args = parser.parse_args()
@@ -159,6 +188,8 @@ def main() -> None:
     if args.command == "propose":
         propose(parser, args)
         return
+    if args.command == "loop":
+        loop(parser, args)
     if args.command == "agent-eval":
         from nuagent.agent.backend import get_backend
         backend = get_backend(args.backend)
