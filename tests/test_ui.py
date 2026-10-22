@@ -452,6 +452,39 @@ def test_backend_failure_in_round_two_keeps_the_results(monkeypatch, failure):
     assert len(app.get("image")) == 3
 
 
+@pytest.mark.parametrize("failure", ["failure", "nothing"])
+def test_backend_failure_in_round_one_keeps_the_translation_point(monkeypatch, failure):
+    loop_backend = LoopBackend(failure, name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend)
+    task = app.session_state["agent_task"]
+    app.number_input(key=f"loop_rounds:{task}").set_value(3)
+    app = submit(app, LOOP_LABEL)
+    assert not app.exception
+    block = result_section(app)
+    defaults = nuagent.physics.plugin.load_coefficient_plugin(task / "plugin.py").parameters
+    assert {name: block.number_input(key=f"parameter:{task}:{name}").value for name in defaults} == defaults
+    error = "backend failed (exit 2): loop backend failure raw\nunavailable" if failure == "failure" else "backend produced no nonempty notes.md: done"
+    assert block.markdown[1].value.startswith("**Round 0 · translation agent's point · Δ ")
+    assert block.markdown[2].value == f"**Round 1 · backend failure**  \nError: {error}"
+    assert block.info[0].value == "No conclusion: the backend failed in round 1."
+    assert block.caption[0].value == CROSS_VALIDATED
+
+
+def test_the_running_line_names_the_closing_call(monkeypatch):
+    # The fake backend raises inside the closing call, freezing the page as it looked while the closing call ran.
+    loop_backend = LoopBackend([{"g_nu": 2e-4}], "crash", name="claude")
+    app, calls = loop_page(monkeypatch, FakeBackend("correct", name="claude"), loop_backend)
+    task = app.session_state["agent_task"]
+    app.number_input(key=f"loop_rounds:{task}").set_value(1)
+    app = submit(app, LOOP_LABEL)
+    assert app.exception
+    block = result_section(app)
+    assert [status.label for status in block.status] == ["Closing call running on claude: the agent is writing its conclusion…"]
+    progress = list(block.children.values())[2]
+    assert block_sequence(progress)[:4] == ["Subheader", "Markdown", "Markdown", "Status"]
+    assert progress.markdown[1].value.startswith("**Round 1 · 1 points, 1 passed checks")
+
+
 def test_backend_failure_in_the_closing_call_keeps_the_results(monkeypatch):
     loop_backend = LoopBackend([{"g_nu": 2e-4}], "failure", name="claude")
     app, calls = loop_page(monkeypatch, FakeBackend("plugin-only", name="claude"), loop_backend)
@@ -463,12 +496,6 @@ def test_backend_failure_in_the_closing_call_keeps_the_results(monkeypatch):
     assert block.info[0].value == "No conclusion: the closing call's backend failed: backend failed (exit 2): loop backend failure raw\nunavailable"
     assert "Agent loop: completed, best fit" in loop_expander_labels(app)
     assert "Agent loop: notes, closing call (backend-failure)" in loop_expander_labels(app)
-
-
-def round_one_best(app: AppTest) -> float:
-    loop_dirs = sorted(app.session_state["agent_task"].parent.glob("loop-*/loop"), key=lambda path: path.stat().st_mtime)
-    history = json.loads((loop_dirs[-1] / "history.json").read_text())
-    return min(entry["evaluations"][0]["delta"] for entry in history if entry["round"] == 1 and entry["evaluations"])
 
 
 def test_trajectory_figures_leave_out_failing_points_and_choose_axes():

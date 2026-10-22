@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 from matplotlib.figure import Figure
 
 from nuagent.agent.backend import get_backend
@@ -165,7 +166,7 @@ def loop_form(task_dir: Path) -> None:
     st.rerun()
 
 
-def loop_display(loop_dir: Path, running: bool = False):
+def loop_display(loop_dir: Path, running: bool = False) -> DeltaGenerator | None:
     """The research log (round 0, each round's summary and hypothesis or error, the conclusion, then the records collapsed),
     then the trajectory. With `running`, return an empty slot at the end of the log for the running line."""
     record, history = read_loop(loop_dir), read_history(loop_dir)

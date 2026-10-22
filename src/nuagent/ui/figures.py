@@ -1,6 +1,7 @@
 """Matplotlib figures drawn by the Streamlit page: the spectrum and the agent loop trajectory."""
 
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from nuagent.experiments.registry import Experiment
@@ -30,7 +31,7 @@ def passed_points(history: list[dict]) -> list[dict]:
     return [entry for entry in history if entry["evaluations"]]
 
 
-def delta_axis(axes) -> None:
+def delta_axis(axes: Axes) -> None:
     # Δ spans from about −0.1 near the best fit to tens far from it; symlog keeps both readable.
     axes.set_yscale("symlog", linthresh=1)
     axes.axhline(0, color="0.6", linewidth=0.8)
