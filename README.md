@@ -1,14 +1,22 @@
 # nuagent
 
-A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates.
+A research prototype for neutrino new physics in coherent elastic neutrino-nucleus scattering (CEvNS). You describe a new interaction; `nuagent` computes the predicted event spectrum for an experiment and reports a log-likelihood or Asimov sensitivity relative to the Standard Model. A coding-agent CLI can translate a plain-language description of the interaction into the coefficient plugin that `nuagent` evaluates, and an agent loop can then search that plugin's parameters for the values the data prefer.
 
-The local page, top to bottom, for the description "A new light vector boson that couples to neutrinos." on the `claude` backend: the agent asks about the open form of the interaction, the answers go back to it, and the validated translation is evaluated against COHERENT CsI.
+The local page for the description "A new light vector boson that couples to neutrinos." on the `claude` backend: the agent asks about the open form of the interaction, the answers go back to it, and the validated translation is evaluated against COHERENT CsI.
 
 ![The agent asks about the open form of the interaction, with its suggestions pre-filled](docs/screenshots/questions.png)
 
-![The evaluate form with the agent's parameter values and the predicted spectrum against the observed counts](docs/screenshots/spectrum.png)
+![The predicted spectrum of the translated model and of the SM against the observed counts](docs/screenshots/spectrum.png)
 
 ![The likelihood table with the verification level, followed by the agent's notes](docs/screenshots/table.png)
+
+The agent loop for "A gauged L_mu minus L_tau Z prime with mass 10 MeV, gauge coupling 1e-4 and kinetic mixing 1e-3", two rounds on `claude`. The translation agent's point scores Δ = +7.5 against the SM, because the Z′ exchange, which reaches the quarks through kinetic mixing, interferes destructively with the SM and lowers the signal (56 events against 134). The loop agent reads every result, states a hypothesis per round, and writes a conclusion once it has seen them all; the page puts the best point into the parameter inputs.
+
+![The Evaluate section after the agent loop, with the best point in the parameter inputs and the agent-loop row below](docs/screenshots/loop.png)
+
+![The research log: round 0, each round's points and best Δ with the agent's hypothesis, then its conclusion](docs/screenshots/log.png)
+
+![The trajectory: Δ by round with the best so far, and Δ against each parameter](docs/screenshots/trajectory.png)
 
 ## How it works
 
@@ -148,33 +156,36 @@ For a validated model the result section has, in this order:
 
 1. "Evaluate the interaction": one input per plugin parameter, pre-filled
    with the agent's values, and an Evaluate button.
-2. The predicted spectrum per experiment, of the model and of the SM, each
+2. The agent-loop row: the number of agent rounds (default 5), optional
+   guidance for the loop agent, and "Run agent loop".
+3. The predicted spectrum per experiment, of the model and of the SM, each
    plus the summed backgrounds, against the observed counts with √N errors.
-3. A table per experiment of observed counts, SM and new-physics signal, Δ,
+4. A table per experiment of observed counts, SM and new-physics signal, Δ,
    and the profiled signal scale α and background scales β of both models,
    with a caption saying what α and β mean and the verification level.
-4. The agent's notes under the heading "Note" (without their own title),
+5. After an agent loop: the research log (round 0, then per round the points
+   tried and passed, the best Δ and the agent's hypothesis, then the agent's
+   conclusion highlighted), expanders with the outcome and best-fit (Pareto)
+   table, every point by round, each round's notes and the agent-loop
+   directory and report paths, and the trajectory: Δ by round with the best
+   so far, and Δ against each parameter.
+6. The agent's notes under the heading "Note" (without their own title),
    rendered as Markdown with LaTeX math.
-5. Collapsed expanders: "Provenance", "Plugin (plugin.py): the coefficient
+7. Collapsed expanders: "Provenance", "Plugin (plugin.py): the coefficient
    code the agent wrote" and "Model card (card.json): the interaction written
    in the fixed schema the harness cross-checks against the plugin".
 
-Directly below the parameter inputs, the agent-loop row runs the agent
-loop described below on the task's backend: choose the number of agent
-rounds (default 5) and optional guidance, and press "Run agent loop". When the
-loop ends, its best point (the Pareto point with the lowest summed Δ) is
-written into the parameter inputs, and the spectrum and table show it with
-the usual verification caption; change the values and Evaluate from there.
-Below the table follow the research log (per round the points tried and
-passed, the best Δ and the agent's hypothesis, then the agent's conclusion
-highlighted), expanders with the outcome and best-fit (Pareto) table, every
-point by round, each round's notes and the agent-loop directory and report
-paths, and the trajectory: Δ by round with the best so far, and Δ against
-each parameter. While the loop runs, the log (starting with round 0) and the
-charts grow round by round, and the log ends with a running line naming the
-step and backend. A new agent run or a new loop clears the previous loop result.
+"Run agent loop" runs the agent loop described below on the task's backend.
+While it runs, the research log and the charts appear below the agent-loop
+row and grow step by step, starting with round 0, and the log ends with a
+running line naming the step and backend. When the loop ends, its best point
+(the Pareto point with the lowest summed Δ) is written into the parameter
+inputs, and the spectrum and table show it with the usual verification
+caption; change the values and Evaluate from there. If the backend fails,
+the loop keeps what it completed and the log shows the error. A new agent
+run or a new loop clears the previous loop result.
 
-The figure and table show the agent's point first. Evaluate checks the
+Without an agent loop, the figure and table show the agent's point first. Evaluate checks the
 plugin at the entered point (the SM limit with `COUPLINGS` zeroed,
 perturbativity and counts) and redraws both in place. The caption names the
 verification level as the report does, for example "Verification:
@@ -228,7 +239,7 @@ Every translation is validated: schema, perturbativity, coefficient shape,
 Hermiticity and finiteness, finite non-negative counts, the plugin's SM limit,
 and plugin-card agreement to 1e-6 relative on the selected experiments' recoil
 ranges. On findings the agent gets one correction attempt with the findings
-only; it never sees likelihood values. After two invalid attempts the report is
+only; the translation agent never sees likelihood values. After two invalid attempts the report is
 `validation-failed`. Every attempt's outputs and backend record stay under
 `history/round-N/attempt-M/`.
 
@@ -312,7 +323,7 @@ directory; editing the agent-loop directory's copy has no effect.
 - `docs/agent/`: generated human mirror of `src/nuagent/context/` (conventions, plugin API, framework responsibilities, worked examples). Its `conventions.md` is normative for code as well as for agents.
 - `docs/screenshots/`: the page screenshots shown above.
 - `evals/agent/`: executable agent eval cases and the offline scorer, kept outside the context pack. See its [interface and metric definitions](evals/agent/README.md). Live execution remains repository-only.
-- `AGENTS.md`: branching, layout, verification and tracking conventions for this repository.
+- `AGENTS.md`: layout, legacy gotchas, verification, Git and style conventions for this repository.
 - `legacy/pyCEvNS/`: the original pyCEvNS calculator, frozen. The new package never imports it; tests put `legacy/` on `sys.path`. Its usage notes are in [legacy/README.md](legacy/README.md).
 
 ## License
