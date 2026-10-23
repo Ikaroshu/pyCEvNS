@@ -21,7 +21,7 @@ nuagent = "nuagent.cli:main"
 test = [
     "pandas",
     "pytest",
-    "setuptools<82",
+    "setuptools<85",
 ]
 
 [build-system]
