@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nuagent-ui",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "nuagent",
+        "ui",
+        "--port",
+        "8613"
+      ],
+      "port": 8613
+    }
+  ]
+}

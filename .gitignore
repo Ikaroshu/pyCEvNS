@@ -12,3 +12,5 @@ build/
 .pytest_cache/
 # macOS
 .DS_Store
+# local research papers
+/papers/
